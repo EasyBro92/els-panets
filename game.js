@@ -306,22 +306,41 @@
     if (charUnlocked(viewIndex)) { charIndex = viewIndex; store.set(CHAR_KEY, CHARACTERS[viewIndex].id); }
   }
 
-  // ---------- Cielo: día, atardecer y noche según los puntos ----------
-  const PALETTES = [
-    { top: [92, 186, 232], bottom: [196, 236, 244], mount: [84, 150, 132], city: [148, 186, 204], cloud: [255, 255, 255], night: 0 },
-    { top: [240, 120, 92], bottom: [255, 206, 140], mount: [142, 94, 112], city: [196, 128, 124], cloud: [255, 226, 206], night: 0.25 },
-    { top: [16, 22, 58], bottom: [52, 54, 104], mount: [32, 42, 72], city: [44, 50, 90], cloud: [96, 104, 146], night: 1 },
+  // ---------- Cielo: las horas del día ----------
+  // La partida empieza a las 8 de la mañana y cada empanadilla adelanta el reloj
+  // 6 minutos (10 empanadillas = 1 hora). El cielo pasa por las horas poco a poco.
+  const START_HOUR = 8, MIN_PER_EMPANADA = 6;
+  const SKY_HOURS = [
+    { h: 0, top: [10, 14, 40], bottom: [34, 36, 78], mount: [24, 32, 58], city: [34, 40, 76], cloud: [70, 78, 120], night: 1 },
+    { h: 5, top: [16, 22, 58], bottom: [52, 54, 104], mount: [32, 42, 72], city: [44, 50, 90], cloud: [96, 104, 146], night: 1 },
+    { h: 6.5, top: [96, 104, 170], bottom: [250, 178, 150], mount: [100, 100, 128], city: [150, 130, 150], cloud: [255, 210, 200], night: 0.35 },
+    { h: 8, top: [110, 180, 228], bottom: [220, 232, 230], mount: [84, 144, 132], city: [150, 180, 200], cloud: [255, 250, 245], night: 0 },
+    { h: 12, top: [70, 170, 236], bottom: [190, 234, 246], mount: [80, 152, 128], city: [146, 188, 206], cloud: [255, 255, 255], night: 0 },
+    { h: 16.5, top: [92, 176, 226], bottom: [230, 230, 200], mount: [96, 146, 120], city: [166, 180, 190], cloud: [255, 248, 232], night: 0 },
+    { h: 19, top: [240, 120, 92], bottom: [255, 206, 140], mount: [142, 94, 112], city: [196, 128, 124], cloud: [255, 226, 206], night: 0.2 },
+    { h: 20.5, top: [70, 50, 110], bottom: [200, 110, 120], mount: [62, 52, 86], city: [90, 70, 110], cloud: [160, 120, 160], night: 0.65 },
+    { h: 22, top: [16, 22, 58], bottom: [52, 54, 104], mount: [32, 42, 72], city: [44, 50, 90], cloud: [96, 104, 146], night: 1 },
   ];
-  function palette(sc) {
-    const t = ((sc % 45) + 45) % 45, i = Math.floor(t / 15), f = easeOut((t % 15) / 15) * 0.999;
-    const a = PALETTES[i], b = PALETTES[(i + 1) % 3];
-    // el atardecer y la noche llegan despacio, al final de cada tramo
-    const g = clamp((f - 0.6) / 0.4, 0, 1);
+  const START_SKY = Number(new URLSearchParams(location.search).get("hora")) || START_HOUR;
+  const hourFor = (n) => START_SKY + (n * MIN_PER_EMPANADA) / 60;
+  let skyHour = START_SKY; // la hora que se ve, que va alcanzando a la del reloj sin saltos
+  function palette(hour) {
+    const h = ((hour % 24) + 24) % 24;
+    let i = SKY_HOURS.length - 1;
+    while (i > 0 && SKY_HOURS[i].h > h) i--;
+    const a = SKY_HOURS[i], b = SKY_HOURS[(i + 1) % SKY_HOURS.length];
+    const span = ((b.h - a.h) + 24) % 24 || 24;
+    const g = smooth(clamp((((h - a.h) + 24) % 24) / span, 0, 1));
     return {
       top: lerpArr(a.top, b.top, g), bottom: lerpArr(a.bottom, b.bottom, g),
       mount: lerpArr(a.mount, b.mount, g), city: lerpArr(a.city, b.city, g),
-      cloud: lerpArr(a.cloud, b.cloud, g), night: lerp(a.night, b.night, g), phase: i + g,
+      cloud: lerpArr(a.cloud, b.cloud, g), night: lerp(a.night, b.night, g), hour: h,
     };
+  }
+  function smooth(t) { return t * t * (3 - 2 * t); }
+  function clockText(hour) {
+    const m = Math.floor((((hour % 24) + 24) % 24) * 60 + 0.001);
+    return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
   }
 
   // ---------- Escenario (se genera una vez, siempre igual) ----------
@@ -364,7 +383,7 @@
   const GRAVITY = 1500, FLAP_V = -430, COL_W = 66, CAP_H = 22, CAP_OUT = 6, SPACING = 236;
   const PLAYER_SCALE = 1.2;
   const player = { x: LW / 2, y: 300, vy: 0, rot: 0, flap: 0, eatT: 0, hitR: 14 };
-  // Para probar: ?puntos=30 empieza con 30 puntos (atardecer y noche)
+  // Para probar: ?puntos=30 empieza con 30 puntos; ?hora=19 empieza el día a las 19:00
   const START_SCORE = Number(new URLSearchParams(location.search).get("puntos")) || 0;
   let cols = [], particles = [], floaters = [];
   let score = 0, eaten = 0, speed = 150, gap = 178, distToSpawn = 0, lastGapY = 0;
@@ -381,6 +400,7 @@
     distToSpawn = 0; lastGapY = groundTop() / 2 - gap / 2;
     newBest = false; medalPlayed = false;
     player.y = LH * 0.42; player.vy = 0; player.rot = 0;
+    skyHour = START_SKY;
   }
 
   function goReady() {
@@ -695,26 +715,30 @@
       ctx.fillStyle = `rgba(255,255,240,${pal.night * 0.85})`;
       for (const s of stars) { ctx.beginPath(); ctx.arc(s.x, s.y * groundTop(), s.r, 0, Math.PI * 2); ctx.fill(); }
     }
-    // sol que baja al atardecer y luna de noche
-    const ph = pal.phase;
-    if (ph < 1.9) {
-      const k = clamp(ph, 0, 1);
-      const sx = 300, sy = lerp(LH * 0.14, groundTop() - 190, k), sr = lerp(26, 38, k);
-      const col = lerpArr([255, 236, 140], [255, 150, 80], k);
-      const halo = ctx.createRadialGradient(sx, sy, sr * 0.5, sx, sy, sr * 3);
+    // el sol cruza el cielo de 6:30 a 20:00 y la luna por la noche
+    const h = pal.hour, gt = groundTop();
+    const arc = (k) => ({ x: lerp(30, LW - 30, k), y: gt - 150 - Math.sin(k * Math.PI) * (gt - 150 - LH * 0.1) });
+    if (h > 6 && h < 20.5) {
+      const k = (h - 6) / 14.5, p = arc(k);
+      const low = 1 - Math.sin(k * Math.PI);
+      const sr = lerp(26, 36, low);
+      const col = lerpArr([255, 238, 150], [255, 140, 70], clamp(low * 1.3, 0, 1));
+      const halo = ctx.createRadialGradient(p.x, p.y, sr * 0.5, p.x, p.y, sr * 3);
       halo.addColorStop(0, rgb(col, 0.45 * (1 - pal.night)));
       halo.addColorStop(1, rgb(col, 0));
       ctx.fillStyle = halo;
-      ctx.fillRect(sx - sr * 3, sy - sr * 3, sr * 6, sr * 6);
-      ctx.fillStyle = rgb(col, 1 - pal.night);
-      ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(p.x - sr * 3, p.y - sr * 3, sr * 6, sr * 6);
+      ctx.fillStyle = rgb(col, clamp(1 - pal.night * 1.2, 0, 1));
+      ctx.beginPath(); ctx.arc(p.x, p.y, sr, 0, Math.PI * 2); ctx.fill();
     }
-    if (pal.night > 0.3) {
-      const a = clamp((pal.night - 0.3) / 0.5, 0, 1);
+    const mh = h < 12 ? h + 24 : h;
+    if (mh > 19.5 && mh < 30.5 && pal.night > 0.2) {
+      const k = (mh - 19.5) / 11, p = arc(k);
+      const a = clamp((pal.night - 0.2) / 0.5, 0, 1);
       ctx.fillStyle = `rgba(250,246,220,${a})`;
-      ctx.beginPath(); ctx.arc(90, LH * 0.13, 20, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 20, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = rgb(pal.top, a);
-      ctx.beginPath(); ctx.arc(99, LH * 0.13 - 5, 17, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x + 9, p.y - 5, 17, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -1879,11 +1903,13 @@
     ctx.scale(s, s);
     text(String(score), 0, 0, 60, "#fff", "#2a1c14", 9);
     ctx.restore();
-    // contador de empanadillas
+    // contador de empanadillas y reloj del día en el mismo cartel
     ctx.fillStyle = "rgba(40,24,12,0.5)";
-    roundRect(LW / 2 - 42, 112, 84, 30, 15); ctx.fill();
-    drawEmpanada(LW / 2 - 20, 124, 0, 0.62);
-    text("x " + eaten, LW / 2 + 14, 128, 19, "#fff");
+    roundRect(LW / 2 - 74, 112, 148, 30, 15); ctx.fill();
+    drawEmpanada(LW / 2 - 52, 124, 0, 0.62);
+    text("x " + eaten, LW / 2 - 18, 128, 19, "#fff");
+    ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(LW / 2 + 9, 118, 1.5, 18);
+    text(clockText(hourFor(eaten)), LW / 2 + 42, 128, 19, "#ffe7a3");
   }
 
   const MEDALS = [
@@ -1983,7 +2009,7 @@
   // ---------- Bucle de dibujo ----------
   function render() {
     const inRun = state === STATE.PLAY || state === STATE.DYING || state === STATE.OVER || state === STATE.NAME || state === STATE.PAUSE;
-    const pal = palette(inRun ? score : 0);
+    const pal = palette(inRun ? skyHour : START_SKY);
     drawSky(pal);
     drawClouds(pal);
     drawMountains(pal);
@@ -2046,6 +2072,7 @@
     acc += Math.min(dt, 0.25);
     let n = 0;
     while (acc >= STEP && n < 40) { update(STEP); acc -= STEP; n++; }
+    skyHour += (hourFor(eaten) - skyHour) * Math.min(1, dt * 1.2);
     if (n === 40) acc = 0;
     if (SHEET) drawSheet(); else render();
     requestAnimationFrame(loop);
