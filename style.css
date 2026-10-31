@@ -11,11 +11,12 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #1a1a2e;
+  background: #2b4a6b;
   touch-action: none;
   overscroll-behavior: none;
 }
 
+/* Fuera del juego (en pantallas anchas): un fondo a juego, no un negro plano */
 #stage {
   position: relative;
   width: 100%;
@@ -23,13 +24,13 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1a1a2e;
+  background: linear-gradient(180deg, #4f9fd0 0%, #9fd6ea 55%, #4a4f5a 100%);
 }
 
 #game {
   display: block;
-  background: #4ec0ca;
-  image-rendering: -webkit-optimize-contrast;
+  background: #5cbae8;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
 }
 
 #nameOverlay,
@@ -39,7 +40,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 12, 25, 0.55);
+  background: rgba(20, 14, 8, 0.55);
   touch-action: auto;
 }
 
@@ -49,77 +50,103 @@ html, body {
 }
 
 .nameCard {
-  width: min(80vw, 300px);
-  background: #1e2746;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  padding: 22px 20px;
+  width: min(84vw, 320px);
+  background: #fff8ec;
+  border: 3px solid #3b2414;
+  border-radius: 22px;
+  padding: 22px 20px 20px;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.25);
+  font-family: "Lilita One", "Arial Black", sans-serif;
 }
 
 .nameTitle {
-  color: #ffd76e;
-  font: bold 20px "Segoe UI", sans-serif;
-  margin-bottom: 6px;
+  color: #f08a24;
+  font-size: 28px;
+  margin-bottom: 4px;
+  -webkit-text-stroke: 1px #5a2a06;
 }
 
 .nameSubtitle {
-  color: #dfe6f5;
-  font: 14px "Segoe UI", sans-serif;
+  color: #8a5a2b;
+  font-size: 17px;
   margin-bottom: 16px;
 }
 
 #nameInput {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: none;
-  font: 16px "Segoe UI", sans-serif;
+  padding: 12px;
+  border-radius: 14px;
+  border: 3px solid #cdbb9c;
+  background: #fff;
+  font: 20px "Lilita One", "Arial Black", sans-serif;
+  color: #3b2414;
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   user-select: text;
+  outline: none;
 }
 
-#nameSubmit {
+#nameInput:focus {
+  border-color: #f59e0b;
+}
+
+#nameSubmit,
+#leaderboardClose {
   width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 10px;
-  background: #4ec0ca;
-  color: #10233a;
-  font: bold 15px "Segoe UI", sans-serif;
+  padding: 12px;
+  border: 3px solid #3b2414;
+  border-radius: 16px;
+  background: linear-gradient(#ffd23f, #f59e0b);
+  box-shadow: 0 5px 0 #b45309;
+  color: #fff;
+  font: 22px "Lilita One", "Arial Black", sans-serif;
+  -webkit-text-stroke: 1px #7c3a0a;
   cursor: pointer;
 }
 
-#nameSubmit:active {
-  background: #3fa7b0;
+#nameSubmit:active,
+#leaderboardClose:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #b45309;
 }
 
 .lbList {
   list-style: none;
-  max-height: 46vh;
+  max-height: 52vh;
   overflow-y: auto;
-  margin-bottom: 14px;
+  margin: 10px 0 18px;
   text-align: left;
 }
 
 .lbList li {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  color: #dfe6f5;
-  font: 14px "Segoe UI", sans-serif;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  background: #f3e6cf;
+  color: #3b2414;
+  font-size: 18px;
 }
 
 .lbList li .lbRank {
-  width: 22px;
-  color: #ffd76e;
-  font-weight: bold;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #cdbb9c;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  font-size: 16px;
 }
+
+.lbList li.top1 .lbRank { background: #f5c400; }
+.lbList li.top2 .lbRank { background: #a9b4c2; }
+.lbList li.top3 .lbRank { background: #d98a46; }
 
 .lbList li .lbName {
   flex: 1;
@@ -129,27 +156,11 @@ html, body {
 }
 
 .lbList li .lbScore {
-  font-weight: bold;
-  color: #fff;
+  color: #b45309;
 }
 
 .lbList li.lbEmpty {
   justify-content: center;
-  color: #8b93ad;
-  border-bottom: none;
-}
-
-#leaderboardClose {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font: bold 15px "Segoe UI", sans-serif;
-  cursor: pointer;
-}
-
-#leaderboardClose:active {
-  background: rgba(255, 255, 255, 0.22);
+  background: none;
+  color: #9a8566;
 }

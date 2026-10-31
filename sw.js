@@ -1,4 +1,4 @@
-const CACHE = "els-panets-v2";
+const CACHE = "els-panets-v3";
 const FILES = [
   "./",
   "./index.html",
@@ -28,6 +28,8 @@ self.addEventListener("activate", (e) => {
 // Red primero (para recibir actualizaciones del juego al instante),
 // con la caché como respaldo cuando no hay conexión.
 self.addEventListener("fetch", (e) => {
+  // solo lo propio y de lectura (el ranking va directo a internet)
+  if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
