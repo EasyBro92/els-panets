@@ -267,6 +267,11 @@
       face: { rx: 11.5, ry: 13.5, chin: 0.5 }, eye: "#4a2c18", lips: "#c4655c", smile: "teeth", nose: 4.8,
       brow: { color: "#2e1c12", w: 2.1, y: 4.6, arch: 1.1 },
       top: "tank", topColor: "#fbfbfb", legs: "#1d1e23", shoes: "#3b3f47", shoeSole: "#22252b", watch: "#e8e8e8" },
+    { id: "nuria", name: "NÚRIA", unlock: 20, kind: "human", fem: true,
+      skin: "#f4cdb0", skinD: "#dfa98a", hair: "#e8c67c", hairD: "#c99d55", roots: "#8a6a45", hairStyle: "longStraight", part: 0,
+      face: { rx: 11.8, ry: 13.8, chin: 0.48 }, eye: "#6f8fa0", lips: "#c9776d", smile: "teeth", nose: 5, freckles: true,
+      brow: { color: "#9c7a52", w: 1.5, y: 4.6, arch: 1.4 },
+      top: "tee", topColor: "#3f6b55", legs: "#3a4a66", shoes: "#f2f2f2", shoeSole: "#d0d0d0" },
     { id: "polo", name: "JORDI", unlock: 30, kind: "human",
       skin: "#e8b48e", skinD: "#cc936a", hair: "#3b2a20", hairD: "#21160f", hairStyle: "swept", part: -4,
       face: { rx: 11.3, ry: 15, chin: 0.55 }, eye: "#563822", nose: 5.6, smile: "closed",
@@ -499,7 +504,7 @@
       next: { x: cx + 118, y: LH * 0.31, r: 22 },
       play: { x: cx - 100, y: LH * 0.45, w: 200, h: 64 },
       cardY: LH * 0.45 + 82,
-      portraits: CHARACTERS.map((c, i) => ({ i, x: cx - 115 + i * 46, y: LH * 0.45 + 82 + 56, r: 19 })),
+      portraits: CHARACTERS.map((c, i) => { const st = Math.min(46, 266 / CHARACTERS.length); return { i, x: cx - (CHARACTERS.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 56, r: Math.min(19, st / 2 - 3) }; }),
       skins: SKINS.map((s, i) => ({ i, x: cx - 66 + i * 44, y: LH * 0.45 + 82 + 128, r: 16 })),
       overCard: { x: cx - 160, y: overCardY, w: 320, h: 240 },
       again: { x: cx - 150, y: overCardY + 262, w: 160, h: 58 },
@@ -1177,7 +1182,7 @@
       ctx.fillRect(lx - 6, 25, 9, 1.4);
     }
 
-    const sleeve = d.top === "tank" ? 0 : d.top === "polo" ? 0.45 : 1;
+    const sleeve = d.top === "tank" ? 0 : d.top === "polo" || d.top === "tee" ? 0.45 : 1;
     const light = d.topColor === "#f8f8f6" || d.topColor === "#fbfbfb";
     const topD = darken(d.topColor, light ? 0.12 : 0.3);
     humanArm(-6, -1, -2.3 + sw * 0.9, topD, sleeve, false);
@@ -1202,6 +1207,12 @@
     } else {
       ctx.fillStyle = g;
       roundRect(-12, -8, 24, 23, 8); ctx.fill(); ctx.stroke();
+    }
+    if (d.top === "tee") {
+      // camiseta de pico
+      ctx.fillStyle = d.skin;
+      ctx.beginPath(); ctx.moveTo(-5.5, -8); ctx.lineTo(5.5, -8); ctx.lineTo(0, 1); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = darken(d.topColor, 0.35); ctx.lineWidth = 1.2; ctx.stroke();
     }
     if (d.top === "longsleeve") {
       // cuello alto con media cremallera
@@ -1293,6 +1304,13 @@
       ctx.beginPath(); ctx.ellipse(cx, hy + 10.2, 3, 1.1, 0, 0, Math.PI * 2); ctx.fill();
     }
 
+    // pecas
+    if (d.freckles) {
+      ctx.fillStyle = "rgba(170,95,60,0.55)";
+      for (const [fx2, fy2] of [[-8, 3], [-6, 4.2], [-9, 5], [-5.5, 2.5], [6.5, 3], [8.5, 4.2], [6, 5], [9.5, 2.8], [0.5, 3.5], [2.5, 3]]) {
+        ctx.beginPath(); ctx.arc(cx + fx2, hy + fy2, 0.45, 0, Math.PI * 2); ctx.fill();
+      }
+    }
     // colorete
     if (d.fem) {
       ctx.fillStyle = "rgba(235,110,110,0.25)";
@@ -1424,6 +1442,17 @@
         ctx.quadraticCurveTo(L + 1.5 + sway, hy + 22, L + 3 + sway, hy + 20.5);
         ctx.closePath();
         ctx.fill(); ctx.stroke();
+        // raíces más oscuras junto a la raya
+        if (d.roots) {
+          ctx.save();
+          ctx.globalAlpha = 0.55;
+          ctx.strokeStyle = d.roots; ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(px0 - 0.5, top + 0.5); ctx.quadraticCurveTo(L + 1, top + 2, L - 1, hy - 4);
+          ctx.moveTo(px0 + 0.5, top + 0.5); ctx.quadraticCurveTo(R - 1, top + 2, R + 1, hy - 4);
+          ctx.stroke();
+          ctx.restore();
+        }
         // mechones
         ctx.strokeStyle = wavy ? lighten(d.hair, 0.38) : lighten(d.hair, 0.18);
         ctx.lineWidth = 1;
