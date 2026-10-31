@@ -1,0 +1,32 @@
+# Publica el juego en https://easybro92.github.io/els-panets/ cada vez que se
+# sube a main. La app de Android coge de ahí las novedades sola.
+name: Publicar el juego
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Juntar solo los archivos del juego
+        run: mkdir _site && cp -r $(cat apk/archivos-juego.txt) _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+      - id: despliegue
+        uses: actions/deploy-pages@v4
