@@ -256,7 +256,7 @@
   // El de salida es un tipo gris y sin nombre (31/10: sustituye al presidente); los demás se dibujan con el
   // mismo estilo y se desbloquean por la mejor puntuación.
   const CHARACTERS = [
-    { id: "gris", name: "SIN NOMBRE", unlock: 0, kind: "human",
+    { id: "gris", name: "", unlock: 0, kind: "human",
       skin: "#c4c4c4", skinD: "#a6a6a6", hair: "#6f6f6f", hairD: "#555555", hairStyle: "swept", part: 0,
       face: { rx: 11.5, ry: 14.5, chin: 0.55 }, eye: "#7c7c7c", nose: 5.2, smile: "neutral",
       brow: { color: "#5e5e5e", w: 1.8, y: 4.2, arch: 0.3 },
@@ -1785,9 +1785,11 @@
     roundIcon(u.prev, () => chevron(-1));
     roundIcon(u.next, () => chevron(1));
     const ny = u.charY + 58;
-    ctx.fillStyle = "rgba(40,24,12,0.55)";
-    roundRect(LW / 2 - 110, ny - 15, 220, 30, 15); ctx.fill();
-    text(open ? def.name : "LLEGA A " + def.unlock + " PUNTOS", LW / 2, ny + 1, 17, open ? "#fff" : "#ffd23f");
+    if (def.name || !open) {
+      ctx.fillStyle = "rgba(40,24,12,0.55)";
+      roundRect(LW / 2 - 110, ny - 15, 220, 30, 15); ctx.fill();
+    }
+    if (def.name || !open) text(open ? def.name : "LLEGA A " + def.unlock + " PUNTOS", LW / 2, ny + 1, 17, open ? "#fff" : "#ffd23f");
 
     const pulse = open ? 1 + Math.sin(worldT * 4) * 0.025 : 1;
     ctx.save();
