@@ -252,6 +252,35 @@
   const skinUnlocked = (i) => best >= SKINS[i].unlock;
   const currentSkin = () => (skinUnlocked(skinIndex) ? SKINS[skinIndex] : SKINS[0]);
 
+  // ---------- Personajes desbloqueables (31/10/2026, sacados de su foto) ----------
+  // El presidente es el de siempre (con sus trajes); los demás se dibujan con el
+  // mismo estilo y se desbloquean por la mejor puntuación.
+  const CHARACTERS = [
+    { id: "presi", name: "EL PRESIDENTE", unlock: 0 },
+    { id: "blanco", name: "LA DE BLANCO", unlock: 5, kind: "human", fem: true,
+      skin: "#f3c9a6", skinD: "#dba582", hair: "#3b2a22", hairD: "#21160f", hairStyle: "longStraight",
+      top: "longsleeve", topColor: "#f8f8f6", legs: "#8e9198", shoes: "#f5f5f5", shoeSole: "#d9d9d9" },
+    { id: "deportista", name: "LA DEPORTISTA", unlock: 15, kind: "human", fem: true,
+      skin: "#ecb990", skinD: "#d39a6e", hair: "#5e3d27", hairD: "#3d2617", hairStyle: "longWavy",
+      top: "tank", topColor: "#fbfbfb", legs: "#1d1e23", shoes: "#3b3f47", shoeSole: "#22252b", watch: "#e8e8e8" },
+    { id: "polo", name: "EL DEL POLO", unlock: 30, kind: "human",
+      skin: "#e9b38c", skinD: "#cf9469", hair: "#3d2c22", hairD: "#241811", hairStyle: "swept", beard: "#4b382b",
+      top: "polo", topColor: "#1d1d21", legs: "#3b4150", shoes: "#202126", shoeSole: "#e5e5e5", watch: "#222" },
+    { id: "chaqueta", name: "EL DE LA CHAQUETA", unlock: 40, kind: "human",
+      skin: "#ad7450", skinD: "#8d5838", hair: "#151515", hairD: "#000000", hairStyle: "buzz", beard: "#1b1b1b",
+      top: "jacket", topColor: "#202126", legs: "#18191c", shoes: "#5d3d27", shoeSole: "#3a2617" },
+    { id: "perro", name: "EL PASTOR ALEMÁN", unlock: 60, kind: "dog" },
+  ];
+  const CHAR_KEY = "elsPanetsCharacter";
+  let charIndex = Math.max(0, CHARACTERS.findIndex((c) => c.id === store.get(CHAR_KEY, "presi")));
+  let viewIndex = charIndex; // el que se está mirando en el inicio
+  const charUnlocked = (i) => best >= CHARACTERS[i].unlock;
+  const selectedChar = () => (charUnlocked(charIndex) ? CHARACTERS[charIndex] : CHARACTERS[0]);
+  function viewChar(i) {
+    viewIndex = (i + CHARACTERS.length) % CHARACTERS.length;
+    if (charUnlocked(viewIndex)) { charIndex = viewIndex; store.set(CHAR_KEY, CHARACTERS[viewIndex].id); }
+  }
+
   // ---------- Cielo: día, atardecer y noche según los puntos ----------
   const PALETTES = [
     { top: [92, 186, 232], bottom: [196, 236, 244], mount: [84, 150, 132], city: [148, 186, 204], cloud: [255, 255, 255], night: 0 },
@@ -455,8 +484,13 @@
     return {
       sound: { x: 36, y: 40, r: 22 },
       rank: { x: LW - 36, y: 40, r: 22 },
-      play: { x: cx - 100, y: LH * 0.5, w: 200, h: 64 },
-      skins: SKINS.map((s, i) => ({ i, x: cx - 96 + i * 64, y: LH * 0.5 + 132, r: 22 })),
+      charY: LH * 0.31,
+      prev: { x: cx - 118, y: LH * 0.31, r: 22 },
+      next: { x: cx + 118, y: LH * 0.31, r: 22 },
+      play: { x: cx - 100, y: LH * 0.45, w: 200, h: 64 },
+      cardY: LH * 0.45 + 82,
+      portraits: CHARACTERS.map((c, i) => ({ i, x: cx - 115 + i * 46, y: LH * 0.45 + 82 + 56, r: 19 })),
+      skins: SKINS.map((s, i) => ({ i, x: cx - 66 + i * 44, y: LH * 0.45 + 82 + 128, r: 16 })),
       overCard: { x: cx - 160, y: overCardY, w: 320, h: 240 },
       again: { x: cx - 150, y: overCardY + 262, w: 160, h: 58 },
       home: { x: cx + 20, y: overCardY + 262, w: 130, h: 58 },
@@ -480,14 +514,21 @@
 
     switch (state) {
       case STATE.START:
-        if (!p) { snd.click(); goReady(); return; }
-        for (const s of u.skins) {
-          if (inCircle(p, s)) {
-            if (skinUnlocked(s.i)) { skinIndex = s.i; store.set(SKIN_KEY, s.i); snd.click(); }
-            return;
+        if (!p) { if (charUnlocked(viewIndex)) { snd.click(); goReady(); } return; }
+        if (inCircle(p, u.prev)) { viewChar(viewIndex - 1); snd.click(); return; }
+        if (inCircle(p, u.next)) { viewChar(viewIndex + 1); snd.click(); return; }
+        for (const c of u.portraits) {
+          if (inCircle(p, { x: c.x, y: c.y, r: c.r - 3 })) { viewChar(c.i); snd.click(); return; }
+        }
+        if (CHARACTERS[viewIndex].id === "presi") {
+          for (const s of u.skins) {
+            if (inCircle(p, { x: s.x, y: s.y, r: s.r - 3 })) {
+              if (skinUnlocked(s.i)) { skinIndex = s.i; store.set(SKIN_KEY, s.i); snd.click(); }
+              return;
+            }
           }
         }
-        if (inRect(p, u.play)) { snd.click(); goReady(); }
+        if (inRect(p, u.play) && charUnlocked(viewIndex)) { snd.click(); goReady(); }
         return;
       case STATE.READY:
         if (stateT > 0.15) beginPlay();
@@ -502,7 +543,7 @@
       case STATE.OVER:
         if (worldT < pressLockUntil) return;
         if (!p || inRect(p, u.again)) { snd.click(); goReady(); return; }
-        if (inRect(p, u.home)) { snd.click(); resetRun(); setState(STATE.START); }
+        if (inRect(p, u.home)) { snd.click(); resetRun(); viewIndex = charIndex; setState(STATE.START); }
         return;
     }
   }
@@ -510,6 +551,11 @@
   canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); press(eventPoint(e)); });
   window.addEventListener("keydown", (e) => {
     if (state === STATE.NAME) return;
+    if (state === STATE.START && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
+      viewChar(viewIndex + (e.code === "ArrowLeft" ? -1 : 1));
+      snd.click();
+      return;
+    }
     if (e.code !== "Space" && e.code !== "ArrowUp" && e.code !== "Enter") return;
     e.preventDefault();
     if (e.repeat) return;
@@ -537,7 +583,7 @@
     switch (state) {
       case STATE.START:
         player.x = lerp(player.x, LW / 2, Math.min(1, dt * 6));
-        player.y = LH * 0.36 + Math.sin(worldT * 2.4) * 8;
+        player.y = LH * 0.31 + Math.sin(worldT * 2.4) * 6;
         player.rot = 0;
         player.flap += dt * 9;
         break;
@@ -1067,6 +1113,370 @@
     }
   }
 
+  // ---------- Los personajes de la foto, con el mismo estilo ----------
+  function drawChar(def, px, py, rot, flapPh, scale, mood) {
+    if (def.kind === "human") drawHuman(def, px, py, rot, flapPh, scale, mood);
+    else if (def.kind === "dog") drawDog(px, py, rot, flapPh, scale, mood);
+    else drawPlayer(px, py, rot, flapPh, currentSkin(), scale, mood);
+  }
+
+  function drawHuman(d, px, py, rot, flapPh, scale, mood) {
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(rot);
+    ctx.scale(scale || 1, scale || 1);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    const sw = Math.sin(flapPh);
+    const hx = 3, hy = -19;
+    const sway = Math.sin(flapPh * 0.5) * 1.5;
+
+    // pelo largo por detrás (ondea un poco al volar)
+    if (d.hairStyle === "longStraight" || d.hairStyle === "longWavy") {
+      ctx.fillStyle = d.hair;
+      ctx.beginPath();
+      ctx.moveTo(hx - 4, hy - 13);
+      ctx.quadraticCurveTo(hx - 18, hy - 8, hx - 17 + sway, hy + 10);
+      if (d.hairStyle === "longWavy") {
+        ctx.quadraticCurveTo(hx - 21 + sway, hy + 16, hx - 15 + sway, hy + 22);
+        ctx.quadraticCurveTo(hx - 12, hy + 27, hx - 6 + sway, hy + 25);
+      } else {
+        ctx.quadraticCurveTo(hx - 18 + sway, hy + 22, hx - 12 + sway, hy + 26);
+        ctx.lineTo(hx - 4 + sway, hy + 24);
+      }
+      ctx.quadraticCurveTo(hx - 3, hy + 12, hx + 2, hy + 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = d.hairD; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(hx - 12, hy - 4); ctx.quadraticCurveTo(hx - 15 + sway, hy + 10, hx - 10 + sway, hy + 20); ctx.stroke();
+      if (d.hairStyle === "longWavy") {
+        ctx.strokeStyle = lighten(d.hair, 0.25);
+        ctx.beginPath(); ctx.moveTo(hx - 8, hy - 2); ctx.quadraticCurveTo(hx - 12 + sway, hy + 8, hx - 7 + sway, hy + 18); ctx.stroke();
+      }
+    }
+
+    // piernas (mallas o pantalón) y zapatillas
+    for (const lx of [-5, 3]) {
+      ctx.strokeStyle = OL; ctx.lineWidth = 7.5;
+      ctx.beginPath(); ctx.moveTo(lx, 12); ctx.lineTo(lx - 3, 22); ctx.stroke();
+      ctx.strokeStyle = d.legs; ctx.lineWidth = 4.5;
+      ctx.beginPath(); ctx.moveTo(lx, 12); ctx.lineTo(lx - 3, 22); ctx.stroke();
+      ctx.fillStyle = d.shoes;
+      ctx.beginPath(); ctx.ellipse(lx - 1.5, 23.5, 4.8, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = d.shoeSole;
+      ctx.fillRect(lx - 6, 25, 9, 1.4);
+    }
+
+    const sleeve = d.top === "tank" ? 0 : d.top === "polo" ? 0.45 : 1;
+    const topD = darken(d.topColor, d.topColor === "#f8f8f6" || d.topColor === "#fbfbfb" ? 0.12 : 0.3);
+    humanArm(-6, -1, -2.3 + sw * 0.9, topD, sleeve, false);
+
+    // tronco
+    const g = ctx.createLinearGradient(-12, -8, 12, 16);
+    g.addColorStop(0, lighten(d.topColor, 0.15));
+    g.addColorStop(1, darken(d.topColor, 0.12));
+    if (d.top === "tank") {
+      // hombros y escote al aire, camiseta de tirantes encima
+      ctx.fillStyle = d.skin;
+      roundRect(-11, -8, 22, 12, 6); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(-8, -8); ctx.lineTo(-5, -8); ctx.quadraticCurveTo(0, -1, 5, -8); ctx.lineTo(8, -8);
+      ctx.lineTo(11, 0); ctx.lineTo(11, 12); ctx.quadraticCurveTo(11, 15, 8, 15);
+      ctx.lineTo(-8, 15); ctx.quadraticCurveTo(-11, 15, -11, 12); ctx.lineTo(-11, 0); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    } else {
+      ctx.fillStyle = g;
+      roundRect(-12, -8, 24, 23, 8); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
+    }
+    if (d.top === "longsleeve") {
+      // cuello alto con media cremallera
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.moveTo(-5, -9); ctx.lineTo(5, -9); ctx.lineTo(4, -5); ctx.lineTo(-4, -5); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#c9c9c4"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = "#b5b5b0"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, 2); ctx.stroke();
+      ctx.fillStyle = "#9a9a95"; ctx.fillRect(-1, 1, 2, 2.5);
+    } else if (d.top === "polo") {
+      ctx.fillStyle = "#2c2c31";
+      ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(0, -5); ctx.lineTo(-3, -1); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(6, -9); ctx.lineTo(0, -5); ctx.lineTo(3, -1); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#45454c"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 4); ctx.stroke();
+      ctx.fillStyle = "#55555c";
+      for (const by of [-2, 1.5]) { ctx.beginPath(); ctx.arc(0.8, by, 0.8, 0, Math.PI * 2); ctx.fill(); }
+    } else if (d.top === "jacket") {
+      // chaqueta de cremallera con cuello alto y bajo de canalé
+      ctx.fillStyle = "#2a2b31";
+      roundRect(-7, -11, 14, 6, 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = "#55565e"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(0, 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-9, 6); ctx.lineTo(-4, 4); ctx.moveTo(9, 6); ctx.lineTo(4, 4); ctx.stroke();
+      ctx.fillStyle = "#2c2d33"; ctx.fillRect(-11, 11, 22, 3.5);
+    }
+
+    humanArm(4, -1, -2.0 - sw * 0.9, d.topColor, sleeve, !!d.watch);
+
+    // cabeza
+    ctx.fillStyle = d.skin;
+    ctx.beginPath(); ctx.arc(hx, hy, 13, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
+    // barba (antes de la cara para que la boca quede encima)
+    if (d.beard) {
+      ctx.fillStyle = d.beard;
+      ctx.globalAlpha = 0.72;
+      ctx.beginPath();
+      ctx.moveTo(hx - 8, hy + 3);
+      ctx.quadraticCurveTo(hx - 5, hy + 13.5, hx + 4, hy + 13.2);
+      ctx.quadraticCurveTo(hx + 11.5, hy + 12, hx + 12.5, hy + 6);
+      ctx.quadraticCurveTo(hx + 9, hy + 10, hx + 6, hy + 9.5);
+      ctx.quadraticCurveTo(hx + 1, hy + 8.5, hx - 1, hy + 5);
+      ctx.quadraticCurveTo(hx - 4, hy + 4.5, hx - 8, hy + 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      // bigote
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.ellipse(hx + 8.5, hy + 4, 3.6, 1.2, -0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // oreja
+    if (d.hairStyle !== "longStraight" && d.hairStyle !== "longWavy") {
+      ctx.fillStyle = d.skinD;
+      ctx.beginPath(); ctx.ellipse(hx - 9, hy + 1, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    if (d.fem) {
+      ctx.fillStyle = "rgba(235,100,100,0.32)";
+      ctx.beginPath(); ctx.ellipse(hx + 6, hy + 5, 3.5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    // ojo
+    if (mood === "dead") {
+      ctx.strokeStyle = OL; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(hx + 4, hy - 4); ctx.lineTo(hx + 10, hy + 1); ctx.moveTo(hx + 10, hy - 4); ctx.lineTo(hx + 4, hy + 1); ctx.stroke();
+    } else {
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.ellipse(hx + 7, hy - 1.5, 3.6, 4.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.3; ctx.stroke();
+      ctx.fillStyle = "#3b2414";
+      ctx.beginPath(); ctx.arc(hx + 8.2, hy - 1, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(hx + 8.9, hy - 2, 0.8, 0, Math.PI * 2); ctx.fill();
+      if (d.fem) {
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(hx + 4, hy - 5); ctx.lineTo(hx + 2.5, hy - 6.5); ctx.moveTo(hx + 10.5, hy - 4.5); ctx.lineTo(hx + 12, hy - 6); ctx.stroke();
+      }
+    }
+    // ceja
+    ctx.strokeStyle = d.hairD; ctx.lineWidth = d.fem ? 1.6 : 2.3;
+    ctx.beginPath(); ctx.moveTo(hx + 3, hy - 7.5); ctx.quadraticCurveTo(hx + 7, hy - 9, hx + 11, hy - 7.5); ctx.stroke();
+    // nariz pequeña
+    ctx.strokeStyle = d.skinD; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(hx + 12, hy - 1); ctx.quadraticCurveTo(hx + 14.5, hy + 2, hx + 12, hy + 2.5); ctx.stroke();
+    // boca
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.6;
+    if (player.eatT > 0 && mood !== "dead") {
+      ctx.fillStyle = "#7a2020";
+      ctx.beginPath(); ctx.ellipse(hx + 8, hy + 7.5, 3.2, 2.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    } else if (mood === "dead") {
+      ctx.beginPath(); ctx.arc(hx + 8, hy + 10, 3, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+    } else {
+      if (d.beard) {
+        // sonrisa con dientes para que se vea sobre la barba
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.moveTo(hx + 4.5, hy + 6.2); ctx.quadraticCurveTo(hx + 8, hy + 10, hx + 11.5, hy + 6); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#5a2e22"; ctx.lineWidth = 1.2; ctx.stroke();
+      } else {
+        if (d.fem) { ctx.strokeStyle = "#c2524f"; ctx.lineWidth = 1.8; }
+        ctx.beginPath(); ctx.arc(hx + 7.5, hy + 5, 3.4, 0.3, Math.PI - 0.6); ctx.stroke();
+      }
+    }
+
+    // pelo por delante
+    ctx.fillStyle = d.hair;
+    ctx.strokeStyle = OL; ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (d.hairStyle === "longStraight" || d.hairStyle === "longWavy") {
+      // raya al lado y mechón que cae sobre la frente y tapa la oreja
+      ctx.moveTo(hx - 13, hy + 6);
+      ctx.quadraticCurveTo(hx - 16, hy - 12, hx, hy - 14.5);
+      ctx.quadraticCurveTo(hx + 12, hy - 15, hx + 14, hy - 5);
+      ctx.quadraticCurveTo(hx + 7, hy - 11, hx - 1, hy - 9);
+      ctx.quadraticCurveTo(hx - 6, hy - 5, hx - 6, hy + 4);
+      ctx.closePath();
+    } else if (d.hairStyle === "swept") {
+      // pelo hacia atrás con algo de volumen
+      ctx.moveTo(hx - 12, hy + 1);
+      ctx.quadraticCurveTo(hx - 14, hy - 12, hx - 2, hy - 15.5);
+      ctx.quadraticCurveTo(hx + 10, hy - 17, hx + 13, hy - 8);
+      ctx.quadraticCurveTo(hx + 6, hy - 10, hx + 1, hy - 9);
+      ctx.quadraticCurveTo(hx - 5, hy - 8, hx - 7, hy - 1);
+      ctx.closePath();
+    } else {
+      // rapado: casquete fino pegado a la cabeza
+      ctx.arc(hx, hy, 13.3, Math.PI * 1.03, Math.PI * 1.85);
+      ctx.quadraticCurveTo(hx + 6, hy - 10, hx - 2, hy - 10);
+      ctx.quadraticCurveTo(hx - 9, hy - 9, hx - 11, hy - 1);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.stroke();
+    if (d.hairStyle !== "buzz") {
+      ctx.strokeStyle = d.hairStyle === "longWavy" ? lighten(d.hair, 0.3) : d.hairD; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(hx - 7, hy - 11); ctx.quadraticCurveTo(hx + 2, hy - 14, hx + 9, hy - 11); ctx.stroke();
+    }
+    ctx.restore();
+
+    function humanArm(sx, sy, ang, color, sleeveFrac, watch) {
+      const ex = sx + Math.cos(ang) * 13, ey = sy + Math.sin(ang) * 13;
+      const mx = sx + (ex - sx) * sleeveFrac, my = sy + (ey - sy) * sleeveFrac;
+      ctx.strokeStyle = OL; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = d.skin; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      if (sleeveFrac > 0) {
+        ctx.strokeStyle = color; ctx.lineWidth = 5.5;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(mx, my); ctx.stroke();
+      }
+      if (watch) {
+        const wx = sx + (ex - sx) * 0.8, wy = sy + (ey - sy) * 0.8;
+        ctx.fillStyle = d.watch;
+        ctx.beginPath(); ctx.arc(wx, wy, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+      }
+      ctx.fillStyle = d.skin;
+      ctx.beginPath(); ctx.arc(ex, ey, 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  }
+
+  // Pastor alemán: rema con las patas, mueve las orejas y la cola
+  function drawDog(px, py, rot, flapPh, scale, mood) {
+    const TAN = "#c98f4f", TAN_L = "#e2b277", BLACK = "#2b211b";
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(rot);
+    ctx.scale(scale || 1, scale || 1);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    const sw = Math.sin(flapPh);
+    const wag = Math.sin(worldT * 14) * 0.35;
+
+    // cola peluda
+    ctx.save();
+    ctx.translate(-14, 2);
+    ctx.rotate(-0.5 + wag);
+    ctx.fillStyle = BLACK;
+    ctx.beginPath(); ctx.ellipse(-9, 0, 11, 4.5, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.8; ctx.stroke();
+    ctx.fillStyle = TAN;
+    ctx.beginPath(); ctx.ellipse(-17, 1.5, 3.5, 2.6, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // patas de atrás
+    dogLeg(-9, 9, 1.9 + sw * 0.5, TAN);
+    dogLeg(-4, 10, 1.7 - sw * 0.5, darken(TAN, 0.15));
+    // pata delantera de atrás
+    dogLeg(6, 8, 1.2 - sw * 0.9, darken(TAN, 0.15));
+
+    // cuerpo con la manta negra en el lomo
+    const g = ctx.createLinearGradient(0, -8, 0, 14);
+    g.addColorStop(0, TAN_L); g.addColorStop(1, TAN);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(-2, 3, 16, 10, -0.05, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = BLACK;
+    ctx.beginPath();
+    ctx.moveTo(-17, 1);
+    ctx.quadraticCurveTo(-14, -8, -2, -7.5);
+    ctx.quadraticCurveTo(9, -7, 12, -1);
+    ctx.quadraticCurveTo(4, 3, -4, 3);
+    ctx.quadraticCurveTo(-12, 4, -17, 1);
+    ctx.closePath();
+    ctx.fill();
+    // pecho claro
+    ctx.fillStyle = TAN_L;
+    ctx.beginPath(); ctx.ellipse(9, 6, 5, 6, 0.3, 0, Math.PI * 2); ctx.fill();
+
+    // pata delantera de delante
+    dogLeg(9, 8, 1.0 + sw * 0.9, TAN);
+
+    // cabeza
+    const hx = 12, hy = -10;
+    const earFlop = sw * 0.12;
+    for (const [ex, tilt] of [[-5, -0.25], [3, 0.15]]) {
+      ctx.save();
+      ctx.translate(hx + ex, hy - 6);
+      ctx.rotate(tilt + earFlop);
+      ctx.fillStyle = BLACK;
+      ctx.beginPath(); ctx.moveTo(-5, 2); ctx.lineTo(0, -13); ctx.lineTo(5, 2); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.8; ctx.stroke();
+      ctx.fillStyle = "#d9a06a";
+      ctx.beginPath(); ctx.moveTo(-2.5, 0); ctx.lineTo(0, -8); ctx.lineTo(2.5, 0); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = TAN;
+    ctx.beginPath(); ctx.arc(hx, hy, 10.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
+    // frente oscura
+    ctx.fillStyle = BLACK;
+    ctx.beginPath(); ctx.ellipse(hx - 2, hy - 6, 7, 4, -0.2, Math.PI, Math.PI * 2.05); ctx.fill();
+    // hocico negro
+    ctx.fillStyle = TAN_L;
+    ctx.beginPath(); ctx.ellipse(hx + 10, hy + 3, 8, 5.5, 0.05, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = BLACK;
+    ctx.beginPath(); ctx.ellipse(hx + 12, hy, 6.5, 3.2, 0.05, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx + 17, hy + 1, 3, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.beginPath(); ctx.arc(hx + 16.4, hy, 0.9, 0, Math.PI * 2); ctx.fill();
+    // boca abierta y lengua (más fuera al comer)
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(hx + 4, hy + 6); ctx.quadraticCurveTo(hx + 10, hy + 9, hx + 15, hy + 5); ctx.stroke();
+    if (mood !== "dead") {
+      const tl = player.eatT > 0 ? 9 : 6;
+      ctx.fillStyle = "#ef6f8a";
+      ctx.beginPath();
+      ctx.moveTo(hx + 7, hy + 7);
+      ctx.lineTo(hx + 7.5, hy + 7 + tl);
+      ctx.quadraticCurveTo(hx + 10, hy + 10 + tl, hx + 12.5, hy + 7 + tl);
+      ctx.lineTo(hx + 13, hy + 6.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#b8455e"; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx + 10, hy + 8); ctx.lineTo(hx + 10, hy + 5 + tl); ctx.stroke();
+    }
+    // ojo
+    if (mood === "dead") {
+      ctx.strokeStyle = OL; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(hx + 1, hy - 4); ctx.lineTo(hx + 6, hy + 0.5); ctx.moveTo(hx + 6, hy - 4); ctx.lineTo(hx + 1, hy + 0.5); ctx.stroke();
+    } else {
+      ctx.fillStyle = "#3b2414";
+      ctx.beginPath(); ctx.ellipse(hx + 4, hy - 2, 2.4, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(hx + 4.8, hy - 3, 0.9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = TAN_L;
+      ctx.beginPath(); ctx.arc(hx + 3, hy - 6.2, 1.3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    function dogLeg(sx, sy, ang, color) {
+      const ex = sx + Math.cos(ang) * 11, ey = sy + Math.sin(ang) * 11;
+      ctx.strokeStyle = OL; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = color; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.fillStyle = TAN_L;
+      ctx.beginPath(); ctx.ellipse(ex, ey, 3.8, 3, ang, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+  }
+
   // ---------- Interfaz ----------
   function button(b, label, main) {
     const t = main ? ["#ffd23f", "#f59e0b", "#b45309"] : ["#ffffff", "#e7edf5", "#8a98ad"];
@@ -1143,49 +1553,99 @@
     ctx.restore();
   }
 
+  function drawLock(x, y, s) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(0, -4, 6, Math.PI, 0); ctx.stroke();
+    roundRect(-9, -4, 18, 14, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#3b2414";
+    ctx.beginPath(); ctx.arc(0, 2, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
   function drawStart() {
     const u = ui();
-    title(LH * 0.15);
-    text("¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.15 + 50, 19, "#fff", "#3b2414", 5);
-    drawPlayer(player.x, player.y, 0, player.flap, currentSkin(), 1.9);
-    const pulse = 1 + Math.sin(worldT * 4) * 0.025;
+    const def = CHARACTERS[viewIndex], open = charUnlocked(viewIndex);
+    title(LH * 0.12);
+    text("¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, 19, "#fff", "#3b2414", 5);
+
+    // personaje que se mira, en grande (bloqueado: apagado y con candado)
+    ctx.globalAlpha = open ? 1 : 0.35;
+    drawChar(def, player.x, player.y, 0, player.flap, 1.6);
+    ctx.globalAlpha = 1;
+    if (!open) drawLock(player.x, player.y - 6, 1.6);
+    roundIcon(u.prev, () => chevron(-1));
+    roundIcon(u.next, () => chevron(1));
+    const ny = u.charY + 58;
+    ctx.fillStyle = "rgba(40,24,12,0.55)";
+    roundRect(LW / 2 - 110, ny - 15, 220, 30, 15); ctx.fill();
+    text(open ? def.name : "LLEGA A " + def.unlock + " PUNTOS", LW / 2, ny + 1, 17, open ? "#fff" : "#ffd23f");
+
+    const pulse = open ? 1 + Math.sin(worldT * 4) * 0.025 : 1;
     ctx.save();
     ctx.translate(LW / 2, u.play.y + u.play.h / 2);
     ctx.scale(pulse, pulse);
     ctx.translate(-LW / 2, -(u.play.y + u.play.h / 2));
-    button(u.play, "JUGAR", true);
+    ctx.globalAlpha = open ? 1 : 0.5;
+    button(u.play, open ? "JUGAR" : "BLOQUEADO", open);
+    ctx.globalAlpha = 1;
     ctx.restore();
 
-    // trajes
-    const cy = u.skins[0].y;
-    card(LW / 2 - 140, cy - 46, 280, 100);
-    text("ELIGE TRAJE", LW / 2, cy - 30, 16, "#8a5a2b");
-    for (const s of u.skins) {
-      const skin = SKINS[s.i], open = skinUnlocked(s.i), sel = open && s.i === skinIndex;
-      ctx.fillStyle = sel ? "#ffd23f" : "#efe4d0";
-      ctx.beginPath(); ctx.arc(s.x, s.y + 4, s.r + 4, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = sel ? "#b45309" : "#cdbb9c"; ctx.lineWidth = 2.5; ctx.stroke();
-      if (open) {
-        ctx.save();
-        ctx.beginPath(); ctx.arc(s.x, s.y + 4, s.r + 2, 0, Math.PI * 2); ctx.clip();
-        drawPlayer(s.x - 2, s.y + 12, 0, 1, skin, 0.85);
-        ctx.restore();
-      } else {
-        ctx.fillStyle = "#b9a98d";
-        roundRect(s.x - 7, s.y + 1, 14, 11, 3); ctx.fill();
-        ctx.strokeStyle = "#b9a98d"; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.arc(s.x, s.y + 1, 4.5, Math.PI, 0); ctx.stroke();
-        text(String(skin.unlock), s.x, s.y + 38, 14, "#9a8566");
+    // tarjeta de personajes (y trajes si es el presidente)
+    const isPresi = def.id === "presi";
+    card(LW / 2 - 140, u.cardY, 280, isPresi ? 152 : 100);
+    text("PERSONAJES", LW / 2, u.cardY + 18, 15, "#8a5a2b");
+    for (const c of u.portraits) {
+      const cdef = CHARACTERS[c.i], cOpen = charUnlocked(c.i), viewing = c.i === viewIndex;
+      ctx.fillStyle = viewing ? "#ffd23f" : "#efe4d0";
+      ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = viewing ? "#b45309" : "#cdbb9c"; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); ctx.clip();
+      ctx.globalAlpha = cOpen ? 1 : 0.3;
+      if (cdef.kind === "dog") drawDog(c.x - 10, c.y + 8, 0, 1, 0.85, "");
+      else drawChar(cdef, c.x - 3, c.y + 14, 0, 1, 0.9, "");
+      ctx.restore();
+      if (!cOpen) {
+        drawLock(c.x, c.y - 2, 0.75);
+        text(String(cdef.unlock), c.x, c.y + c.r + 12, 13, "#9a8566");
+      }
+    }
+    if (isPresi) {
+      text("TRAJE", LW / 2, u.skins[0].y - 26, 13, "#8a5a2b");
+      for (const s of u.skins) {
+        const skin = SKINS[s.i], sOpen = skinUnlocked(s.i), sel = sOpen && s.i === skinIndex;
+        ctx.fillStyle = sOpen ? skin.suit : "#e2d6bf";
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = sel ? "#f59e0b" : "#cdbb9c"; ctx.lineWidth = sel ? 4 : 2; ctx.stroke();
+        if (sOpen && skin.type !== "golf") {
+          ctx.fillStyle = "#fff";
+          ctx.beginPath(); ctx.moveTo(s.x - 5, s.y - s.r + 3); ctx.lineTo(s.x + 5, s.y - s.r + 3); ctx.lineTo(s.x, s.y + 3); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = skin.type === "tuxedo" ? "#111" : skin.tie;
+          ctx.fillRect(s.x - 1.5, s.y - s.r + 5, 3, 10);
+        } else if (sOpen) {
+          ctx.fillStyle = skin.cap;
+          ctx.beginPath(); ctx.arc(s.x, s.y, 7, Math.PI, 0); ctx.fill();
+        } else {
+          drawLock(s.x, s.y - 1, 0.55);
+        }
       }
     }
 
     // mejor puntuación
-    const by = cy + 84;
+    const by = u.cardY + (isPresi ? 152 : 100) + 32;
     ctx.fillStyle = "rgba(40,24,12,0.55)";
     roundRect(LW / 2 - 100, by - 18, 200, 36, 18); ctx.fill();
     ctx.save(); ctx.translate(LW / 2 - 76, by + 1); ctx.scale(0.8, 0.8); iconTrophy(); ctx.restore();
     text("MEJOR: " + best, LW / 2 + 8, by + 1, 20, "#fff");
-    if (recordHolder) text("Récord de " + recordHolder, LW / 2, by + 34, 15, "#fff", "#3b2414", 4);
+    if (recordHolder && by + 36 < groundTop()) text("Récord de " + recordHolder, LW / 2, by + 32, 15, "#fff", "#3b2414", 4);
+  }
+
+  function chevron(dir) {
+    ctx.strokeStyle = "#3b4a63"; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(-3 * dir, -8); ctx.lineTo(5 * dir, 0); ctx.lineTo(-3 * dir, 8); ctx.stroke();
   }
 
   function drawReady() {
@@ -1336,7 +1796,7 @@
 
     if (state !== STATE.START) {
       const dead = state === STATE.DYING || state === STATE.OVER || state === STATE.NAME;
-      drawPlayer(player.x, player.y, player.rot, player.flap, currentSkin(), PLAYER_SCALE, dead ? "dead" : "");
+      drawChar(selectedChar(), player.x, player.y, player.rot, player.flap, PLAYER_SCALE, dead ? "dead" : "");
     }
     for (const f of floaters) {
       ctx.globalAlpha = 1 - f.t / 0.9;
@@ -1359,6 +1819,17 @@
     if (state === STATE.START || state === STATE.OVER) roundIcon(u.rank, iconTrophy);
   }
 
+  // Para revisar los personajes en grande: ?hoja
+  const SHEET = new URLSearchParams(location.search).has("hoja");
+  function drawSheet() {
+    ctx.fillStyle = "#9fd6ea"; ctx.fillRect(0, 0, LW, LH);
+    CHARACTERS.forEach((c, i) => {
+      const x = 100 + (i % 2) * 200, y = 130 + Math.floor(i / 2) * 230;
+      drawChar(c, x, y, 0, player.flap, 3.3, "");
+      text(c.name, x, y + 100, 16, "#3b2414");
+    });
+  }
+
   let last = 0, acc = 0;
   function loop(t) {
     const now = t / 1000;
@@ -1368,7 +1839,7 @@
     let n = 0;
     while (acc >= STEP && n < 40) { update(STEP); acc -= STEP; n++; }
     if (n === 40) acc = 0;
-    render();
+    if (SHEET) drawSheet(); else render();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
