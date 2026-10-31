@@ -257,7 +257,7 @@
   // mismo estilo y se desbloquean por la mejor puntuación.
   const CHARACTERS = [
     { id: "presi", name: "EL PRESIDENTE", unlock: 0 },
-    { id: "blanco", name: "MARÍA", unlock: 5, kind: "human", fem: true,
+    { id: "blanco", name: "MJ", unlock: 5, kind: "human", fem: true,
       skin: "#f2c8a8", skinD: "#d9a482", hair: "#3a2a22", hairD: "#22170f", hairStyle: "longStraight", part: -2,
       face: { rx: 11, ry: 14, chin: 0.42 }, eye: "#5e3d24", lips: "#c9776d", smile: "soft", nose: 5,
       brow: { color: "#2b1d16", w: 1.5, y: 4.4, arch: 1.6 },
@@ -272,6 +272,12 @@
       face: { rx: 11.8, ry: 13.8, chin: 0.48 }, eye: "#6f8fa0", lips: "#c9776d", smile: "teeth", nose: 5, freckles: true,
       brow: { color: "#9c7a52", w: 1.5, y: 4.6, arch: 1.4 },
       top: "tee", topColor: "#3f6b55", legs: "#3a4a66", shoes: "#f2f2f2", shoeSole: "#d0d0d0" },
+    { id: "maria", name: "MARÍA", unlock: 25, kind: "human", fem: true,
+      skin: "#f1c6a4", skinD: "#d9a281", hair: "#c4a06a", hairD: "#6e5236", roots: "#6e5236", hairStyle: "longWavy", part: -1,
+      face: { rx: 11.8, ry: 13.8, chin: 0.5 }, eye: "#6b6a3e", lips: "#c47a6e", smile: "soft", nose: 5, freckles: true,
+      brow: { color: "#6e5236", w: 1.6, y: 4.6, arch: 1.5 },
+      top: "tank", topColor: "#1e1b1f", noLogo: true, necklace: "#d9b45a", band: "#2a1c14",
+      legs: "#e9e3d6", shoes: "#c9a27a", shoeSole: "#8a6a4a" },
     { id: "polo", name: "JORDI", unlock: 30, kind: "human",
       skin: "#e8b48e", skinD: "#cc936a", hair: "#3b2a20", hairD: "#21160f", hairStyle: "swept", part: -4,
       face: { rx: 11.3, ry: 15, chin: 0.55 }, eye: "#563822", nose: 5.6, smile: "closed",
@@ -1202,11 +1208,19 @@
       ctx.lineTo(-8, 15); ctx.quadraticCurveTo(-11, 15, -11, 12); ctx.lineTo(-11, 0); ctx.closePath();
       ctx.fill(); ctx.stroke();
       // el logo de la camiseta
-      ctx.strokeStyle = "#8b8f96"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(3.5, 0.5); ctx.quadraticCurveTo(4.5, 2.5, 8, -0.5); ctx.stroke();
+      if (!d.noLogo) {
+        ctx.strokeStyle = "#8b8f96"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(3.5, 0.5); ctx.quadraticCurveTo(4.5, 2.5, 8, -0.5); ctx.stroke();
+      }
     } else {
       ctx.fillStyle = g;
       roundRect(-12, -8, 24, 23, 8); ctx.fill(); ctx.stroke();
+    }
+    if (d.necklace) {
+      // cadenita dorada
+      ctx.strokeStyle = d.necklace; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(-4.5, -8); ctx.quadraticCurveTo(0, -1.5, 4.5, -8); ctx.stroke();
+      ctx.fillStyle = d.necklace; ctx.beginPath(); ctx.arc(0, -4.3, 0.9, 0, Math.PI * 2); ctx.fill();
     }
     if (d.top === "tee") {
       // camiseta de pico
@@ -1243,7 +1257,7 @@
       ctx.fillStyle = "#2c2d33"; ctx.fillRect(-11, 11, 22, 3.5);
     }
 
-    humanArm(4, -1, -2.0 - sw * 0.9, d.topColor, sleeve, !!d.watch);
+    humanArm(4, -1, -2.0 - sw * 0.9, d.topColor, sleeve, !!(d.watch || d.band));
 
     // cuello
     ctx.fillStyle = d.skinD;
@@ -1522,8 +1536,8 @@
       }
       if (watch) {
         const wx = sx + (ex - sx) * 0.8, wy = sy + (ey - sy) * 0.8;
-        ctx.fillStyle = d.watch;
-        ctx.beginPath(); ctx.arc(wx, wy, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = d.watch || d.band;
+        ctx.beginPath(); ctx.arc(wx, wy, d.watch ? 2.4 : 1.6, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
       }
       ctx.fillStyle = d.skin;
