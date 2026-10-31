@@ -253,10 +253,14 @@
   const currentSkin = () => (skinUnlocked(skinIndex) ? SKINS[skinIndex] : SKINS[0]);
 
   // ---------- Personajes desbloqueables (31/10/2026, sacados de su foto) ----------
-  // El presidente es el de siempre (con sus trajes); los demás se dibujan con el
+  // El de salida es un tipo gris y sin nombre (31/10: sustituye al presidente); los demás se dibujan con el
   // mismo estilo y se desbloquean por la mejor puntuación.
   const CHARACTERS = [
-    { id: "presi", name: "EL PRESIDENTE", unlock: 0 },
+    { id: "gris", name: "SIN NOMBRE", unlock: 0, kind: "human",
+      skin: "#c4c4c4", skinD: "#a6a6a6", hair: "#6f6f6f", hairD: "#555555", hairStyle: "swept", part: 0,
+      face: { rx: 11.5, ry: 14.5, chin: 0.55 }, eye: "#7c7c7c", nose: 5.2, smile: "neutral",
+      brow: { color: "#5e5e5e", w: 1.8, y: 4.2, arch: 0.3 },
+      top: "plain", topColor: "#8e8e8e", legs: "#707070", shoes: "#5c5c5c", shoeSole: "#4a4a4a" },
     { id: "blanco", name: "MJ", unlock: 5, kind: "human", fem: true,
       skin: "#f2c8a8", skinD: "#d9a482", hair: "#3a2a22", hairD: "#22170f", hairStyle: "longStraight", part: -2,
       face: { rx: 11, ry: 14, chin: 0.42 }, eye: "#5e3d24", lips: "#c9776d", smile: "soft", nose: 5,
@@ -293,7 +297,7 @@
     { id: "perro", name: "RIM", unlock: 60, kind: "dog" },
   ];
   const CHAR_KEY = "elsPanetsCharacter";
-  let charIndex = Math.max(0, CHARACTERS.findIndex((c) => c.id === store.get(CHAR_KEY, "presi")));
+  let charIndex = Math.max(0, CHARACTERS.findIndex((c) => c.id === store.get(CHAR_KEY, "gris")));
   let viewIndex = charIndex; // el que se está mirando en el inicio
   const charUnlocked = (i) => best >= CHARACTERS[i].unlock;
   const selectedChar = () => (charUnlocked(charIndex) ? CHARACTERS[charIndex] : CHARACTERS[0]);
