@@ -319,11 +319,12 @@
   // outfits: 4 conjuntos; se desbloquean con la mejor puntuación (OUTFIT_PTS).
   const HAT = (type, color) => ({ type, color });
   const EXTRA = {
-    gris: { story: "Nadie sabe quién es. Ni él mismo.", outfits: [
+    // gris, Núria, María e Isidro: ropa y pelo, sin historia todavía (01/11/2026)
+    gris: { outfits: [
       { name: "Gris", look: {} },
-      { name: "Chándal gris", look: { top: "jacket", topColor: "#9a9a9a", legs: "#7a7a7a" } },
-      { name: "Gorra gris", look: { top: "polo", topColor: "#b0b0b0", legs: "#5e5e5e", hat: HAT("cap", "#7d7d7d") } },
-      { name: "Gafas grises", look: { top: "tee", topColor: "#a3a3a3", glasses: true } },
+      { name: "Rizos y chándal", look: { hairStyle: "curly", hair: "#5a5a5a", top: "jacket", topColor: "#9a9a9a", legs: "#7a7a7a" } },
+      { name: "Rapado con barba", look: { hairStyle: "buzz", hair: "#4f4f4f", beard: { color: "#5a5a5a", alpha: 0.9, top: 4.5 }, top: "polo", topColor: "#b0b0b0", legs: "#5e5e5e" } },
+      { name: "Gorra y gafas", look: { top: "tee", topColor: "#a3a3a3", glasses: true, hat: HAT("cap", "#6a6a6a") } },
     ] },
     blanco: { story: "Fotógrafa: no se le escapa ni una foto.", power: "Cada 25 empanadillas: cámara, +5 y ¡foto!", special: "camara", outfits: [
       { name: "De blanco", look: {} },
@@ -337,17 +338,17 @@
       { name: "Mexicana", look: { top: "tee", topColor: "#2e8b57", hat: HAT("sombrero", "#e9c46a") } },
       { name: "De noche", look: { topColor: "#151518", noLogo: true, glasses: true, necklace: "#d9b45a", legs: "#3a1c2e" } },
     ] },
-    nuria: { story: "Siempre sonriendo y siempre con hambre.", outfits: [
+    nuria: { outfits: [
       { name: "Camiseta verde", look: {} },
-      { name: "Verano", look: { top: "tank", topColor: "#ffd166", noLogo: true, glasses: true } },
-      { name: "Invierno", look: { top: "longsleeve", topColor: "#b23a48", hat: HAT("beanie", "#f2f2f2") } },
-      { name: "Chaqueta", look: { top: "jacket", topColor: "#2f5d8a" } },
+      { name: "Coleta y verano", look: { hairStyle: "ponytail", scrunchie: "#ff6fa5", top: "tank", topColor: "#ffd166", noLogo: true, glasses: true } },
+      { name: "Moño e invierno", look: { hairStyle: "bun", top: "longsleeve", topColor: "#b23a48", legs: "#2b2d42" } },
+      { name: "Pelirroja", look: { hair: "#c8642e", hairD: "#8a3d18", roots: null, top: "jacket", topColor: "#2f5d8a" } },
     ] },
-    maria: { story: "Tranquila… hasta que huele empanadillas.", outfits: [
+    maria: { outfits: [
       { name: "De negro", look: {} },
       { name: "Playa", look: { topColor: "#ffffff", glasses: true, hat: HAT("sunhat", "#e8d3a2") } },
-      { name: "Vaquera", look: { top: "jacket", topColor: "#5b7fae" } },
-      { name: "De rosa", look: { top: "tee", topColor: "#f28cb1", necklace: null } },
+      { name: "Coleta vaquera", look: { hairStyle: "ponytail", scrunchie: "#2a1c14", top: "jacket", topColor: "#5b7fae" } },
+      { name: "Morena y moño", look: { hairStyle: "bun", hair: "#3a2a22", hairD: "#22170f", roots: null, top: "tee", topColor: "#f28cb1", necklace: null } },
     ] },
     polo: { story: "Le pierden el buen vino y las sobremesas.", power: "Cada 25 empanadillas: vino, +5", special: "vino", outfits: [
       { name: "Polo negro", look: {} },
@@ -355,11 +356,11 @@
       { name: "Bodeguero", look: { topColor: "#7b1e3a", hat: HAT("beret", "#2a2a2e") } },
       { name: "Con gafas", look: { top: "jacket", topColor: "#3d4a5c", glasses: true } },
     ] },
-    chaqueta: { story: "El que se inventó este juego.", outfits: [
+    chaqueta: { outfits: [
       { name: "Chaqueta negra", look: {} },
       { name: "Con gorra", look: { top: "tee", topColor: "#f4f4f2", hat: HAT("cap", "#c0392b") } },
-      { name: "Polo rojo", look: { top: "polo", topColor: "#b8322f" } },
-      { name: "Gafas de sol", look: { topColor: "#2c4a3a", glasses: true } },
+      { name: "Rizos y polo", look: { hairStyle: "curly", top: "polo", topColor: "#b8322f" } },
+      { name: "Afeitado y gafas", look: { hairStyle: "swept", beard: null, topColor: "#2c4a3a", glasses: true } },
     ] },
     perro: { story: "Pastor alemán: se come todo lo que vuela.", power: "Come de todo: jamón, queso, huevos…", outfits: [
       { name: "Al natural", look: {} },
@@ -1541,6 +1542,28 @@
       ctx.fill();
       ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
     }
+    // coleta o moño, por detrás de la cabeza (01/11/2026)
+    if (d.hairStyle === "ponytail" || d.hairStyle === "bun") {
+      const top = hy - F.ry - 3.5, L = fx - F.rx;
+      ctx.strokeStyle = OL; ctx.lineWidth = 2;
+      if (d.hairStyle === "ponytail") {
+        const tg = ctx.createLinearGradient(L, top, L - 10, hy + 14);
+        tg.addColorStop(0, d.hair); tg.addColorStop(1, d.hairD);
+        ctx.fillStyle = tg;
+        ctx.beginPath();
+        ctx.moveTo(L + 3, top + 2);
+        ctx.quadraticCurveTo(L - 13, top + 1, L - 9 + sway, hy + 15);
+        ctx.quadraticCurveTo(L - 4, hy + 5, L + 1, hy - 3);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = d.scrunchie || "#d63a32";
+        ctx.beginPath(); ctx.ellipse(L, top + 4.5, 2.6, 3.4, 0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillStyle = d.hair;
+        ctx.beginPath(); ctx.arc(fx - 4, top - 2.5, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = lighten(d.hair, 0.25); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(fx - 4, top - 2.5, 3.5, 3.6, 5.6); ctx.stroke();
+      }
+    }
 
     // piernas (mallas o pantalón), calcetines y zapatillas
     for (const lx of [-5, 3]) {
@@ -1959,6 +1982,45 @@
         ctx.stroke();
         ctx.strokeStyle = d.hairD; ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(px0, top); ctx.lineTo(px0 - 1, top + 4.5); ctx.stroke();
+      } else if (d.hairStyle === "ponytail" || d.hairStyle === "bun") {
+        // pelo recogido hacia atrás, pegado a la cabeza
+        const hg = ctx.createLinearGradient(L, top, R, hy);
+        hg.addColorStop(0, lighten(d.hair, 0.12)); hg.addColorStop(1, d.hair);
+        ctx.fillStyle = hg;
+        ctx.beginPath();
+        ctx.moveTo(L - 1, hy + 2);
+        ctx.quadraticCurveTo(L - 2.5, top - 1, fx, top - 1.5);
+        ctx.quadraticCurveTo(R + 2.5, top - 1, R + 0.5, hy - 1);
+        ctx.lineTo(R - 1.5, hy - 5);
+        ctx.quadraticCurveTo(fx + 2, hy - 11, L + 2.5, hy - 6);
+        ctx.lineTo(L + 0.8, hy + 2);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = lighten(d.hair, 0.3); ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(R - 2, hy - 6); ctx.quadraticCurveTo(fx + 2, top + 1, L + 1, top + 5);
+        ctx.moveTo(R - 1, hy - 3); ctx.quadraticCurveTo(fx + 4, top + 3.5, L, hy - 4);
+        ctx.stroke();
+      } else if (d.hairStyle === "curly") {
+        // rizos: bolitas por todo el borde de la cabeza
+        ctx.fillStyle = d.hair;
+        ctx.beginPath();
+        ctx.moveTo(L - 1, hy + 1);
+        ctx.quadraticCurveTo(L - 2, top, fx, top);
+        ctx.quadraticCurveTo(R + 2, top, R + 1, hy - 1);
+        ctx.lineTo(R - 1.5, hy - 6);
+        ctx.quadraticCurveTo(fx + 2, hy - 10, L + 2, hy - 5);
+        ctx.closePath(); ctx.fill();
+        for (let k = 0; k <= 8; k++) {
+          const a = Math.PI * (0.92 + k * 0.145);
+          const bx = fx + Math.cos(a) * (F.rx + 1.5), by = hy - 3 + Math.sin(a) * (F.ry + 0.5);
+          ctx.beginPath(); ctx.arc(bx, by, 3.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+        ctx.strokeStyle = lighten(d.hair, 0.3); ctx.lineWidth = 1;
+        for (let k = 1; k <= 7; k += 2) {
+          const a = Math.PI * (0.92 + k * 0.145);
+          const bx = fx + Math.cos(a) * (F.rx + 1.5), by = hy - 3 + Math.sin(a) * (F.ry + 0.5);
+          ctx.beginPath(); ctx.arc(bx - 0.5, by - 0.5, 1.6, 3.4, 5.2); ctx.stroke();
+        }
       } else {
         // rapado casi al cero con las entradas marcadas
         ctx.fillStyle = d.hair;
