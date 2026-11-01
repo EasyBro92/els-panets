@@ -123,6 +123,23 @@
     click() { tone(660, 0.05, "triangle", 0.12); },
     record() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, "triangle", 0.16, 0, i * 0.09)); },
     medal() { [1319, 1568, 2093].forEach((f, i) => tone(f, 0.18, "sine", 0.08, 0, i * 0.07)); },
+    // cámara: clic del obturador y el chasquido del espejo
+    shutter() {
+      noise(0.03, 0.7, "highpass", 3500);
+      tone(2600, 0.03, "square", 0.05, 0, 0.01);
+      noise(0.05, 0.5, "bandpass", 1600, 0, 0.08);
+    },
+    // vino: el corcho y unos glu-glu
+    cork() {
+      tone(520, 0.07, "sine", 0.25, -320);
+      noise(0.04, 0.4, "bandpass", 1400);
+      [0.13, 0.22, 0.31].forEach((d, i) => tone(300 - i * 40, 0.08, "sine", 0.18, -90, d));
+    },
+    // tequila: tapón y un ¡olé! de tres notas
+    tequila() {
+      tone(520, 0.07, "sine", 0.25, -320);
+      [659, 880, 1175].forEach((f, i) => tone(f, 0.12, "triangle", 0.15, 0, 0.09 + i * 0.07));
+    },
   };
 
   function setSound(on) {
@@ -296,6 +313,75 @@
       top: "jacket", topColor: "#202126", legs: "#18191c", shoes: "#5d3d27", shoeSole: "#3a2617" },
     { id: "perro", name: "RIM", unlock: 60, kind: "dog" },
   ];
+
+  // ---------- Historia, objeto especial y ropa de cada uno (01/11/2026) ----------
+  // special: cada 25 empanadillas sale ese objeto, que vale +5.
+  // outfits: 4 conjuntos; se desbloquean con la mejor puntuación (OUTFIT_PTS).
+  const HAT = (type, color) => ({ type, color });
+  const EXTRA = {
+    gris: { story: "Nadie sabe quién es. Ni él mismo.", outfits: [
+      { name: "Gris", look: {} },
+      { name: "Chándal gris", look: { top: "jacket", topColor: "#9a9a9a", legs: "#7a7a7a" } },
+      { name: "Gorra gris", look: { top: "polo", topColor: "#b0b0b0", legs: "#5e5e5e", hat: HAT("cap", "#7d7d7d") } },
+      { name: "Gafas grises", look: { top: "tee", topColor: "#a3a3a3", glasses: true } },
+    ] },
+    blanco: { story: "Fotógrafa: no se le escapa ni una foto.", power: "Cada 25 empanadillas: cámara, +5 y ¡foto!", special: "camara", outfits: [
+      { name: "De blanco", look: {} },
+      { name: "Fotógrafa", look: { top: "tee", topColor: "#2b2b30", hat: HAT("beret", "#b3262e") } },
+      { name: "Vaquera", look: { top: "jacket", topColor: "#4a74a8", legs: "#2f3b52" } },
+      { name: "De fiesta", look: { top: "tank", topColor: "#d6336c", noLogo: true, glasses: true, necklace: "#e8c45a" } },
+    ] },
+    deportista: { story: "Deportista de día, fiestera de noche.", power: "Cada 25 empanadillas: tequila, +5", special: "tequila", outfits: [
+      { name: "Deportista", look: {} },
+      { name: "Running", look: { topColor: "#ff6fa5", legs: "#2b2d42", hat: HAT("cap", "#ff6fa5") } },
+      { name: "Mexicana", look: { top: "tee", topColor: "#2e8b57", hat: HAT("sombrero", "#e9c46a") } },
+      { name: "De noche", look: { topColor: "#151518", noLogo: true, glasses: true, necklace: "#d9b45a", legs: "#3a1c2e" } },
+    ] },
+    nuria: { story: "Siempre sonriendo y siempre con hambre.", outfits: [
+      { name: "Camiseta verde", look: {} },
+      { name: "Verano", look: { top: "tank", topColor: "#ffd166", noLogo: true, glasses: true } },
+      { name: "Invierno", look: { top: "longsleeve", topColor: "#b23a48", hat: HAT("beanie", "#f2f2f2") } },
+      { name: "Chaqueta", look: { top: "jacket", topColor: "#2f5d8a" } },
+    ] },
+    maria: { story: "Tranquila… hasta que huele empanadillas.", outfits: [
+      { name: "De negro", look: {} },
+      { name: "Playa", look: { topColor: "#ffffff", glasses: true, hat: HAT("sunhat", "#e8d3a2") } },
+      { name: "Vaquera", look: { top: "jacket", topColor: "#5b7fae" } },
+      { name: "De rosa", look: { top: "tee", topColor: "#f28cb1", necklace: null } },
+    ] },
+    polo: { story: "Le pierden el buen vino y las sobremesas.", power: "Cada 25 empanadillas: vino, +5", special: "vino", outfits: [
+      { name: "Polo negro", look: {} },
+      { name: "Polo blanco", look: { topColor: "#f4f4f2" } },
+      { name: "Bodeguero", look: { topColor: "#7b1e3a", hat: HAT("beret", "#2a2a2e") } },
+      { name: "Con gafas", look: { top: "jacket", topColor: "#3d4a5c", glasses: true } },
+    ] },
+    chaqueta: { story: "El que se inventó este juego.", outfits: [
+      { name: "Chaqueta negra", look: {} },
+      { name: "Con gorra", look: { top: "tee", topColor: "#f4f4f2", hat: HAT("cap", "#c0392b") } },
+      { name: "Polo rojo", look: { top: "polo", topColor: "#b8322f" } },
+      { name: "Gafas de sol", look: { topColor: "#2c4a3a", glasses: true } },
+    ] },
+    perro: { story: "Pastor alemán: se come todo lo que vuela.", power: "Come de todo: jamón, queso, huevos…", outfits: [
+      { name: "Al natural", look: {} },
+      { name: "Pañuelo", look: { bandana: "#d63a32" } },
+      { name: "Collar", look: { collar: "#2f6fd6" } },
+      { name: "Gorra y gafas", look: { glasses: true, hat: HAT("cap", "#f2b134") } },
+    ] },
+  };
+  for (const c of CHARACTERS) Object.assign(c, EXTRA[c.id]);
+
+  const OUTFIT_PTS = [0, 50, 100, 150];
+  const outfitKey = (id) => "elsPanetsRopa_" + id;
+  const outfitUnlocked = (i) => best >= OUTFIT_PTS[i];
+  function outfitIndex(def) {
+    const i = Number(store.get(outfitKey(def.id), 0)) || 0;
+    return def.outfits && def.outfits[i] && outfitUnlocked(i) ? i : 0;
+  }
+  // el personaje con su ropa puesta (la elegida, o la que se diga)
+  function dressed(def, i) {
+    const o = def.outfits && def.outfits[i == null ? outfitIndex(def) : i];
+    return o ? Object.assign({}, def, o.look) : def;
+  }
   const CHAR_KEY = "elsPanetsCharacter";
   let charIndex = Math.max(0, CHARACTERS.findIndex((c) => c.id === store.get(CHAR_KEY, "gris")));
   let viewIndex = charIndex; // el que se está mirando en el inicio
@@ -391,12 +477,27 @@
   let worldT = 0;          // reloj general
   let scorePop = 0, flashT = 0, newBest = false, medalPlayed = false;
   let pressLockUntil = 0;
+  // Para probar: ?comidas=24 empieza con 24 empanadillas (a una del objeto especial)
+  const START_EATEN = Number(new URLSearchParams(location.search).get("comidas")) || 0;
+  const SPECIAL_EVERY = 25;
+  const SPECIALS = {
+    vino: { label: "¡VINO!", colors: ["#7b1e3a", "#c2185b", "#ffd166"] },
+    tequila: { label: "¡TEQUILA!", colors: ["#e8a93a", "#7cc243", "#ffffff"] },
+    camara: { label: "¡FOTO!", colors: ["#ffffff", "#c7ccd4", "#ffd23f"] },
+  };
+  const DOG_FOODS = ["empanada", "jamon", "queso", "huevo", "salchicha", "pollo", "pizza", "hueso"];
+  let pendingSpecial = false;
+  // la foto de MJ: se copia la pantalla, sale un flash y la foto se va a la esquina
+  let photoPending = false, photoT = -1, camFlash = 0, photoStamp = "";
+  const photoCv = document.createElement("canvas");
+  photoCv.width = photoCv.height = 300;
 
   function setState(s) { state = s; stateT = 0; document.body.classList.toggle("enJuego", s !== STATE.START); }
 
   function resetRun() {
     cols = []; particles = []; floaters = [];
-    score = START_SCORE; eaten = 0; speed = 150; gap = 178;
+    score = START_SCORE; eaten = START_EATEN; speed = 150; gap = 178;
+    pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0;
     distToSpawn = 0; lastGapY = groundTop() / 2 - gap / 2;
     newBest = false; medalPlayed = false;
     player.y = LH * 0.42; player.vy = 0; player.rot = 0;
@@ -425,7 +526,22 @@
     y = clamp(y, lastGapY - 210, lastGapY + 210);
     y = clamp(y, minY, maxY);
     lastGapY = y;
-    cols.push({ x, gapY: y, gap, passed: false, food: Math.random() < 0.85, eaten: false, bob: Math.random() * 6 });
+    const ch = selectedChar();
+    let food = Math.random() < 0.85, kind = "empanada";
+    if (pendingSpecial && ch.special) { kind = ch.special; food = true; pendingSpecial = false; }
+    else if (ch.kind === "dog") kind = DOG_FOODS[Math.floor(Math.random() * DOG_FOODS.length)];
+    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6 });
+  }
+
+  function collectSpecial(kind, x, y) {
+    const sp = SPECIALS[kind];
+    addScore(5, x, y - 20);
+    floaters.push({ x, y: y - 52, txt: sp.label, t: 0, size: 22, color: "#fff" });
+    burst(x, y, sp.colors, 22, 170);
+    vibrate(kind === "camara" ? [10, 40, 10] : 20);
+    if (kind === "camara") { photoPending = true; snd.shutter(); }
+    else if (kind === "vino") snd.cork();
+    else snd.tequila();
   }
 
   function addScore(n, x, y) {
@@ -440,6 +556,7 @@
 
   function crash() {
     if (state !== STATE.PLAY) return;
+    if (window.elsPanetsPrueba && window.elsPanetsPrueba.inmortal) return;
     snd.hit();
     snd.fall();
     vibrate([40, 30, 60]);
@@ -534,8 +651,8 @@
       next: { x: cx + 118, y: LH * 0.31, r: 22 },
       play: { x: cx - 100, y: LH * 0.45, w: 200, h: 64 },
       cardY: LH * 0.45 + 82,
-      portraits: CHARACTERS.map((c, i) => { const st = Math.min(46, 266 / CHARACTERS.length); return { i, x: cx - (CHARACTERS.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 56, r: Math.min(19, st / 2 - 3) }; }),
-      skins: SKINS.map((s, i) => ({ i, x: cx - 66 + i * 44, y: LH * 0.45 + 82 + 128, r: 16 })),
+      portraits: CHARACTERS.map((c, i) => { const st = Math.min(46, 266 / CHARACTERS.length); return { i, x: cx - (CHARACTERS.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 50, r: Math.min(19, st / 2 - 3) }; }),
+      outfits: OUTFIT_PTS.map((p, i) => ({ i, x: cx - 75 + i * 50, y: LH * 0.45 + 82 + 118, r: 18 })),
       overCard: { x: cx - 160, y: overCardY, w: 320, h: 240 },
       again: { x: cx - 150, y: overCardY + 262, w: 160, h: 58 },
       home: { x: cx + 20, y: overCardY + 262, w: 130, h: 58 },
@@ -565,12 +682,10 @@
         for (const c of u.portraits) {
           if (inCircle(p, { x: c.x, y: c.y, r: c.r - 3 })) { viewChar(c.i); snd.click(); return; }
         }
-        if (CHARACTERS[viewIndex].id === "presi") {
-          for (const s of u.skins) {
-            if (inCircle(p, { x: s.x, y: s.y, r: s.r - 3 })) {
-              if (skinUnlocked(s.i)) { skinIndex = s.i; store.set(SKIN_KEY, s.i); snd.click(); }
-              return;
-            }
+        for (const o of u.outfits) {
+          if (inCircle(p, { x: o.x, y: o.y, r: o.r - 3 })) {
+            if (charUnlocked(viewIndex) && outfitUnlocked(o.i)) { store.set(outfitKey(CHARACTERS[viewIndex].id), o.i); snd.click(); }
+            return;
           }
         }
         if (inRect(p, u.play) && charUnlocked(viewIndex)) { snd.click(); goReady(); }
@@ -685,12 +800,14 @@
         const fx = c.x + COL_W / 2, fy = c.gapY + c.gap / 2 + Math.sin(c.bob) * 5;
         if ((hx - fx) ** 2 + (hy - fy) ** 2 < (hr + 15) ** 2) {
           c.eaten = true;
-          eaten++;
           player.eatT = 0.3;
+          if (SPECIALS[c.kind]) { collectSpecial(c.kind, fx, fy); continue; }
+          eaten++;
           addScore(3, fx, fy - 20);
           snd.eat();
           vibrate(12);
           burst(fx, fy, ["#f2a93b", "#c96d16", "#ffe2a0"], 14, 130);
+          if (selectedChar().special && eaten % SPECIAL_EVERY === 0) pendingSpecial = true;
         }
       }
     }
@@ -1029,6 +1146,232 @@
     ctx.restore();
   }
 
+  // ---------- Objetos especiales y comidas de Rim ----------
+  function drawFood(kind, x, y, rot, size, glow) {
+    if (kind === "empanada" || !kind) { drawEmpanada(x, y, rot, size, glow); return; }
+    const special = !!SPECIALS[kind];
+    ctx.save();
+    ctx.translate(x, y);
+    if (glow) {
+      const r = special ? 40 : 32;
+      const h = ctx.createRadialGradient(0, 2, 6, 0, 2, r);
+      h.addColorStop(0, special ? "rgba(255,226,120,0.75)" : "rgba(255,240,180,0.55)");
+      h.addColorStop(1, "rgba(255,240,180,0)");
+      ctx.fillStyle = h;
+      ctx.beginPath(); ctx.arc(0, 2, r, 0, Math.PI * 2); ctx.fill();
+      if (special) {
+        // rayos de luz que giran despacio
+        ctx.save();
+        ctx.rotate(worldT * 0.8);
+        ctx.fillStyle = "rgba(255,236,150,0.35)";
+        for (let i = 0; i < 8; i++) {
+          ctx.rotate(Math.PI / 4);
+          ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(3, 0); ctx.lineTo(0, 38); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+    ctx.rotate(Math.sin(rot * 0.5) * 0.15);
+    ctx.scale(size || 1, size || 1);
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.strokeStyle = OL; ctx.lineWidth = 2;
+    const shine = (x1, y1, x2, y2) => {
+      ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.strokeStyle = OL; ctx.lineWidth = 2;
+    };
+    switch (kind) {
+      case "vino": {
+        ctx.rotate(0.25);
+        const g = ctx.createLinearGradient(-8, 0, 8, 0);
+        g.addColorStop(0, "#143a22"); g.addColorStop(0.45, "#2f7a48"); g.addColorStop(1, "#102e1b");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(-3, -22); ctx.lineTo(3, -22); ctx.lineTo(3, -12);
+        ctx.quadraticCurveTo(8, -10, 8, -4); ctx.lineTo(8, 18); ctx.quadraticCurveTo(8, 21, 5, 21);
+        ctx.lineTo(-5, 21); ctx.quadraticCurveTo(-8, 21, -8, 18); ctx.lineTo(-8, -4);
+        ctx.quadraticCurveTo(-8, -10, -3, -12); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#7b1e3a";
+        roundRect(-3.8, -24, 7.6, 8, 1.5); ctx.fill(); ctx.lineWidth = 1.4; ctx.stroke();
+        ctx.fillStyle = "#f3e6c8";
+        roundRect(-6.5, 1, 13, 12, 2); ctx.fill();
+        ctx.strokeStyle = "#7b1e3a"; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = "#6a1b4d";
+        for (const [gx, gy] of [[-1.6, 5], [1.6, 5], [0, 7.6], [-1.6, 3], [1.6, 3], [0, 9.8]]) {
+          ctx.beginPath(); ctx.arc(gx, gy + 0.5, 1.3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.strokeStyle = OL;
+        shine(-5, -3, -5, 16);
+        break;
+      }
+      case "tequila": {
+        // botella de cristal con tequila dorado, tapón de corcho y limón
+        ctx.fillStyle = "rgba(215,240,235,0.9)";
+        roundRect(-3.8, -14, 7.6, 10, 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#b07a45";
+        roundRect(-4.8, -21, 9.6, 8, 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgba(215,240,235,0.9)";
+        roundRect(-10, -6, 20, 27, 5); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#e8a93a";
+        roundRect(-8, 1, 16, 18, 4); ctx.fill();
+        ctx.fillStyle = "#fff8ec";
+        roundRect(-8, 5, 16, 10, 1.5); ctx.fill();
+        ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 1; ctx.stroke();
+        // agave
+        ctx.fillStyle = "#3f8f4a";
+        for (const a of [-0.7, -0.35, 0, 0.35, 0.7]) {
+          ctx.save(); ctx.translate(0, 13.5); ctx.rotate(a);
+          ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(0, -7); ctx.lineTo(1, 0); ctx.closePath(); ctx.fill();
+          ctx.restore();
+        }
+        ctx.strokeStyle = OL; ctx.lineWidth = 2;
+        roundRect(-10, -6, 20, 27, 5); ctx.stroke();
+        shine(-7, -2, -7, 17);
+        // rodaja de limón
+        ctx.fillStyle = "#7cc243";
+        ctx.beginPath(); ctx.arc(12, 16, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#d8f0a0";
+        ctx.beginPath(); ctx.arc(12, 16, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#7cc243"; ctx.lineWidth = 0.9;
+        for (let i = 0; i < 6; i++) {
+          const a = (i * Math.PI) / 3;
+          ctx.beginPath(); ctx.moveTo(12, 16); ctx.lineTo(12 + Math.cos(a) * 4, 16 + Math.sin(a) * 4); ctx.stroke();
+        }
+        break;
+      }
+      case "camara": {
+        ctx.fillStyle = "#2b2d33";
+        roundRect(-8, -15, 13, 7, 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#2b2d33";
+        roundRect(-18, -10, 36, 24, 5); ctx.fill();
+        ctx.fillStyle = "#c7ccd4";
+        ctx.fillRect(-17, -9, 34, 6);
+        ctx.strokeStyle = OL; ctx.lineWidth = 2;
+        roundRect(-18, -10, 36, 24, 5); ctx.stroke();
+        ctx.fillStyle = "#fffbe0";
+        roundRect(9, -8, 6, 4, 1); ctx.fill();
+        ctx.fillStyle = "#d63a32";
+        ctx.beginPath(); ctx.arc(-13, -12, 2.4, 0, Math.PI * 2); ctx.fill(); ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = "#9aa3ad";
+        ctx.beginPath(); ctx.arc(0, 3, 9, 0, Math.PI * 2); ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+        const lg = ctx.createRadialGradient(-2, 1, 1, 0, 3, 6.5);
+        lg.addColorStop(0, "#5a7bb0"); lg.addColorStop(1, "#101a2c");
+        ctx.fillStyle = lg;
+        ctx.beginPath(); ctx.arc(0, 3, 6.3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.beginPath(); ctx.arc(-2.2, 0.8, 1.6, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case "jamon": {
+        ctx.rotate(-0.45);
+        const g = ctx.createLinearGradient(0, -12, 0, 12);
+        g.addColorStop(0, "#b8673a"); g.addColorStop(1, "#7a3a1c");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(-17, 0);
+        ctx.bezierCurveTo(-17, -13, -1, -13, 7, -4.5);
+        ctx.lineTo(13, -3); ctx.lineTo(13, 3); ctx.lineTo(7, 4.5);
+        ctx.bezierCurveTo(-1, 13, -17, 13, -17, 0);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // corte: carne roja con vetas de grasa
+        ctx.fillStyle = "#d9505a";
+        ctx.beginPath(); ctx.ellipse(-13, 0, 4.5, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#fbe3d6"; ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.moveTo(-15, -5); ctx.quadraticCurveTo(-12, -2, -14, 2); ctx.moveTo(-12, 3); ctx.quadraticCurveTo(-11, 6, -13, 7); ctx.stroke();
+        ctx.strokeStyle = OL; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(-13, 0, 4.5, 9, 0, 0, Math.PI * 2); ctx.stroke();
+        // pezuña
+        ctx.fillStyle = "#3b2414";
+        roundRect(13, -3.5, 7, 7, 2); ctx.fill(); ctx.stroke();
+        shine(-6, -7, 3, -4);
+        break;
+      }
+      case "queso": {
+        ctx.fillStyle = "#f6c443";
+        ctx.beginPath(); ctx.moveTo(-16, 12); ctx.lineTo(-16, 2); ctx.lineTo(16, -8); ctx.lineTo(16, 12); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ffe08a";
+        ctx.beginPath(); ctx.moveTo(-16, 2); ctx.lineTo(16, -8); ctx.lineTo(11, -12); ctx.lineTo(-19, -1); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#d9a21b";
+        for (const [hx2, hy2, r] of [[-8, 7, 2.5], [3, 3, 3], [10, 8, 2], [-1, 9.5, 1.6], [9, -1, 1.5]]) {
+          ctx.beginPath(); ctx.ellipse(hx2, hy2, r, r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        break;
+      }
+      case "huevo": {
+        ctx.fillStyle = "#fffdf6";
+        ctx.beginPath();
+        ctx.moveTo(-15, 0);
+        ctx.bezierCurveTo(-17, -10, -5, -14, 2, -12);
+        ctx.bezierCurveTo(12, -14, 18, -6, 15, 2);
+        ctx.bezierCurveTo(17, 10, 6, 14, -2, 12);
+        ctx.bezierCurveTo(-11, 13, -14, 7, -15, 0);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        const yg = ctx.createRadialGradient(0, -2, 1, 1, 0, 7);
+        yg.addColorStop(0, "#ffe066"); yg.addColorStop(1, "#f59e0b");
+        ctx.fillStyle = yg;
+        ctx.beginPath(); ctx.arc(1, 0, 6.5, 0, Math.PI * 2); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.75)";
+        ctx.beginPath(); ctx.arc(-1.5, -2.5, 1.8, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case "salchicha": {
+        ctx.lineWidth = 12;
+        ctx.beginPath(); ctx.arc(0, 14, 16, Math.PI * 1.2, Math.PI * 1.8); ctx.stroke();
+        ctx.strokeStyle = "#c8553d"; ctx.lineWidth = 8.5;
+        ctx.beginPath(); ctx.arc(0, 14, 16, Math.PI * 1.2, Math.PI * 1.8); ctx.stroke();
+        ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        for (let i = 0; i <= 8; i++) {
+          const a = Math.PI * (1.27 + i * 0.058), r = 16 + (i % 2 ? 1.6 : -1.6);
+          ctx.lineTo(Math.cos(a) * r, 14 + Math.sin(a) * r);
+        }
+        ctx.stroke();
+        break;
+      }
+      case "pollo": {
+        ctx.rotate(-0.5);
+        ctx.fillStyle = "#f6efe0";
+        roundRect(5, -2.2, 10, 4.4, 2); ctx.fill(); ctx.stroke();
+        for (const by of [-3, 3]) { ctx.beginPath(); ctx.arc(16, by, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+        const g = ctx.createRadialGradient(-6, -4, 2, -4, 0, 14);
+        g.addColorStop(0, "#e9a050"); g.addColorStop(1, "#a85a1f");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.ellipse(-5, 0, 13, 10, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        shine(-11, -5, -4, -7);
+        break;
+      }
+      case "pizza": {
+        ctx.fillStyle = "#ffd36b";
+        ctx.beginPath(); ctx.moveTo(0, 16); ctx.lineTo(-14, -9); ctx.quadraticCurveTo(0, -15, 14, -9); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#d9963a";
+        ctx.beginPath(); ctx.moveTo(-14, -9); ctx.quadraticCurveTo(0, -15, 14, -9); ctx.lineTo(13, -13); ctx.quadraticCurveTo(0, -19, -13, -13); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#c0392b";
+        for (const [px2, py2] of [[-4, -5], [5, -4], [0, 4]]) { ctx.beginPath(); ctx.arc(px2, py2, 3, 0, Math.PI * 2); ctx.fill(); }
+        break;
+      }
+      case "hueso": {
+        ctx.rotate(-0.3);
+        ctx.fillStyle = "#f3ead6";
+        ctx.beginPath();
+        ctx.arc(-12, -4, 5, Math.PI * 0.5, Math.PI * 1.9);
+        ctx.arc(12, -4, 5, Math.PI * 1.1, Math.PI * 2.5);
+        ctx.arc(12, 4, 5, Math.PI * 1.5, Math.PI * 0.9);
+        ctx.arc(-12, 4, 5, Math.PI * 0.1, Math.PI * 1.5);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        break;
+      }
+    }
+    ctx.restore();
+  }
+  // el icono del contador: Rim cuenta comida, los demás empanadillas
+  const counterFood = () => (selectedChar().kind === "dog" ? "jamon" : "empanada");
+
   // ---------- Personaje: el presidente con traje ----------
   const OL = "#2a1c14", SKIN = "#f0a86a", SKIN_D = "#d98b4e", HAIR = "#f6cf4e", HAIR_D = "#d9a92a";
 
@@ -1165,7 +1508,7 @@
   // ---------- Los personajes de la foto, con el mismo estilo ----------
   function drawChar(def, px, py, rot, flapPh, scale, mood) {
     if (def.kind === "human") drawHuman(def, px, py, rot, flapPh, scale, mood);
-    else if (def.kind === "dog") drawDog(px, py, rot, flapPh, scale, mood);
+    else if (def.kind === "dog") drawDog(px, py, rot, flapPh, scale, mood, def);
     else drawPlayer(px, py, rot, flapPh, currentSkin(), scale, mood);
   }
 
@@ -1217,8 +1560,11 @@
     }
 
     const sleeve = d.top === "tank" ? 0 : d.top === "polo" || d.top === "tee" ? 0.45 : 1;
-    const light = d.topColor === "#f8f8f6" || d.topColor === "#fbfbfb";
+    const [tr, tg, tb] = hexToRgb(d.topColor);
+    const lum = 0.3 * tr + 0.59 * tg + 0.11 * tb;
+    const light = lum > 225;
     const topD = darken(d.topColor, light ? 0.12 : 0.3);
+    const trim = lum < 50 ? lighten(d.topColor, 0.1) : darken(d.topColor, 0.2); // cuellos y costuras
     humanArm(-6, -1, -2.3 + sw * 0.9, topD, sleeve, false);
 
     // tronco
@@ -1258,31 +1604,31 @@
     }
     if (d.top === "longsleeve") {
       // cuello alto con media cremallera
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = light ? "#ffffff" : lighten(d.topColor, 0.12);
       ctx.beginPath(); ctx.moveTo(-5, -9); ctx.lineTo(5, -9); ctx.lineTo(4, -5); ctx.lineTo(-4, -5); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = "#c9c9c4"; ctx.lineWidth = 1; ctx.stroke();
-      ctx.strokeStyle = "#b5b5b0"; ctx.lineWidth = 1.2;
+      ctx.strokeStyle = light ? "#c9c9c4" : trim; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = light ? "#b5b5b0" : trim; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, 2); ctx.stroke();
       ctx.fillStyle = "#9a9a95"; ctx.fillRect(-1, 1, 2, 2.5);
     } else if (d.top === "polo") {
-      ctx.fillStyle = "#2c2c31";
+      ctx.fillStyle = lum < 50 ? "#2c2c31" : trim;
       ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(0, -5); ctx.lineTo(-3, -1); ctx.closePath(); ctx.fill();
       ctx.beginPath(); ctx.moveTo(6, -9); ctx.lineTo(0, -5); ctx.lineTo(3, -1); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = "#45454c"; ctx.lineWidth = 1;
+      ctx.strokeStyle = lum < 50 ? "#45454c" : darken(d.topColor, 0.3); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 4); ctx.stroke();
-      ctx.fillStyle = "#55555c";
+      ctx.fillStyle = lum < 50 ? "#55555c" : darken(d.topColor, 0.35);
       for (const by of [-2, 1.5]) { ctx.beginPath(); ctx.arc(0.8, by, 0.8, 0, Math.PI * 2); ctx.fill(); }
     } else if (d.top === "jacket") {
       // chaqueta de cremallera con cuello alto, camiseta negra debajo y bolsillos
-      ctx.fillStyle = "#2a2b31";
+      ctx.fillStyle = lighten(d.topColor, 0.05);
       roundRect(-7, -11, 14, 6, 2); ctx.fill();
       ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.fillStyle = "#121215";
       ctx.beginPath(); ctx.moveTo(-3, -11); ctx.lineTo(3, -11); ctx.lineTo(0, -7); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = "#55565e"; ctx.lineWidth = 1.2;
+      ctx.strokeStyle = lum < 50 ? "#55565e" : darken(d.topColor, 0.3); ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, 15); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-9, 6); ctx.lineTo(-4, 4); ctx.moveTo(9, 6); ctx.lineTo(4, 4); ctx.stroke();
-      ctx.fillStyle = "#2c2d33"; ctx.fillRect(-11, 11, 22, 3.5);
+      ctx.fillStyle = lum < 50 ? "#2c2d33" : darken(d.topColor, 0.15); ctx.fillRect(-11, 11, 22, 3.5);
     }
 
     humanArm(4, -1, -2.0 - sw * 0.9, d.topColor, sleeve, !!(d.watch || d.band));
@@ -1444,9 +1790,92 @@
       ctx.beginPath(); ctx.moveTo(cx - 3.2, my - 0.4); ctx.quadraticCurveTo(cx, my + (d.smile === "neutral" ? 0.6 : 1.4), cx + 3.2, my - 0.6); ctx.stroke();
     }
 
-    // pelo por delante
+    // pelo por delante, y encima gafas y sombrero si los lleva
     drawHairFront();
+    if (d.glasses && mood !== "dead") drawGlasses();
+    if (d.hat) drawHat(d.hat);
     ctx.restore();
+
+    function drawGlasses() {
+      const L = fx - F.rx;
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cx - 8.6, ey - 1.4); ctx.lineTo(L - 0.5, ey - 2.2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - 1.4, ey - 1.6); ctx.quadraticCurveTo(cx, ey - 2.6, cx + 1.4, ey - 1.6); ctx.stroke();
+      for (const ex of [cx - 5, cx + 5]) {
+        ctx.fillStyle = "#1b1c22";
+        roundRect(ex - 3.9, ey - 2.8, 7.8, 5.4, 2.4); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.moveTo(ex - 2.2, ey - 1.5); ctx.lineTo(ex - 0.6, ey - 1.5); ctx.stroke();
+      }
+    }
+
+    function drawHat(h) {
+      const top = hy - F.ry - 3.5, L = fx - F.rx, R = fx + F.rx;
+      const c = h.color;
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+      if (h.type === "cap" || h.type === "beanie") {
+        const by = hy - F.ry * 0.48; // donde acaba por delante, sobre las cejas
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        ctx.moveTo(L - 2, by);
+        ctx.quadraticCurveTo(L - 2.5, top - (h.type === "beanie" ? 7 : 4), fx, top - (h.type === "beanie" ? 7 : 4));
+        ctx.quadraticCurveTo(R + 2.5, top - (h.type === "beanie" ? 7 : 4), R + 2, by);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        if (h.type === "cap") {
+          // visera hacia donde vuela
+          ctx.fillStyle = darken(c, 0.18);
+          ctx.beginPath();
+          ctx.moveTo(R - 5, by - 1.2); ctx.quadraticCurveTo(R + 8, by - 2.5, R + 11, by + 1.5);
+          ctx.quadraticCurveTo(R + 3, by + 2.8, R - 5, by + 1.2); ctx.closePath();
+          ctx.fill(); ctx.stroke();
+          ctx.strokeStyle = darken(c, 0.25); ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(fx, top - 4); ctx.quadraticCurveTo(fx + 3, by - 6, fx + 2, by); ctx.stroke();
+          ctx.fillStyle = darken(c, 0.2);
+          ctx.beginPath(); ctx.arc(fx, top - 4, 1.4, 0, Math.PI * 2); ctx.fill();
+        } else {
+          // gorro de lana: vuelta doblada y canalé
+          ctx.fillStyle = darken(c, 0.08);
+          roundRect(L - 2.5, by - 4.5, R - L + 5, 5, 2); ctx.fill(); ctx.stroke();
+          ctx.strokeStyle = darken(c, 0.2); ctx.lineWidth = 0.8;
+          for (let x = L; x <= R; x += 2.5) { ctx.beginPath(); ctx.moveTo(x, by - 3.8); ctx.lineTo(x, by - 0.6); ctx.stroke(); }
+          ctx.fillStyle = c; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(fx, top - 8.5, 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+      } else if (h.type === "beret") {
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.ellipse(fx - 1.5, top + 0.5, F.rx + 3.5, 4.8, -0.18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = darken(c, 0.2);
+        ctx.beginPath(); ctx.ellipse(fx - 1, top + 3.2, F.rx + 1, 1.6, -0.18, 0, Math.PI); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(fx - 2.5, top - 4); ctx.lineTo(fx - 2, top - 6.5); ctx.stroke();
+      } else if (h.type === "sunhat" || h.type === "sombrero") {
+        const big = h.type === "sombrero";
+        const brimY = top + (big ? 2 : 3.5), brimR = F.rx + (big ? 18 : 11);
+        // ala de atrás, copa y ala de delante
+        ctx.fillStyle = darken(c, 0.12);
+        ctx.beginPath(); ctx.ellipse(fx, brimY, brimR, big ? 5 : 3.8, 0, Math.PI, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = c;
+        const cw = big ? 8 : F.rx - 1, chh = big ? 14 : 8;
+        ctx.beginPath();
+        ctx.moveTo(fx - cw, brimY);
+        ctx.quadraticCurveTo(fx - cw - 1, brimY - chh, fx, brimY - chh);
+        ctx.quadraticCurveTo(fx + cw + 1, brimY - chh, fx + cw, brimY);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = big ? "#c0392b" : "#3b2a20";
+        ctx.fillRect(fx - cw - 0.2, brimY - (big ? 4.5 : 3), cw * 2 + 0.4, big ? 3.2 : 2.2);
+        if (big) {
+          ctx.fillStyle = "#2e8b57";
+          for (let x = fx - cw + 1.5; x < fx + cw - 1; x += 3.5) { ctx.beginPath(); ctx.arc(x, brimY - 2.9, 0.9, 0, Math.PI * 2); ctx.fill(); }
+        }
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.ellipse(fx, brimY, brimR, big ? 5 : 3.8, 0, 0, Math.PI); ctx.fill(); ctx.stroke();
+        if (big) {
+          ctx.strokeStyle = darken(c, 0.25); ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.ellipse(fx, brimY + 0.5, brimR - 3, 3.2, 0, 0.2, Math.PI - 0.2); ctx.stroke();
+        }
+      }
+    }
 
     function drawHairFront() {
       ctx.strokeStyle = OL; ctx.lineWidth = 2;
@@ -1586,7 +2015,8 @@
   }
 
   // Pastor alemán: rema con las patas, mueve las orejas y la cola
-  function drawDog(px, py, rot, flapPh, scale, mood) {
+  function drawDog(px, py, rot, flapPh, scale, mood, d) {
+    d = d || {};
     const TAN = "#c98f4f", TAN_L = "#e2b277", BLACK = "#2b211b";
     ctx.save();
     ctx.translate(px, py);
@@ -1692,6 +2122,44 @@
       ctx.beginPath(); ctx.arc(hx + 4.8, hy - 3, 0.9, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = TAN_L;
       ctx.beginPath(); ctx.arc(hx + 3, hy - 6.2, 1.3, 0, Math.PI * 2); ctx.fill();
+    }
+    // complementos
+    if (d.bandana) {
+      ctx.fillStyle = d.bandana;
+      ctx.beginPath(); ctx.moveTo(2, -2); ctx.quadraticCurveTo(9, 1, 17, -1); ctx.lineTo(9, 10); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      for (const [bx, by] of [[6, 1], [11, 1.5], [9, 5], [13, -0.5]]) { ctx.beginPath(); ctx.arc(bx, by, 0.9, 0, Math.PI * 2); ctx.fill(); }
+    }
+    if (d.collar) {
+      ctx.strokeStyle = OL; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(3, -2); ctx.quadraticCurveTo(9, 2, 16, -1); ctx.stroke();
+      ctx.strokeStyle = d.collar; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(3, -2); ctx.quadraticCurveTo(9, 2, 16, -1); ctx.stroke();
+      ctx.fillStyle = "#f2c94c";
+      ctx.beginPath(); ctx.arc(9.5, 4, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.1; ctx.stroke();
+    }
+    if (d.glasses && mood !== "dead") {
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(hx + 0.5, hy - 2.5); ctx.lineTo(hx - 6, hy - 3.5); ctx.stroke();
+      ctx.fillStyle = "#1b1c22";
+      roundRect(hx + 0.6, hy - 5.2, 7.6, 5.6, 2.4); ctx.fill();
+      ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.moveTo(hx + 2, hy - 3.8); ctx.lineTo(hx + 3.8, hy - 3.8); ctx.stroke();
+    }
+    if (d.hat) {
+      const c = d.hat.color;
+      ctx.fillStyle = c; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(hx - 8, hy - 6);
+      ctx.quadraticCurveTo(hx - 8, hy - 16, hx, hy - 16);
+      ctx.quadraticCurveTo(hx + 8, hy - 16, hx + 8, hy - 6);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = darken(c, 0.18);
+      ctx.beginPath(); ctx.moveTo(hx + 4, hy - 7); ctx.quadraticCurveTo(hx + 13, hy - 8, hx + 16, hy - 4.5);
+      ctx.quadraticCurveTo(hx + 9, hy - 3.5, hx + 4, hy - 5); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
     ctx.restore();
 
@@ -1799,11 +2267,12 @@
     const u = ui();
     const def = CHARACTERS[viewIndex], open = charUnlocked(viewIndex);
     title(LH * 0.12);
-    text("¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, 19, "#fff", "#3b2414", 5);
+    // la historia del personaje que se mira
+    text(def.story || "¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, def.story ? 17 : 19, "#fff", "#3b2414", 5);
 
-    // personaje que se mira, en grande (bloqueado: apagado y con candado)
+    // personaje que se mira, en grande y con su ropa (bloqueado: apagado y con candado)
     ctx.globalAlpha = open ? 1 : 0.35;
-    drawChar(def, player.x, player.y, 0, player.flap, 1.6);
+    drawChar(dressed(def), player.x, player.y, 0, player.flap, 1.6);
     ctx.globalAlpha = 1;
     if (!open) drawLock(player.x, player.y - 6, 1.6);
     roundIcon(u.prev, () => chevron(-1));
@@ -1825,10 +2294,10 @@
     ctx.globalAlpha = 1;
     ctx.restore();
 
-    // tarjeta de personajes (y trajes si es el presidente)
-    const isPresi = def.id === "presi";
-    card(LW / 2 - 140, u.cardY, 280, isPresi ? 152 : 100);
-    text("PERSONAJES", LW / 2, u.cardY + 18, 15, "#8a5a2b");
+    // tarjeta de personajes, su ropa y su objeto especial
+    const CARD_H = 172;
+    card(LW / 2 - 140, u.cardY, 280, CARD_H);
+    text("PERSONAJES", LW / 2, u.cardY + 16, 15, "#8a5a2b");
     for (const c of u.portraits) {
       const cdef = CHARACTERS[c.i], cOpen = charUnlocked(c.i), viewing = c.i === viewIndex;
       ctx.fillStyle = viewing ? "#ffd23f" : "#efe4d0";
@@ -1837,37 +2306,41 @@
       ctx.save();
       ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); ctx.clip();
       ctx.globalAlpha = cOpen ? 1 : 0.3;
-      if (cdef.kind === "dog") drawDog(c.x - 10, c.y + 8, 0, 1, 0.85, "");
-      else drawChar(cdef, c.x - 3, c.y + 14, 0, 1, 0.9, "");
+      if (cdef.kind === "dog") drawDog(c.x - 10, c.y + 8, 0, 1, 0.85, "", dressed(cdef));
+      else drawChar(dressed(cdef), c.x - 3, c.y + 14, 0, 1, 0.9, "");
       ctx.restore();
       if (!cOpen) {
         drawLock(c.x, c.y - 2, 0.75);
-        text(String(cdef.unlock), c.x, c.y + c.r + 12, 13, "#9a8566");
-      }
-    }
-    if (isPresi) {
-      text("TRAJE", LW / 2, u.skins[0].y - 26, 13, "#8a5a2b");
-      for (const s of u.skins) {
-        const skin = SKINS[s.i], sOpen = skinUnlocked(s.i), sel = sOpen && s.i === skinIndex;
-        ctx.fillStyle = sOpen ? skin.suit : "#e2d6bf";
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = sel ? "#f59e0b" : "#cdbb9c"; ctx.lineWidth = sel ? 4 : 2; ctx.stroke();
-        if (sOpen && skin.type !== "golf") {
-          ctx.fillStyle = "#fff";
-          ctx.beginPath(); ctx.moveTo(s.x - 5, s.y - s.r + 3); ctx.lineTo(s.x + 5, s.y - s.r + 3); ctx.lineTo(s.x, s.y + 3); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = skin.type === "tuxedo" ? "#111" : skin.tie;
-          ctx.fillRect(s.x - 1.5, s.y - s.r + 5, 3, 10);
-        } else if (sOpen) {
-          ctx.fillStyle = skin.cap;
-          ctx.beginPath(); ctx.arc(s.x, s.y, 7, Math.PI, 0); ctx.fill();
-        } else {
-          drawLock(s.x, s.y - 1, 0.55);
-        }
+        text(String(cdef.unlock), c.x, c.y + c.r + 11, 12, "#9a8566");
       }
     }
 
+    // ropa: cuatro conjuntos con el personaje en miniatura
+    const selO = outfitIndex(def);
+    text("ROPA · " + def.outfits[selO].name, LW / 2, u.outfits[0].y - 29, 14, "#8a5a2b");
+    for (const o of u.outfits) {
+      const oOpen = open && outfitUnlocked(o.i), sel = open && o.i === selO;
+      ctx.fillStyle = sel ? "#ffd23f" : "#efe4d0";
+      ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = sel ? "#b45309" : "#cdbb9c"; ctx.lineWidth = sel ? 3 : 2; ctx.stroke();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.clip();
+      ctx.globalAlpha = oOpen ? 1 : 0.28;
+      const look = dressed(def, o.i);
+      if (def.kind === "dog") drawDog(o.x - 10, o.y + 9, 0, 1, 0.82, "", look);
+      else drawChar(look, o.x - 3, o.y + 15, 0, 1, 0.85, "");
+      ctx.restore();
+      if (open && !outfitUnlocked(o.i)) {
+        drawLock(o.x, o.y - 5, 0.6);
+        text(String(OUTFIT_PTS[o.i]), o.x, o.y + 10, 12, "#7a6548");
+      }
+    }
+    // lo que tiene de especial
+    if (def.power) text(def.power, LW / 2, u.cardY + CARD_H - 16, 14, "#b45309");
+    else text("Ropa nueva a los 50, 100 y 150 puntos", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
+
     // mejor puntuación
-    const by = u.cardY + (isPresi ? 152 : 100) + 32;
+    const by = u.cardY + CARD_H + 30;
     ctx.fillStyle = "rgba(40,24,12,0.55)";
     roundRect(LW / 2 - 100, by - 18, 200, 36, 18); ctx.fill();
     ctx.save(); ctx.translate(LW / 2 - 76, by + 1); ctx.scale(0.8, 0.8); iconTrophy(); ctx.restore();
@@ -1892,8 +2365,14 @@
     ctx.fillStyle = "#fff"; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2.5;
     roundRect(x - 6, y - 4, 12, 30, 6); ctx.fill(); ctx.stroke();
     roundRect(x - 13, y + 14, 26, 24, 10); ctx.fill(); ctx.stroke();
-    drawEmpanada(LW / 2 + 70, LH * 0.62, worldT * 3, 1, true);
+    drawFood(counterFood(), LW / 2 + 70, LH * 0.62, worldT * 3, 1, true);
     text("= +3", LW / 2 + 70, LH * 0.62 + 36, 18, "#fff", "#3b2414", 5);
+    const sp = selectedChar().special;
+    if (sp) {
+      drawFood(sp, LW / 2 - 70, LH * 0.62, worldT * 3, 0.9, true);
+      text("= +5", LW / 2 - 70, LH * 0.62 + 36, 18, "#fff", "#3b2414", 5);
+      text("cada 25", LW / 2 - 70, LH * 0.62 + 56, 14, "#ffe7a3", "#3b2414", 4);
+    }
   }
 
   function drawScoreHud() {
@@ -1906,7 +2385,7 @@
     // contador de empanadillas y reloj del día en el mismo cartel
     ctx.fillStyle = "rgba(40,24,12,0.5)";
     roundRect(LW / 2 - 74, 112, 148, 30, 15); ctx.fill();
-    drawEmpanada(LW / 2 - 52, 124, 0, 0.62);
+    drawFood(counterFood(), LW / 2 - 52, 124, 0, 0.62);
     text("x " + eaten, LW / 2 - 18, 128, 19, "#fff");
     ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(LW / 2 + 9, 118, 1.5, 18);
     text(clockText(hourFor(eaten)), LW / 2 + 42, 128, 19, "#ffe7a3");
@@ -1987,8 +2466,8 @@
     // empanadillas comidas
     ctx.fillStyle = "#f3e6cf";
     roundRect(c.x + 20, c.y + 186, c.w - 40, 38, 14); ctx.fill();
-    drawEmpanada(c.x + 52, c.y + 202, 0, 0.75);
-    text("Empanadillas comidas: " + eaten, c.x + 74, c.y + 206, 18, "#3b2414", null, 0, "left");
+    drawFood(counterFood(), c.x + 52, c.y + 202, 0, 0.75);
+    text((counterFood() === "jamon" ? "Comida: " : "Empanadillas comidas: ") + eaten, c.x + 74, c.y + 206, 18, "#3b2414", null, 0, "left");
 
     const ready = worldT >= pressLockUntil;
     ctx.globalAlpha = ready ? 1 : 0.6;
@@ -2017,7 +2496,7 @@
     drawHouses(pal);
     for (const c of cols) drawColumn(c, pal.night);
     for (const c of cols) {
-      if (c.food && !c.eaten) drawEmpanada(c.x + COL_W / 2, c.gapY + c.gap / 2 + Math.sin(c.bob) * 5, c.bob, 1, true);
+      if (c.food && !c.eaten) drawFood(c.kind, c.x + COL_W / 2, c.gapY + c.gap / 2 + Math.sin(c.bob) * 5, c.bob, 1, true);
     }
     drawGround(pal);
 
@@ -2030,11 +2509,12 @@
 
     if (state !== STATE.START) {
       const dead = state === STATE.DYING || state === STATE.OVER || state === STATE.NAME;
-      drawChar(selectedChar(), player.x, player.y, player.rot, player.flap, PLAYER_SCALE, dead ? "dead" : "");
+      drawChar(dressed(selectedChar()), player.x, player.y, player.rot, player.flap, PLAYER_SCALE, dead ? "dead" : "");
     }
+    if (photoPending) takePhoto();
     for (const f of floaters) {
       ctx.globalAlpha = 1 - f.t / 0.9;
-      text(f.txt, f.x, f.y - f.t * 40, 26, "#ffd23f", "#5a2a06", 6);
+      text(f.txt, f.x, f.y - f.t * 40, f.size || 26, f.color || "#ffd23f", "#5a2a06", 6);
     }
     ctx.globalAlpha = 1;
 
@@ -2044,8 +2524,13 @@
     else if (state === STATE.OVER) drawOver();
     else if (state === STATE.PAUSE) { drawScoreHud(); drawPause(); }
 
+    drawPhoto();
     if (flashT > 0) {
       ctx.fillStyle = `rgba(255,255,255,${flashT * 0.45})`;
+      ctx.fillRect(0, 0, LW, LH);
+    }
+    if (camFlash > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(1, camFlash)})`;
       ctx.fillRect(0, 0, LW, LH);
     }
     const u = ui();
@@ -2053,10 +2538,60 @@
     if (state === STATE.START || state === STATE.OVER) roundIcon(u.rank, iconTrophy);
   }
 
+  // Copia un cuadrado de la pantalla alrededor del personaje (lo que tiene delante)
+  function takePhoto() {
+    photoPending = false;
+    const k = canvas.width / LW, side = 260;
+    const sx = clamp(player.x - 70, 0, LW - side), sy = clamp(player.y - side / 2, 0, LH - side);
+    const pc = photoCv.getContext("2d");
+    pc.drawImage(canvas, sx * k, sy * k, side * k, side * k, 0, 0, photoCv.width, photoCv.height);
+    photoStamp = clockText(skyHour);
+    photoT = 0;
+    camFlash = 1.15; // un poco más de 1: el blanco total dura un instante
+  }
+
+  // La foto: sale grande en el centro, se queda un momento y vuela a la esquina
+  function drawPhoto() {
+    if (photoT < 0) return;
+    const t = photoT;
+    const fly = smooth(clamp((t - 0.55) / 0.45, 0, 1));
+    const pop = t < 0.14 ? lerp(0.82, 0.62, easeOut(t / 0.14)) : 0.62;
+    const s = lerp(pop, 0.16, fly);
+    const x = lerp(LW / 2, LW - 44, fly), y = lerp(LH * 0.4, 172, fly);
+    const rot = lerp(-0.06, 0.18, fly);
+    const W = LW * s, pad = W * 0.06, foot = W * 0.2, H = W + foot;
+    ctx.save();
+    ctx.globalAlpha = 1 - clamp((t - 1.15) / 0.35, 0, 1);
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    roundRect(-W / 2 + 4, -H / 2 + 6, W, H, 4); ctx.fill();
+    ctx.fillStyle = "#fffdf7";
+    roundRect(-W / 2, -H / 2, W, H, 4); ctx.fill();
+    ctx.strokeStyle = "#d9cdb4"; ctx.lineWidth = 1; ctx.stroke();
+    const iw = W - pad * 2;
+    ctx.drawImage(photoCv, -iw / 2, -H / 2 + pad, iw, iw);
+    // al principio la foto se «revela»: sale de un blanco que se aclara
+    const dev = 1 - clamp(t / 0.5, 0, 1);
+    if (dev > 0) { ctx.fillStyle = `rgba(255,253,247,${dev * 0.85})`; ctx.fillRect(-iw / 2, -H / 2 + pad, iw, iw); }
+    if (W > 90) text("MJ · " + photoStamp, 0, H / 2 - foot / 2 - pad * 0.2, W * 0.075, "#7a5a3a");
+    ctx.restore();
+  }
+
   // Para revisar los personajes en grande: ?hoja
   const SHEET = new URLSearchParams(location.search).has("hoja");
   function drawSheet() {
     ctx.fillStyle = "#9fd6ea"; ctx.fillRect(0, 0, LW, LH);
+    // ?hoja=ropa: los 4 conjuntos de cada uno y, abajo, los objetos y comidas
+    if (new URLSearchParams(location.search).get("hoja") === "ropa") {
+      CHARACTERS.forEach((c, r) => {
+        for (let i = 0; i < 4; i++) drawChar(dressed(c, i), 60 + i * 92, 50 + r * 72, 0, 1, 1.25, "");
+      });
+      ["vino", "tequila", "camara", "jamon", "queso", "huevo", "salchicha", "pollo", "pizza", "hueso"].forEach((k, i) => {
+        drawFood(k, 30 + (i % 5) * 80, LH - 110 + Math.floor(i / 5) * 60, 0, 1, false);
+      });
+      return;
+    }
     CHARACTERS.forEach((c, i) => {
       const x = 100 + (i % 2) * 200, y = 130 + Math.floor(i / 2) * 230;
       drawChar(c, x, y, 0, player.flap, 3.3, "");
@@ -2064,12 +2599,26 @@
     });
   }
 
+  // Para probar sin jugar: ?prueba deja tocar la partida desde la consola
+  if (new URLSearchParams(location.search).has("prueba")) {
+    window.elsPanetsPrueba = {
+      especial: (k) => collectSpecial(k, player.x + 40, player.y),
+      comer: () => { const c = cols.find((c) => c.food && !c.eaten && c.x > player.x); if (c) { player.y = LH * 0.4; player.vy = -200; c.x = player.x - COL_W / 2; c.gapY = player.y - 5 - c.gap / 2; } },
+      estado: () => ({ state, score, eaten, pendingSpecial, photoT, kinds: cols.map((c) => c.kind) }),
+      volar: () => { player.y = LH * 0.4; player.vy = -200; },
+    };
+  }
+
   let last = 0, acc = 0;
   function loop(t) {
     const now = t / 1000;
     let dt = last ? now - last : 0;
     last = now;
-    acc += Math.min(dt, 0.25);
+    // mientras sale la foto, el juego va casi parado (como un instante congelado)
+    const slow = photoT >= 0 && photoT < 0.55 ? 0.12 : 1;
+    if (photoT >= 0) { photoT += Math.min(dt, 0.1); if (photoT > 1.5) photoT = -1; }
+    camFlash = Math.max(0, camFlash - Math.min(dt, 0.1) * 3.2);
+    acc += Math.min(dt, 0.25) * slow;
     let n = 0;
     while (acc >= STEP && n < 40) { update(STEP); acc -= STEP; n++; }
     skyHour += (hourFor(eaten) - skyHour) * Math.min(1, dt * 1.2);
