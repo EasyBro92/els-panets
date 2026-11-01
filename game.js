@@ -315,7 +315,7 @@
   ];
 
   // ---------- Historia, objeto especial y ropa de cada uno (01/11/2026) ----------
-  // special: cada 25 empanadillas sale ese objeto, que vale +5.
+  // special: cada 15 empanadillas sale ese objeto, que vale +5.
   // outfits: 4 conjuntos; se desbloquean con la mejor puntuación (OUTFIT_PTS).
   const HAT = (type, color) => ({ type, color });
   const EXTRA = {
@@ -326,13 +326,13 @@
       { name: "Rapado con barba", look: { hairStyle: "buzz", hair: "#4f4f4f", beard: { color: "#5a5a5a", alpha: 0.9, top: 4.5 }, top: "polo", topColor: "#b0b0b0", legs: "#5e5e5e" } },
       { name: "Gorra y gafas", look: { top: "tee", topColor: "#a3a3a3", glasses: true, hat: HAT("cap", "#6a6a6a") } },
     ] },
-    blanco: { story: "Fotógrafa: no se le escapa ni una foto.", power: "Cada 25 empanadillas: cámara, +5 y ¡foto!", special: "camara", outfits: [
+    blanco: { story: "Fotógrafa: no se le escapa ni una foto.", power: "Cada 15 empanadillas: cámara, +5 y ¡foto!", special: "camara", outfits: [
       { name: "De blanco", look: {} },
       { name: "Fotógrafa", look: { top: "tee", topColor: "#2b2b30", hat: HAT("beret", "#b3262e") } },
       { name: "Vaquera", look: { top: "jacket", topColor: "#4a74a8", legs: "#2f3b52" } },
       { name: "De fiesta", look: { top: "tank", topColor: "#d6336c", noLogo: true, glasses: true, necklace: "#e8c45a" } },
     ] },
-    deportista: { story: "Deportista de día, fiestera de noche.", power: "Cada 25 empanadillas: tequila, +5", special: "tequila", outfits: [
+    deportista: { story: "Deportista de día, fiestera de noche.", power: "Cada 15 empanadillas: tequila, +5", special: "tequila", outfits: [
       { name: "Deportista", look: {} },
       { name: "Running", look: { topColor: "#ff6fa5", legs: "#2b2d42", hat: HAT("cap", "#ff6fa5") } },
       { name: "Mexicana", look: { top: "tee", topColor: "#2e8b57", hat: HAT("sombrero", "#e9c46a") } },
@@ -350,7 +350,7 @@
       { name: "Coleta vaquera", look: { hairStyle: "ponytail", scrunchie: "#2a1c14", top: "jacket", topColor: "#5b7fae" } },
       { name: "Morena y moño", look: { hairStyle: "bun", hair: "#3a2a22", hairD: "#22170f", roots: null, top: "tee", topColor: "#f28cb1", necklace: null } },
     ] },
-    polo: { story: "Le pierden el buen vino y las sobremesas.", power: "Cada 25 empanadillas: vino, +5", special: "vino", outfits: [
+    polo: { story: "Le pierden el buen vino y las sobremesas.", power: "Cada 15 empanadillas: vino, +5", special: "vino", outfits: [
       { name: "Polo negro", look: {} },
       { name: "Polo blanco", look: { topColor: "#f4f4f2" } },
       { name: "Bodeguero", look: { topColor: "#7b1e3a", hat: HAT("beret", "#2a2a2e") } },
@@ -480,7 +480,7 @@
   let pressLockUntil = 0;
   // Para probar: ?comidas=24 empieza con 24 empanadillas (a una del objeto especial)
   const START_EATEN = Number(new URLSearchParams(location.search).get("comidas")) || 0;
-  const SPECIAL_EVERY = 25;
+  const SPECIAL_EVERY = 15;
   const SPECIALS = {
     vino: { label: "¡VINO!", colors: ["#7b1e3a", "#c2185b", "#ffd166"] },
     tequila: { label: "¡TEQUILA!", colors: ["#e8a93a", "#7cc243", "#ffffff"] },
@@ -2433,7 +2433,7 @@
     if (sp) {
       drawFood(sp, LW / 2 - 70, LH * 0.62, worldT * 3, 0.9, true);
       text("= +5", LW / 2 - 70, LH * 0.62 + 36, 18, "#fff", "#3b2414", 5);
-      text("cada 25", LW / 2 - 70, LH * 0.62 + 56, 14, "#ffe7a3", "#3b2414", 4);
+      text("cada " + SPECIAL_EVERY, LW / 2 - 70, LH * 0.62 + 56, 14, "#ffe7a3", "#3b2414", 4);
     }
   }
 
