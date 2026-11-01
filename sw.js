@@ -1,4 +1,4 @@
-const CACHE = "els-panets-v14";
+const CACHE = "els-panets-v15";
 const FILES = [
   "./",
   "./index.html",

@@ -140,6 +140,12 @@
       tone(520, 0.07, "sine", 0.25, -320);
       [659, 880, 1175].forEach((f, i) => tone(f, 0.12, "triangle", 0.15, 0, 0.09 + i * 0.07));
     },
+    // poder cogido: subida rápida de notas
+    power() { [523, 784, 1047, 1568].forEach((f, i) => tone(f, 0.12, "sine", 0.12, 0, i * 0.05)); },
+    // el escudo se rompe y te salva
+    shieldPop() { noise(0.18, 0.45, "bandpass", 2200, 600); tone(988, 0.25, "triangle", 0.14, 400, 0.02); },
+    // lugar nuevo
+    place() { [784, 988, 1175].forEach((f, i) => tone(f, 0.3, "triangle", 0.1, 0, i * 0.12)); },
   };
 
   function setSound(on) {
@@ -493,12 +499,37 @@
   const photoCv = document.createElement("canvas");
   photoCv.width = photoCv.height = 300;
 
+  // ---------- Poderes (01/11/2026) ----------
+  // Salen de vez en cuando en el hueco de una columna, en lugar de la comida.
+  const POWERS = {
+    iman: { label: "¡IMÁN!", time: 6, colors: ["#e63946", "#d9dde3", "#ffd166"], halo: "255,120,120" },
+    escudo: { label: "¡ESCUDO!", time: 0, colors: ["#7fd3f0", "#ffffff", "#2a8bb5"], halo: "120,210,255" },
+    doble: { label: "¡PUNTOS x2!", time: 8, colors: ["#ffd23f", "#f59e0b", "#ffffff"], halo: "255,220,110" },
+    mini: { label: "¡MINI!", time: 6, colors: ["#7ee08a", "#2fa64a", "#ffffff"], halo: "130,230,140" },
+  };
+  const POWER_MIN_SCORE = 5, POWER_GAP_COLS = 6, POWER_CHANCE = 0.22;
+  let powerT = {}, shield = false, shieldSafe = 0, sinceLastPower = 0, miniK = 1;
+  const powerOn = (k) => (powerT[k] || 0) > 0;
+  const isPower = (kind) => kind && kind.startsWith("p_");
+
+  // ---------- Lugares: cambian cada 40 puntos (01/11/2026) ----------
+  const PLACES = [
+    { name: "LA CIUDAD", grass: "#5cb85c", grass2: "#3f8f44", tile: "#e6d6b8", line: "#d2c09f", curb: "#bdb3a2", road: "#4a4f5a" },
+    { name: "LA PLAYA", grass: "#e9cf8f", grass2: "#d7b874", tile: "#f3e3b6", line: "#e4cf98", curb: "#d9c391", road: "#3f7fa6" },
+    { name: "LA MONTAÑA", grass: "#6cbf5a", grass2: "#4a9a3f", tile: "#b8946a", line: "#a2805a", curb: "#8a7457", road: "#55703f" },
+    { name: "EL PUEBLO", grass: "#8fc46a", grass2: "#6aa04d", tile: "#d8cfbf", line: "#bfb4a1", curb: "#c4a483", road: "#8a6f55" },
+  ];
+  const PLACE_EVERY = 40;
+  let placeFrom = 0, placeTo = 0, placeT = 1, placeBanner = 0;
+
   function setState(s) { state = s; stateT = 0; document.body.classList.toggle("enJuego", s !== STATE.START); }
 
   function resetRun() {
     cols = []; particles = []; floaters = [];
     score = START_SCORE; eaten = START_EATEN; speed = 150; gap = 178;
     pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0;
+    powerT = {}; shield = false; shieldSafe = 0; sinceLastPower = 0; miniK = 1;
+    placeFrom = placeTo = Math.floor(START_SCORE / PLACE_EVERY) % PLACES.length; placeT = 1; placeBanner = 0;
     distToSpawn = 0; lastGapY = groundTop() / 2 - gap / 2;
     newBest = false; medalPlayed = false;
     player.y = LH * 0.42; player.vy = 0; player.rot = 0;
@@ -531,7 +562,39 @@
     let food = Math.random() < 0.85, kind = "empanada";
     if (pendingSpecial && ch.special) { kind = ch.special; food = true; pendingSpecial = false; }
     else if (ch.kind === "dog") kind = DOG_FOODS[Math.floor(Math.random() * DOG_FOODS.length)];
-    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6 });
+    sinceLastPower++;
+    if (!SPECIALS[kind] && score >= POWER_MIN_SCORE && sinceLastPower >= POWER_GAP_COLS && Math.random() < POWER_CHANCE) {
+      const pick = Object.keys(POWERS).filter((k) => !(k === "escudo" && shield) && !powerOn(k));
+      if (pick.length) { kind = "p_" + pick[Math.floor(Math.random() * pick.length)]; food = true; sinceLastPower = 0; }
+    }
+    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6, pull: 0 });
+  }
+
+  // dónde está la comida de una columna (con el imán, va hacia el personaje)
+  function foodPos(c) {
+    const bx = c.x + COL_W / 2, by = c.gapY + c.gap / 2 + Math.sin(c.bob) * 5;
+    if (!c.pull) return { x: bx, y: by };
+    const p = smooth(Math.min(1, c.pull));
+    return { x: lerp(bx, player.x + 1, p), y: lerp(by, player.y - 5, p) };
+  }
+
+  function collectPower(k, x, y) {
+    const p = POWERS[k];
+    if (k === "escudo") shield = true; else powerT[k] = p.time;
+    floaters.push({ x: Math.max(x, 90), y: y - 44, txt: p.label, t: 0, size: 22, color: "#fff" });
+    burst(x, y, p.colors, 18, 150);
+    vibrate(15);
+    snd.power();
+  }
+
+  // el escudo se rompe: te salva y durante un momento atraviesas las columnas
+  function breakShield() {
+    shield = false;
+    shieldSafe = 1.3;
+    burst(player.x, player.y - 5, POWERS.escudo.colors, 20, 170);
+    floaters.push({ x: Math.max(player.x + 20, 90), y: player.y - 50, txt: "¡SALVADO!", t: 0, size: 22, color: "#fff" });
+    vibrate(30);
+    snd.shieldPop();
   }
 
   function collectSpecial(kind, x, y) {
@@ -546,9 +609,17 @@
   }
 
   function addScore(n, x, y) {
+    if (powerOn("doble")) n *= 2;
     score += n;
     scorePop = 1;
-    if (n > 1) floaters.push({ x, y, txt: "+" + n, t: 0 });
+    if (n > 1 && x != null) floaters.push({ x, y, txt: "+" + n, t: 0 });
+    // lugar nuevo cada 40 puntos
+    const pi = Math.floor(score / PLACE_EVERY) % PLACES.length;
+    if (pi !== placeTo && state === STATE.PLAY) {
+      placeFrom = placeT < 1 ? placeFrom : placeTo;
+      placeTo = pi; placeT = 0; placeBanner = 2.6;
+      snd.place();
+    }
     // más rápido y algo más estrecho cada 10 puntos, con tope
     const lvl = Math.floor(score / 10);
     speed = 150 + Math.min(60, lvl * 6);
@@ -736,6 +807,8 @@
     scorePop = Math.max(0, scorePop - dt * 4);
     flashT = Math.max(0, flashT - dt * 3.5);
     player.eatT = Math.max(0, player.eatT - dt);
+    placeT = Math.min(1, placeT + dt / 2);
+    placeBanner = Math.max(0, placeBanner - dt);
     for (const c of clouds) { c.x -= c.v * dt; if (c.x < -90) c.x += LW + 180; }
 
     const moving = state === STATE.START || state === STATE.READY || state === STATE.PLAY || state === STATE.OVER;
@@ -780,9 +853,19 @@
     player.flap += dt * (player.vy < 0 ? 18 : 7);
     if (player.y < 14) { player.y = 14; player.vy = Math.max(0, player.vy); }
 
+    // poderes: se gastan con el tiempo; el mini encoge y crece sin saltos
+    for (const k in powerT) powerT[k] = Math.max(0, powerT[k] - dt);
+    shieldSafe = Math.max(0, shieldSafe - dt);
+    miniK += ((powerOn("mini") ? 0.62 : 1) - miniK) * Math.min(1, dt * 5);
+
     // centro del cuerpo para los choques (algo más pequeño que el dibujo: justo)
-    const hx = player.x + 1, hy = player.y - 5, hr = player.hitR;
-    if (hy + hr > groundTop()) { crash(); return; }
+    const hx = player.x + 1, hy = player.y - 5, hr = player.hitR * miniK;
+    if (hy + hr > groundTop()) {
+      if (shield || shieldSafe > 0) {
+        if (shield) breakShield();
+        player.y = groundTop() - hr + 4; player.vy = FLAP_V;
+      } else { crash(); return; }
+    }
 
     distToSpawn += speed * dt;
     if (distToSpawn >= SPACING) { distToSpawn -= SPACING; spawnColumn(LW + 20); }
@@ -791,17 +874,23 @@
       c.x -= speed * dt;
       c.bob += dt * 3;
       const top = c.gapY, bot = c.gapY + c.gap;
-      if (hitRect(hx, hy, hr, c.x, -50, COL_W, top + 50 - CAP_H) || hitRect(hx, hy, hr, c.x - CAP_OUT, top - CAP_H, COL_W + CAP_OUT * 2, CAP_H) ||
-          hitRect(hx, hy, hr, c.x - CAP_OUT, bot, COL_W + CAP_OUT * 2, CAP_H) || hitRect(hx, hy, hr, c.x, bot + CAP_H, COL_W, groundTop() - bot)) {
-        crash();
-        return;
+      if (shieldSafe <= 0 && (hitRect(hx, hy, hr, c.x, -50, COL_W, top + 50 - CAP_H) || hitRect(hx, hy, hr, c.x - CAP_OUT, top - CAP_H, COL_W + CAP_OUT * 2, CAP_H) ||
+          hitRect(hx, hy, hr, c.x - CAP_OUT, bot, COL_W + CAP_OUT * 2, CAP_H) || hitRect(hx, hy, hr, c.x, bot + CAP_H, COL_W, groundTop() - bot))) {
+        if (shield) breakShield();
+        else { crash(); return; }
       }
       if (!c.passed && c.x + COL_W < hx - hr) { c.passed = true; addScore(1); snd.point(); }
       if (c.food && !c.eaten) {
-        const fx = c.x + COL_W / 2, fy = c.gapY + c.gap / 2 + Math.sin(c.bob) * 5;
+        // imán: la comida cercana (no los poderes) viene sola
+        if (powerOn("iman") && !isPower(c.kind)) {
+          const b = { x: c.x + COL_W / 2, y: c.gapY + c.gap / 2 };
+          if (c.pull > 0 || (b.x > hx - 20 && Math.hypot(b.x - hx, b.y - hy) < 200)) c.pull = Math.min(1, c.pull + dt * 2.4);
+        }
+        const fp = foodPos(c), fx = fp.x, fy = fp.y;
         if ((hx - fx) ** 2 + (hy - fy) ** 2 < (hr + 15) ** 2) {
           c.eaten = true;
           player.eatT = 0.3;
+          if (isPower(c.kind)) { collectPower(c.kind.slice(2), fx, fy); continue; }
           if (SPECIALS[c.kind]) { collectSpecial(c.kind, fx, fy); continue; }
           eaten++;
           addScore(3, fx, fy - 20);
@@ -929,7 +1018,7 @@
     }
   }
 
-  function drawHouses(pal) {
+  function drawHouses(pal, white) {
     const base = groundTop();
     const off = -((scroll * 0.45) % HOUSE_TILE);
     const n = pal.night;
@@ -937,12 +1026,12 @@
       for (const h of houses) {
         const x = off + rep * HOUSE_TILE + h.x;
         if (x > LW + 30 || x + h.w < -40) continue;
-        if (h.palm) drawPalm(x - 12, base, n);
-        const wall = nightTint(h.color, n);
+        if (h.palm && !white) drawPalm(x - 12, base, n);
+        const wall = nightTint(white ? "#f8f4ea" : h.color, n);
         // pared
         ctx.fillStyle = wall;
         ctx.fillRect(x, base - h.h, h.w, h.h);
-        ctx.fillStyle = nightTint(darken(h.color, 0.18), n);
+        ctx.fillStyle = nightTint(white ? h.color : darken(h.color, 0.18), n);
         ctx.fillRect(x, base - 8, h.w, 8);
         // tejado de teja
         ctx.fillStyle = nightTint("#b8553c", n);
@@ -960,7 +1049,7 @@
         }
         // puerta con arco
         const dx = x + h.w * 0.5 - 8;
-        ctx.fillStyle = nightTint("#7a4a2a", n);
+        ctx.fillStyle = nightTint(white ? darken(h.color, 0.3) : "#7a4a2a", n);
         ctx.beginPath();
         ctx.moveTo(dx, base - 8);
         ctx.lineTo(dx, base - 30);
@@ -1005,17 +1094,251 @@
     ctx.beginPath(); ctx.arc(tx, ty + 3, 4, 0, Math.PI * 2); ctx.fill();
   }
 
+  // ---------- Lugares: ciudad, playa, montaña y pueblo (01/11/2026) ----------
+  const prnd = seeded(2026);
+  const BEACH_TILE = 600, FOREST_TILE = 520, CABIN_TILE = 640, VILLAGE_TILE = 700;
+  const BEACH_COLORS = ["#e63946", "#2a8bb5", "#f4a259", "#2fa64a"];
+  const beachItems = [];
+  for (let x = 20; x < BEACH_TILE - 60;) {
+    const r = prnd();
+    beachItems.push({ x, type: r < 0.4 ? "palm" : r < 0.8 ? "umbrella" : "hut", c: BEACH_COLORS[Math.floor(prnd() * 4)] });
+    x += 90 + Math.floor(prnd() * 70);
+  }
+  // cordillera de picos (se repite sin cortes)
+  const alps = [];
+  for (let x = 0; x <= MOUNT_TILE; x += 8) {
+    const p = (x / MOUNT_TILE) * Math.PI * 2;
+    alps.push(100 + 60 * Math.abs(Math.sin(p * 1.5 + 0.3)) + 40 * Math.abs(Math.sin(p * 3.5 + 1.1)) + 10 * Math.sin(9 * p));
+  }
+  const forest = [];
+  for (let x = 0; x < FOREST_TILE; x += 14 + Math.floor(prnd() * 12)) forest.push({ x, h: 36 + prnd() * 36 });
+  const cabins = [];
+  for (let x = 10; x < CABIN_TILE - 60;) {
+    const cabin = prnd() < 0.3;
+    cabins.push({ x, type: cabin ? "cabin" : "pine", h: 70 + prnd() * 50, w: 70 + prnd() * 20 });
+    x += cabin ? 120 : 45 + prnd() * 40;
+  }
+
+  function mixHex(a, b, f) {
+    const A = hexToRgb(a), B = hexToRgb(b);
+    return rgbToHex(lerp(A[0], B[0], f), lerp(A[1], B[1], f), lerp(A[2], B[2], f));
+  }
+  function groundColors() {
+    if (state === STATE.START) return PLACES[0];
+    const A = PLACES[placeFrom], B = PLACES[placeTo], f = smooth(placeT);
+    if (f >= 1) return B;
+    const o = {};
+    for (const k of ["grass", "grass2", "tile", "line", "curb", "road"]) o[k] = mixHex(A[k], B[k], f);
+    return o;
+  }
+  function drawPlace(i, pal) {
+    if (i === 1) { drawSea(pal); drawBeach(pal); }
+    else if (i === 2) { drawAlps(pal); drawForest(pal); drawCabins(pal); }
+    else if (i === 3) { drawMountains(pal); drawVillageFar(pal); drawHouses(pal, true); }
+    else { drawMountains(pal); drawCity(pal); drawHouses(pal); }
+  }
+  // al cambiar de lugar, el nuevo aparece poco a poco encima del viejo
+  function drawScenery(pal) {
+    if (state === STATE.START) { drawPlace(0, pal); return; }
+    if (placeT >= 1 || placeFrom === placeTo) { drawPlace(placeTo, pal); return; }
+    drawPlace(placeFrom, pal);
+    ctx.save();
+    ctx.globalAlpha = smooth(placeT);
+    drawPlace(placeTo, pal);
+    ctx.restore();
+  }
+
+  // --- Playa ---
+  function drawSea(pal) {
+    const gt = groundTop(), hz = gt - 170, n = pal.night;
+    // isla a lo lejos
+    const io = -((scroll * 0.04) % 900);
+    ctx.fillStyle = rgb(lerpArr(pal.mount, pal.bottom, 0.5));
+    for (let rep = 0; rep < 2; rep++) {
+      const ix = io + rep * 900 + 260;
+      ctx.beginPath(); ctx.ellipse(ix, hz, 90, 26, 0, Math.PI, 0); ctx.fill();
+    }
+    const g = ctx.createLinearGradient(0, hz, 0, gt);
+    g.addColorStop(0, nightTint("#5fb3d9", n));
+    g.addColorStop(1, nightTint("#1f6f9e", n));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, hz, LW, gt - hz);
+    // rayitas de olas que se desplazan despacio (sin brillos que parpadeen)
+    ctx.strokeStyle = `rgba(255,255,255,${0.28 * (1 - n * 0.6)})`;
+    ctx.lineWidth = 2; ctx.lineCap = "round";
+    ctx.beginPath();
+    for (let row = 0; row < 6; row++) {
+      const y = hz + 12 + row * 24, sp = 0.06 + row * 0.04, len = 10 + row * 5, step = 70 + row * 10;
+      const o = -((scroll * sp + row * 37) % step);
+      for (let x = o; x < LW + step; x += step) { ctx.moveTo(x, y); ctx.lineTo(x + len, y); }
+    }
+    ctx.stroke();
+    // velero
+    const bx = LW - ((scroll * 0.07 + 120) % (LW + 120)), by = hz + 18;
+    ctx.fillStyle = nightTint("#ffffff", n);
+    ctx.beginPath(); ctx.moveTo(bx, by - 2); ctx.lineTo(bx, by - 28); ctx.lineTo(bx + 15, by - 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = nightTint("#7a4a2a", n);
+    ctx.beginPath(); ctx.moveTo(bx - 10, by); ctx.lineTo(bx + 19, by); ctx.lineTo(bx + 15, by + 5); ctx.lineTo(bx - 6, by + 5); ctx.closePath(); ctx.fill();
+  }
+
+  function drawBeach(pal) {
+    const gt = groundTop(), n = pal.night, so = scroll * 0.45;
+    // arena con dunas suaves
+    ctx.fillStyle = nightTint("#efd9a0", n);
+    ctx.beginPath(); ctx.moveTo(0, gt);
+    for (let x = 0; x <= LW; x += 10) ctx.lineTo(x, gt - 24 - 6 * Math.sin((x + so) / 60));
+    ctx.lineTo(LW, gt); ctx.closePath(); ctx.fill();
+    const off = -(so % BEACH_TILE);
+    for (let rep = 0; rep < 3; rep++) {
+      for (const it of beachItems) {
+        const x = off + rep * BEACH_TILE + it.x;
+        if (x < -80 || x > LW + 80) continue;
+        if (it.type === "palm") drawPalm(x, gt - 12, n);
+        else if (it.type === "umbrella") drawUmbrella(x, gt - 16, it.c, n);
+        else drawHut(x, gt - 14, n);
+      }
+    }
+  }
+  function drawUmbrella(x, base, c, n) {
+    ctx.strokeStyle = nightTint("#8a6234", n); ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x, base); ctx.lineTo(x - 3, base - 46); ctx.stroke();
+    const tx = x - 3, ty = base - 40;
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = nightTint(i % 2 ? "#ffffff" : c, n);
+      ctx.beginPath(); ctx.moveTo(tx, ty);
+      ctx.arc(tx, ty, 28, Math.PI + (i * Math.PI) / 6, Math.PI + ((i + 1) * Math.PI) / 6);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = nightTint(c, n);
+    ctx.fillRect(x + 6, base - 3, 30, 5); // toalla
+  }
+  function drawHut(x, base, n) {
+    ctx.fillStyle = nightTint("#b07a45", n);
+    ctx.fillRect(x - 26, base - 34, 52, 34);
+    ctx.fillStyle = n > 0.5 ? "#ffd27a" : nightTint("#5a3a20", n);
+    ctx.fillRect(x - 18, base - 30, 36, 11);
+    ctx.fillStyle = nightTint("#e0b86a", n); // tejado de paja
+    ctx.beginPath(); ctx.moveTo(x - 36, base - 30); ctx.lineTo(x, base - 58); ctx.lineTo(x + 36, base - 30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = nightTint("#7a4a2a", n);
+    ctx.fillRect(x - 30, base - 18, 60, 5); // barra
+  }
+
+  // --- Montaña ---
+  function drawAlps(pal) {
+    const base = groundTop() - 60, off = -((scroll * 0.08) % MOUNT_TILE);
+    for (let layer = 0; layer < 2; layer++) {
+      const col = layer === 0 ? lerpArr(pal.mount, pal.bottom, 0.5) : lerpArr(pal.mount, [96, 104, 124], 0.4);
+      const h = layer === 0 ? 1.3 : 1.0, o = layer === 0 ? off * 0.6 - 300 : off;
+      ctx.beginPath(); ctx.moveTo(-10, LH);
+      for (let rep = -1; rep < 2; rep++) {
+        for (let i = 0; i < alps.length; i++) {
+          const x = o + rep * MOUNT_TILE + i * 8;
+          if (x < -10 || x > LW + 10) continue;
+          ctx.lineTo(x, base - 30 - alps[i] * h);
+        }
+      }
+      ctx.lineTo(LW + 10, LH); ctx.closePath();
+      ctx.fillStyle = rgb(col); ctx.fill();
+      // nieve en las cumbres, con el borde ondulado
+      ctx.save(); ctx.clip();
+      ctx.fillStyle = nightTint(layer === 0 ? "#eef4f8" : "#ffffff", pal.night);
+      const snowY = base - 30 - (layer === 0 ? 168 : 150) * h;
+      ctx.beginPath(); ctx.moveTo(0, 0);
+      for (let x = 0; x <= LW; x += 8) ctx.lineTo(x, snowY + 6 * Math.sin((x - o) / 19));
+      ctx.lineTo(LW, 0); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+  function drawForest(pal) {
+    const base = groundTop() - 30, off = -((scroll * 0.2) % FOREST_TILE);
+    ctx.fillStyle = rgb(lerpArr(pal.mount, [24, 70, 46], 0.5));
+    ctx.fillRect(0, base - 6, LW, 60);
+    for (let rep = 0; rep < 2; rep++) {
+      for (const t of forest) {
+        const x = off + rep * FOREST_TILE + t.x;
+        if (x < -20 || x > LW + 20) continue;
+        ctx.beginPath(); ctx.moveTo(x - 10, base); ctx.lineTo(x, base - t.h); ctx.lineTo(x + 10, base); ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+  function drawCabins(pal) {
+    const base = groundTop(), n = pal.night, off = -((scroll * 0.45) % CABIN_TILE);
+    for (let rep = 0; rep < 3; rep++) {
+      for (const it of cabins) {
+        const x = off + rep * CABIN_TILE + it.x;
+        if (x < -100 || x > LW + 100) continue;
+        if (it.type === "pine") drawPine(x, base, it.h, n);
+        else drawCabin(x, base, it.w, n);
+      }
+    }
+  }
+  function drawPine(x, base, h, n) {
+    ctx.fillStyle = nightTint("#6b4a25", n);
+    ctx.fillRect(x - 3, base - 14, 6, 14);
+    ctx.fillStyle = nightTint("#2f7a45", n);
+    for (let k = 0; k < 3; k++) {
+      const w = 22 - k * 5, y0 = base - 10 - k * h * 0.24;
+      ctx.beginPath(); ctx.moveTo(x - w, y0); ctx.lineTo(x, y0 - h * 0.45); ctx.lineTo(x + w, y0); ctx.closePath(); ctx.fill();
+    }
+    const ty = base - 10 - 2 * h * 0.24 - h * 0.45; // nieve en la punta
+    ctx.fillStyle = nightTint("#ffffff", n);
+    ctx.beginPath(); ctx.moveTo(x - 5, ty + 9); ctx.lineTo(x, ty); ctx.lineTo(x + 5, ty + 9); ctx.closePath(); ctx.fill();
+  }
+  function drawCabin(x, base, w, n) {
+    const h = 44;
+    ctx.fillStyle = nightTint("#9a6638", n);
+    ctx.fillRect(x, base - h, w, h);
+    ctx.strokeStyle = nightTint("#7a4c26", n); ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let y = base - h + 7; y < base; y += 7) { ctx.moveTo(x, y); ctx.lineTo(x + w, y); }
+    ctx.stroke();
+    ctx.fillStyle = nightTint("#5a3a22", n);
+    ctx.beginPath(); ctx.moveTo(x - 8, base - h + 2); ctx.lineTo(x + w / 2, base - h - 26); ctx.lineTo(x + w + 8, base - h + 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = nightTint("#ffffff", n); // nieve en el tejado
+    ctx.beginPath(); ctx.moveTo(x - 6, base - h); ctx.lineTo(x + w / 2, base - h - 26); ctx.lineTo(x + w + 6, base - h);
+    ctx.lineTo(x + w / 2, base - h - 18); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = nightTint("#5a3a22", n);
+    ctx.fillRect(x + w / 2 - 7, base - 24, 14, 24);
+    ctx.fillStyle = n > 0.5 ? "#ffd27a" : nightTint("#fff3d6", n);
+    ctx.fillRect(x + 8, base - h + 12, 13, 12);
+    ctx.fillRect(x + w - 21, base - h + 12, 13, 12);
+  }
+
+  // --- Pueblo ---
+  function drawVillageFar(pal) {
+    const base = groundTop() - 34, off = -((scroll * 0.2) % VILLAGE_TILE);
+    ctx.fillStyle = rgb(pal.city);
+    for (let rep = 0; rep < 2; rep++) {
+      const x0 = off + rep * VILLAGE_TILE;
+      if (x0 > LW || x0 + VILLAGE_TILE < 0) continue;
+      for (let i = 0; i < 10; i++) ctx.fillRect(x0 + i * 70 + (i % 3) * 8, base - 26 - (i % 2) * 12, 54, 70);
+      // campanario con su cruz
+      const cx = x0 + 180;
+      ctx.fillRect(cx, base - 120, 34, 130);
+      ctx.beginPath(); ctx.moveTo(cx - 4, base - 120); ctx.lineTo(cx + 17, base - 150); ctx.lineTo(cx + 38, base - 120); ctx.closePath(); ctx.fill();
+      ctx.fillRect(cx + 16, base - 164, 2, 16); ctx.fillRect(cx + 11, base - 159, 12, 2);
+      // molino que gira despacio
+      const mx = x0 + 470;
+      ctx.beginPath(); ctx.moveTo(mx - 16, base); ctx.lineTo(mx - 10, base - 80); ctx.lineTo(mx + 10, base - 80); ctx.lineTo(mx + 16, base); ctx.closePath(); ctx.fill();
+      ctx.save();
+      ctx.translate(mx, base - 82);
+      ctx.rotate(worldT * 0.3);
+      for (let k = 0; k < 4; k++) { ctx.rotate(Math.PI / 2); ctx.fillRect(-3, 0, 6, 46); }
+      ctx.restore();
+    }
+  }
+
   function drawGround(pal) {
-    const y = groundTop(), n = pal.night;
+    const y = groundTop(), n = pal.night, G = groundColors();
     // césped
-    ctx.fillStyle = nightTint("#5cb85c", n);
+    ctx.fillStyle = nightTint(G.grass, n);
     ctx.fillRect(0, y, LW, 10);
-    ctx.fillStyle = nightTint("#3f8f44", n);
+    ctx.fillStyle = nightTint(G.grass2, n);
     ctx.fillRect(0, y + 8, LW, 3);
     // acera de baldosas (juntas suaves, poco contraste: no marea)
-    ctx.fillStyle = nightTint("#e6d6b8", n);
+    ctx.fillStyle = nightTint(G.tile, n);
     ctx.fillRect(0, y + 11, LW, 34);
-    ctx.strokeStyle = nightTint("#d2c09f", n);
+    ctx.strokeStyle = nightTint(G.line, n);
     ctx.lineWidth = 1.5;
     const off = -(scroll % 44);
     ctx.beginPath();
@@ -1023,9 +1346,9 @@
     ctx.moveTo(0, y + 28); ctx.lineTo(LW, y + 28);
     ctx.stroke();
     // bordillo y calle
-    ctx.fillStyle = nightTint("#bdb3a2", n);
+    ctx.fillStyle = nightTint(G.curb, n);
     ctx.fillRect(0, y + 45, LW, 7);
-    ctx.fillStyle = nightTint("#4a4f5a", n);
+    ctx.fillStyle = nightTint(G.road, n);
     ctx.fillRect(0, y + 52, LW, LH - y - 52);
     ctx.fillStyle = "rgba(0,0,0,0.15)";
     ctx.fillRect(0, y + 52, LW, 4);
@@ -2553,12 +2876,13 @@
     const pal = palette(inRun ? skyHour : START_SKY);
     drawSky(pal);
     drawClouds(pal);
-    drawMountains(pal);
-    drawCity(pal);
-    drawHouses(pal);
+    drawScenery(pal);
     for (const c of cols) drawColumn(c, pal.night);
     for (const c of cols) {
-      if (c.food && !c.eaten) drawFood(c.kind, c.x + COL_W / 2, c.gapY + c.gap / 2 + Math.sin(c.bob) * 5, c.bob, 1, true);
+      if (!c.food || c.eaten) continue;
+      const fp = foodPos(c);
+      if (isPower(c.kind)) drawPower(c.kind.slice(2), fp.x, fp.y, 1, true);
+      else drawFood(c.kind, fp.x, fp.y, c.bob, 1, true);
     }
     drawGround(pal);
 
@@ -2571,7 +2895,10 @@
 
     if (state !== STATE.START) {
       const dead = state === STATE.DYING || state === STATE.OVER || state === STATE.NAME;
-      drawChar(dressed(selectedChar()), player.x, player.y, player.rot, player.flap, PLAYER_SCALE, dead ? "dead" : "");
+      // con el mini se encoge alrededor del centro del cuerpo
+      const k = miniK, cy = player.y - 5;
+      drawChar(dressed(selectedChar()), player.x, cy + 5 * k, player.rot, player.flap, PLAYER_SCALE * k, dead ? "dead" : "");
+      if (!dead && (shield || shieldSafe > 0)) drawShieldBubble(player.x + 1, cy, 30 * k, shield ? 1 : shieldSafe / 1.3);
     }
     if (photoPending) takePhoto();
     for (const f of floaters) {
@@ -2582,7 +2909,7 @@
 
     if (state === STATE.START) drawStart();
     else if (state === STATE.READY) drawReady();
-    else if (state === STATE.PLAY || state === STATE.DYING) drawScoreHud();
+    else if (state === STATE.PLAY || state === STATE.DYING) { drawScoreHud(); drawPowerHud(); drawPlaceBanner(); }
     else if (state === STATE.OVER) drawOver();
     else if (state === STATE.PAUSE) { drawScoreHud(); drawPause(); }
 
@@ -2598,6 +2925,99 @@
     const u = ui();
     if (state !== STATE.PLAY && state !== STATE.DYING) roundIcon(u.sound, iconSound);
     if (state === STATE.START || state === STATE.OVER) roundIcon(u.rank, iconTrophy);
+  }
+
+  // ---------- Dibujo de los poderes ----------
+  function drawPower(k, x, y, s, glow) {
+    const P = POWERS[k];
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    if (glow) {
+      const h = ctx.createRadialGradient(0, 0, 8, 0, 0, 30);
+      h.addColorStop(0, `rgba(${P.halo},0.6)`); h.addColorStop(1, `rgba(${P.halo},0)`);
+      ctx.fillStyle = h;
+      ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
+    }
+    const base = { iman: "#fff3e6", escudo: "#e3f6ff", doble: "#ffd23f", mini: "#d6f5da" }[k];
+    const g = ctx.createRadialGradient(-5, -6, 2, 0, 0, 17);
+    g.addColorStop(0, "#ffffff"); g.addColorStop(0.5, base); g.addColorStop(1, darken(base, 0.18));
+    ctx.fillStyle = g; ctx.strokeStyle = OL; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.lineCap = "butt";
+    if (k === "iman") {
+      // imán en U rojo con las puntas plateadas
+      ctx.strokeStyle = OL; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(-6, 0); ctx.arc(0, 0, 6, Math.PI, 0, true); ctx.lineTo(6, -9); ctx.stroke();
+      ctx.strokeStyle = "#e63946"; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(-6, -4); ctx.lineTo(-6, 0); ctx.arc(0, 0, 6, Math.PI, 0, true); ctx.lineTo(6, -4); ctx.stroke();
+      ctx.strokeStyle = "#e3e7ec";
+      ctx.beginPath(); ctx.moveTo(-6, -8.5); ctx.lineTo(-6, -4); ctx.moveTo(6, -8.5); ctx.lineTo(6, -4); ctx.stroke();
+    } else if (k === "escudo") {
+      ctx.fillStyle = "#2a8bb5"; ctx.strokeStyle = OL; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -10); ctx.lineTo(8.5, -7); ctx.quadraticCurveTo(9, 5, 0, 11); ctx.quadraticCurveTo(-9, 5, -8.5, -7);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5.5, -5); ctx.quadraticCurveTo(5.5, 3, 0, 7); ctx.closePath(); ctx.fill();
+    } else if (k === "doble") {
+      text("x2", 0, 1, 15, "#fff", "#8a5a06", 4);
+    } else {
+      // mini: cuatro flechas hacia el centro
+      ctx.fillStyle = "#2fa64a"; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 4; i++) {
+        ctx.save(); ctx.rotate(Math.PI / 4 + i * Math.PI / 2);
+        ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(4, -9); ctx.lineTo(-4, -9); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.fillStyle = "#2fa64a";
+      ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // burbuja del escudo: quieta y suave (sin parpadeo); al romperse se desvanece
+  function drawShieldBubble(x, y, r, a) {
+    ctx.save();
+    const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+    g.addColorStop(0, `rgba(255,255,255,${0.35 * a})`);
+    g.addColorStop(0.7, `rgba(130,210,255,${0.12 * a})`);
+    g.addColorStop(1, `rgba(90,190,250,${0.4 * a})`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = `rgba(200,240,255,${0.85 * a})`; ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // poderes activos debajo del contador, con un anillo que se vacía
+  function drawPowerHud() {
+    const act = [];
+    if (shield) act.push(["escudo", 1]);
+    for (const k of ["iman", "doble", "mini"]) if (powerOn(k)) act.push([k, powerT[k] / POWERS[k].time]);
+    act.forEach(([k, f], i) => {
+      const x = LW / 2 + (i - (act.length - 1) / 2) * 40, y = 164;
+      ctx.fillStyle = "rgba(40,24,12,0.45)";
+      ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.arc(x, y, 17, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke();
+      drawPower(k, x, y, 0.8, false);
+    });
+  }
+
+  // cartel del lugar nuevo: aparece y se va despacio
+  function drawPlaceBanner() {
+    if (placeBanner <= 0) return;
+    const t = 2.6 - placeBanner;
+    const a = Math.min(clamp(t / 0.4, 0, 1), clamp(placeBanner / 0.6, 0, 1));
+    ctx.save();
+    ctx.globalAlpha = a;
+    const y = LH * 0.34 + (1 - easeOut(t / 0.4)) * 14;
+    ctx.fillStyle = "rgba(40,24,12,0.55)";
+    roundRect(LW / 2 - 120, y - 30, 240, 62, 20); ctx.fill();
+    text("Bienvenidos a", LW / 2, y - 12, 15, "#ffe7a3");
+    text(PLACES[placeTo].name, LW / 2, y + 14, 28, "#fff", "#3b2414", 6);
+    ctx.restore();
   }
 
   // Copia un cuadrado de la pantalla alrededor del personaje (lo que tiene delante)
@@ -2668,6 +3088,9 @@
       comer: () => { const c = cols.find((c) => c.food && !c.eaten && c.x > player.x); if (c) { player.y = LH * 0.4; player.vy = -200; c.x = player.x - COL_W / 2; c.gapY = player.y - 5 - c.gap / 2; } },
       estado: () => ({ state, score, eaten, pendingSpecial, photoT, kinds: cols.map((c) => c.kind) }),
       volar: () => { player.y = LH * 0.4; player.vy = -200; },
+      poder: (k) => collectPower(k, player.x + 30, player.y),
+      lugar: (i) => { placeFrom = placeTo; placeTo = i; placeT = 0; placeBanner = 2.6; },
+      poderes: () => ({ powerT, shield, shieldSafe, miniK, placeTo, placeT }),
     };
   }
 
