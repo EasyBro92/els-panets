@@ -12,7 +12,8 @@
   let LH = 700;
   const GROUND_H = 96;
   const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d");
+  const mainCtx = canvas.getContext("2d");
+  let ctx = mainCtx; // se cambia un momento para pintar la zona nueva aparte
   const FONT = "'Lilita One', 'Arial Black', 'Segoe UI', sans-serif";
 
   function resize() {
@@ -29,7 +30,10 @@
     canvas.height = Math.round(cssH * dpr);
     const k = canvas.width / LW;
     ctx.setTransform(k, 0, 0, k, 0, 0);
+    offCv.width = canvas.width; offCv.height = canvas.height;
+    offCtx.setTransform(k, 0, 0, k, 0, 0);
   }
+  const offCv = document.createElement("canvas"), offCtx = offCv.getContext("2d");
   window.addEventListener("resize", resize);
   window.addEventListener("orientationchange", () => setTimeout(resize, 100));
   resize();
@@ -807,7 +811,7 @@
     scorePop = Math.max(0, scorePop - dt * 4);
     flashT = Math.max(0, flashT - dt * 3.5);
     player.eatT = Math.max(0, player.eatT - dt);
-    placeT = Math.min(1, placeT + dt / 2);
+    placeT = Math.min(1, placeT + dt / PLACE_SECS);
     placeBanner = Math.max(0, placeBanner - dt);
     for (const c of clouds) { c.x -= c.v * dt; if (c.x < -90) c.x += LW + 180; }
 
@@ -1123,13 +1127,29 @@
     const A = hexToRgb(a), B = hexToRgb(b);
     return rgbToHex(lerp(A[0], B[0], f), lerp(A[1], B[1], f), lerp(A[2], B[2], f));
   }
-  function groundColors() {
-    if (state === STATE.START) return PLACES[0];
-    const A = PLACES[placeFrom], B = PLACES[placeTo], f = smooth(placeT);
-    if (f >= 1) return B;
-    const o = {};
-    for (const k of ["grass", "grass2", "tile", "line", "curb", "road"]) o[k] = mixHex(A[k], B[k], f);
-    return o;
+  // Cambio de zona: la nueva entra por la derecha y avanza despacio hacia la
+  // izquierda, con un borde suave, como si fueras volando hacia ella.
+  const PLACE_SECS = 10, PLACE_BAND = 160;
+  function changingPlace() {
+    return state !== STATE.START && placeT < 1 && placeFrom !== placeTo;
+  }
+  // pinta lo viejo, y encima lo nuevo solo a la derecha del borde
+  function drawWiped(drawOld, drawNew) {
+    if (!changingPlace()) { drawNew(); return; }
+    drawOld();
+    const e = LW + PLACE_BAND / 2 - smooth(placeT) * (LW + PLACE_BAND);
+    offCtx.clearRect(0, 0, LW, LH);
+    ctx = offCtx;
+    try { drawNew(); } finally { ctx = mainCtx; }
+    offCtx.save();
+    offCtx.globalCompositeOperation = "destination-in";
+    const g = offCtx.createLinearGradient(e - PLACE_BAND / 2, 0, e + PLACE_BAND / 2, 0);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,1)");
+    offCtx.fillStyle = g;
+    offCtx.fillRect(0, 0, LW, LH);
+    offCtx.restore();
+    ctx.drawImage(offCv, 0, 0, LW, LH);
   }
   function drawPlace(i, pal) {
     if (i === 1) { drawSea(pal); drawBeach(pal); }
@@ -1137,15 +1157,9 @@
     else if (i === 3) { drawMountains(pal); drawVillageFar(pal); drawHouses(pal, true); }
     else { drawMountains(pal); drawCity(pal); drawHouses(pal); }
   }
-  // al cambiar de lugar, el nuevo aparece poco a poco encima del viejo
   function drawScenery(pal) {
     if (state === STATE.START) { drawPlace(0, pal); return; }
-    if (placeT >= 1 || placeFrom === placeTo) { drawPlace(placeTo, pal); return; }
-    drawPlace(placeFrom, pal);
-    ctx.save();
-    ctx.globalAlpha = smooth(placeT);
-    drawPlace(placeTo, pal);
-    ctx.restore();
+    drawWiped(() => drawPlace(placeFrom, pal), () => drawPlace(placeTo, pal));
   }
 
   // --- Playa ---
@@ -1329,7 +1343,11 @@
   }
 
   function drawGround(pal) {
-    const y = groundTop(), n = pal.night, G = groundColors();
+    if (state === STATE.START) { drawGroundOf(pal, PLACES[0]); return; }
+    drawWiped(() => drawGroundOf(pal, PLACES[placeFrom]), () => drawGroundOf(pal, PLACES[placeTo]));
+  }
+  function drawGroundOf(pal, G) {
+    const y = groundTop(), n = pal.night;
     // césped
     ctx.fillStyle = nightTint(G.grass, n);
     ctx.fillRect(0, y, LW, 10);
