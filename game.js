@@ -392,7 +392,7 @@
   let scorePop = 0, flashT = 0, newBest = false, medalPlayed = false;
   let pressLockUntil = 0;
 
-  function setState(s) { state = s; stateT = 0; }
+  function setState(s) { state = s; stateT = 0; document.body.classList.toggle("enJuego", s !== STATE.START); }
 
   function resetRun() {
     cols = []; particles = []; floaters = [];

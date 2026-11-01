@@ -34,7 +34,8 @@ html, body {
 }
 
 #nameOverlay,
-#leaderboardOverlay {
+#leaderboardOverlay,
+#installOverlay {
   position: absolute;
   inset: 0;
   display: flex;
@@ -45,7 +46,10 @@ html, body {
 }
 
 #nameOverlay.hidden,
-#leaderboardOverlay.hidden {
+#leaderboardOverlay.hidden,
+#installOverlay.hidden,
+#installBtn.hidden,
+body.enJuego #installBtn {
   display: none;
 }
 
@@ -92,7 +96,8 @@ html, body {
 }
 
 #nameSubmit,
-#leaderboardClose {
+#leaderboardClose,
+#installClose {
   width: 100%;
   padding: 12px;
   border: 3px solid #3b2414;
@@ -106,7 +111,8 @@ html, body {
 }
 
 #nameSubmit:active,
-#leaderboardClose:active {
+#leaderboardClose:active,
+#installClose:active {
   transform: translateY(4px);
   box-shadow: 0 1px 0 #b45309;
 }
@@ -164,3 +170,43 @@ html, body {
   background: none;
   color: #9a8566;
 }
+
+/* Botón de instalar: abajo, en la pantalla de inicio */
+#installBtn {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  padding: 9px 18px;
+  border: 3px solid #3b2414;
+  border-radius: 999px;
+  background: linear-gradient(#7ee08a, #2fa64a);
+  box-shadow: 0 4px 0 #1d6b30;
+  color: #fff;
+  font: 18px "Lilita One", "Arial Black", sans-serif;
+  -webkit-text-stroke: 0.6px #14481f;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#installBtn:active { transform: translate(-50%, 3px); box-shadow: 0 1px 0 #1d6b30; }
+
+.installSteps { color: #3b2414; font-size: 17px; text-align: left; margin: 8px 0 16px; line-height: 1.45; }
+.installSteps ol { padding-left: 22px; }
+.installSteps li { margin-bottom: 6px; }
+.installSteps b { color: #b45309; font-weight: normal; }
+.installNote { margin: 8px 0; text-align: center; color: #8a5a2b; font-size: 16px; }
+.apkBtn {
+  display: block;
+  padding: 12px;
+  border: 3px solid #3b2414;
+  border-radius: 16px;
+  background: linear-gradient(#7ee08a, #2fa64a);
+  box-shadow: 0 5px 0 #1d6b30;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+  font-size: 20px;
+  -webkit-text-stroke: 0.6px #14481f;
+}
+#installBtn { white-space: nowrap; }
+#installBtn svg { vertical-align: -3px; margin-right: 4px; }
