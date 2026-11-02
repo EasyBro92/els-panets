@@ -322,6 +322,17 @@
       beard: { color: "#151210", alpha: 0.95, top: 3.5 },
       top: "jacket", topColor: "#202126", legs: "#18191c", shoes: "#5d3d27", shoeSole: "#3a2617" },
     { id: "perro", name: "RIM", unlock: 60, kind: "dog" },
+    // 02/11/2026: Maykel (moreno, rizos arriba y lados cortos) y Pamela, que va detrás de su bebé
+    { id: "maykel", name: "MAYKEL", unlock: 70, kind: "human",
+      skin: "#a86f48", skinD: "#8a5534", hair: "#1c140f", hairD: "#0a0705", hairStyle: "goldCurls", part: 0,
+      face: { rx: 10.8, ry: 14.6, chin: 0.5 }, eye: "#2a1a10", lips: "#9a5a48", nose: 5.2, smile: "teeth",
+      brow: { color: "#120c08", w: 2.5, y: 4.0, arch: 0.6 },
+      top: "thriller", topColor: "#c8102e", legs: "#b50f29", socks: "#ffffff", shoes: "#141414", shoeSole: "#000000" },
+    { id: "pamela", name: "PAMELA", unlock: 80, kind: "human", fem: true, baby: true,
+      skin: "#eec09c", skinD: "#d39d77", hair: "#4a2e1e", hairD: "#2b1810", hairStyle: "longWavy", part: -2,
+      face: { rx: 11.4, ry: 13.8, chin: 0.46 }, eye: "#3f9a5a", lips: "#cf6f72", smile: "teeth", nose: 4.8,
+      brow: { color: "#3a2416", w: 1.6, y: 4.5, arch: 1.5 },
+      top: "tee", topColor: "#f29bb8", legs: "#3d4f73", shoes: "#ffffff", shoeSole: "#d8d8d8" },
   ];
 
   // ---------- Historia, objeto especial y ropa de cada uno (01/11/2026) ----------
@@ -371,6 +382,18 @@
       { name: "Con gorra", look: { top: "tee", topColor: "#f4f4f2", hat: HAT("cap", "#c0392b") } },
       { name: "Rizos y polo", look: { hairStyle: "curly", top: "polo", topColor: "#b8322f" } },
       { name: "Afeitado y gafas", look: { hairStyle: "swept", beard: null, topColor: "#2c4a3a", glasses: true } },
+    ] },
+    maykel: { story: "Ligón: cada dos por tres, novia nueva.", power: "Cada 5 empanadillas: novia nueva, +5", special: "novia", specialEvery: 5, outfits: [
+      { name: "Thriller", look: {} },
+      { name: "Rojo y azul", look: { top: "polo", topColor: "#a3123a", legs: "#14161c", socks: null, shoes: "#f4f4f4", shoeSole: "#d63a32" } },
+      { name: "Chándal", look: { top: "jacket", topColor: "#ececec", legs: "#ececec", socks: null, shoes: "#f4f4f4", shoeSole: "#d63a32" } },
+      { name: "Gorra y gafas", look: { top: "tee", topColor: "#111114", legs: "#14161c", socks: null, shoes: "#f4f4f4", shoeSole: "#d63a32", glasses: true, hat: HAT("cap", "#f2f2f2") } },
+    ] },
+    pamela: { outfits: [
+      { name: "Rosa", look: {} },
+      { name: "Coleta", look: { hairStyle: "ponytail", scrunchie: "#3f9a5a", top: "tank", topColor: "#ffffff", noLogo: true } },
+      { name: "Vaquera", look: { top: "jacket", topColor: "#5b7fae" } },
+      { name: "Moño y gafas", look: { hairStyle: "bun", topColor: "#7ec8b0", glasses: true } },
     ] },
     perro: { story: "Pastor alemán: se come todo lo que vuela.", power: "Come de todo: jamón, queso, huevos…", outfits: [
       { name: "Al natural", look: {} },
@@ -495,7 +518,38 @@
     vino: { label: "¡VINO!", colors: ["#7b1e3a", "#c2185b", "#ffd166"] },
     tequila: { label: "¡TEQUILA!", colors: ["#e8a93a", "#7cc243", "#ffffff"] },
     camara: { label: "¡FOTO!", colors: ["#ffffff", "#c7ccd4", "#ffd23f"] },
+    novia: { label: "¡NOVIA NUEVA!", colors: ["#ff6fa5", "#ffd1e0", "#ffffff"] },
   };
+  const specialEvery = (ch) => ch.specialEvery || SPECIAL_EVERY;
+
+  // ---------- Las novias de Maykel (02/11/2026) ----------
+  // Cada una sale con piel, pelo, cara y ropa al azar; al cogerla vuela con él
+  // hasta que llega la siguiente.
+  const pickOf = (a) => a[Math.floor(Math.random() * a.length)];
+  const GIRL_SKINS = [["#f6d2b6", "#dfae8e"], ["#eec09c", "#d39d77"], ["#d9a07a", "#bd8058"], ["#b47a52", "#955c38"], ["#8a5a3c", "#6e4228"], ["#f2c8a8", "#d9a482"]];
+  const GIRL_HAIRS = [["#2a1c14", "#140c08"], ["#5a3a22", "#3a2414"], ["#a8642e", "#7a4218"], ["#e8c67c", "#c99d55"], ["#c8642e", "#8a3d18"], ["#111111", "#000000"], ["#8a2c4c", "#5a1830"]];
+  const GIRL_STYLES = ["longStraight", "longWavy", "ponytail", "bun", "curly"];
+  const GIRL_TOPS = ["tee", "tank", "longsleeve", "jacket", "polo"];
+  const GIRL_COLORS = ["#ff6fa5", "#e63946", "#ffd166", "#7ec8b0", "#5b7fae", "#9b5de5", "#ffffff", "#1e1b1f", "#f28c28", "#2e8b57"];
+  const GIRL_EYES = ["#3f9a5a", "#4a2c18", "#2f6fa8", "#6b6a3e", "#2a1a10"];
+  const GIRL_LIPS = ["#cf6f72", "#c9776d", "#b8324a", "#d98a8a", "#a8484e"];
+  function randomGirl() {
+    const [skin, skinD] = pickOf(GIRL_SKINS), [hair, hairD] = pickOf(GIRL_HAIRS);
+    const g = { kind: "human", fem: true, skin, skinD, hair, hairD, hairStyle: pickOf(GIRL_STYLES), part: pickOf([-3, -1, 0, 2]),
+      scrunchie: pickOf(GIRL_COLORS),
+      face: { rx: 10.8 + Math.random() * 1.2, ry: 13.2 + Math.random() * 1.2, chin: 0.4 + Math.random() * 0.12 },
+      eye: pickOf(GIRL_EYES), lips: pickOf(GIRL_LIPS), smile: pickOf(["soft", "teeth"]), nose: 4.6 + Math.random() * 0.6,
+      freckles: Math.random() < 0.2,
+      brow: { color: darken(hair, 0.3), w: 1.4 + Math.random() * 0.6, y: 4.5, arch: 1.2 + Math.random() * 0.5 },
+      top: pickOf(GIRL_TOPS), topColor: pickOf(GIRL_COLORS), noLogo: true,
+      legs: pickOf(["#3a4a66", "#1d1e23", "#e9e3d6", "#8e9198", "#5b7fae", "#3a1c2e"]),
+      shoes: pickOf(["#ffffff", "#1d1e23", "#c9a27a", "#e63946"]), shoeSole: "#d0d0d0",
+      glasses: Math.random() < 0.2, necklace: Math.random() < 0.35 ? "#d9b45a" : null };
+    if (Math.random() < 0.25) g.hat = HAT(pickOf(["cap", "beret", "sunhat"]), pickOf(GIRL_COLORS));
+    return g;
+  }
+  let girlfriend = null;           // la novia que vuela con Maykel ahora
+  const previewGirl = randomGirl(); // la que se ve en la pantalla de Prepárate
   const DOG_FOODS = ["empanada", "jamon", "queso", "huevo", "salchicha", "pollo", "pizza", "hueso"];
   let pendingSpecial = false;
   // la foto de MJ: se copia la pantalla, sale un flash y la foto se va a la esquina
@@ -531,7 +585,7 @@
   function resetRun() {
     cols = []; particles = []; floaters = [];
     score = START_SCORE; eaten = START_EATEN; speed = 150; gap = 178;
-    pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0;
+    pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0; girlfriend = null;
     powerT = {}; shield = false; shieldSafe = 0; sinceLastPower = 0; miniK = 1;
     placeFrom = placeTo = Math.floor(START_SCORE / PLACE_EVERY) % PLACES.length; placeT = 1; placeBanner = 0;
     distToSpawn = 0; lastGapY = groundTop() / 2 - gap / 2;
@@ -571,7 +625,7 @@
       const pick = Object.keys(POWERS).filter((k) => !(k === "escudo" && shield) && !powerOn(k));
       if (pick.length) { kind = "p_" + pick[Math.floor(Math.random() * pick.length)]; food = true; sinceLastPower = 0; }
     }
-    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6, pull: 0 });
+    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6, pull: 0, girl: kind === "novia" ? randomGirl() : null });
   }
 
   // dónde está la comida de una columna (con el imán, va hacia el personaje)
@@ -608,6 +662,7 @@
     burst(x, y, sp.colors, 22, 170);
     vibrate(kind === "camara" ? [10, 40, 10] : 20);
     if (kind === "camara") { photoPending = true; snd.shutter(); }
+    else if (kind === "novia") snd.power();
     else if (kind === "vino") snd.cork();
     else snd.tequila();
   }
@@ -895,13 +950,14 @@
           c.eaten = true;
           player.eatT = 0.3;
           if (isPower(c.kind)) { collectPower(c.kind.slice(2), fx, fy); continue; }
+          if (c.kind === "novia") girlfriend = c.girl;
           if (SPECIALS[c.kind]) { collectSpecial(c.kind, fx, fy); continue; }
           eaten++;
           addScore(3, fx, fy - 20);
           snd.eat();
           vibrate(12);
           burst(fx, fy, ["#f2a93b", "#c96d16", "#ffe2a0"], 14, 130);
-          if (selectedChar().special && eaten % SPECIAL_EVERY === 0) pendingSpecial = true;
+          if (selectedChar().special && eaten % specialEvery(selectedChar()) === 0) pendingSpecial = true;
         }
       }
     }
@@ -1488,9 +1544,41 @@
     ctx.restore();
   }
 
+  // la chica que sale en el hueco: halo rosa, corazones y el cartel
+  function drawGirlPickup(g, x, y, size, glow) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(size || 1, size || 1);
+    if (glow) {
+      const h = ctx.createRadialGradient(0, 0, 6, 0, 0, 44);
+      h.addColorStop(0, "rgba(255,160,200,0.7)"); h.addColorStop(1, "rgba(255,160,200,0)");
+      ctx.fillStyle = h; ctx.beginPath(); ctx.arc(0, 0, 44, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < 3; i++) {
+        const a = worldT * 0.9 + i * 2.1;
+        drawHeart(Math.cos(a) * 30, Math.sin(a) * 26, 4.5, "#ff5c93");
+      }
+    }
+    drawHuman(g, 0, 8, 0, worldT * 5, 0.78, "");
+    if (glow) {
+      ctx.fillStyle = "#ff4f8b"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+      roundRect(-44, -48, 88, 18, 9); ctx.fill(); ctx.stroke();
+      text("NOVIA NUEVA", 0, -38.5, 12, "#fff");
+    }
+    ctx.restore();
+  }
+  function drawHeart(x, y, r, color) {
+    ctx.fillStyle = color; ctx.strokeStyle = OL; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y + r);
+    ctx.bezierCurveTo(x - r * 2, y - r * 0.3, x - r * 0.9, y - r * 1.8, x, y - r * 0.6);
+    ctx.bezierCurveTo(x + r * 0.9, y - r * 1.8, x + r * 2, y - r * 0.3, x, y + r);
+    ctx.fill(); ctx.stroke();
+  }
+
   // ---------- Objetos especiales y comidas de Rim ----------
-  function drawFood(kind, x, y, rot, size, glow) {
+  function drawFood(kind, x, y, rot, size, glow, girl) {
     if (kind === "empanada" || !kind) { drawEmpanada(x, y, rot, size, glow); return; }
+    if (kind === "novia") { drawGirlPickup(girl || previewGirl, x, y, size, glow); return; }
     const special = !!SPECIALS[kind];
     ctx.save();
     ctx.translate(x, y);
@@ -1883,6 +1971,18 @@
       ctx.fill();
       ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.stroke();
     }
+    // rastas largas por detrás, hasta los hombros (02/11/2026)
+    if (d.hairStyle === "dreads") {
+      ctx.strokeStyle = OL; ctx.lineWidth = 6.2;
+      const locks = [];
+      for (let i = 0; i < 9; i++) {
+        const t = i / 8, x0 = fx - F.rx - 2 + t * (F.rx * 2 + 4);
+        locks.push([x0, hy - F.ry + 2, x0 + (t - 0.5) * 6 + sway, hy + 16 + Math.abs(t - 0.5) * 2]);
+      }
+      for (const [a, b, c, e] of locks) { ctx.beginPath(); ctx.moveTo(a, b); ctx.quadraticCurveTo(a + (c - a) * 1.3, (b + e) / 2, c, e); ctx.stroke(); }
+      ctx.strokeStyle = d.hairD; ctx.lineWidth = 3.8;
+      for (const [a, b, c, e] of locks) { ctx.beginPath(); ctx.moveTo(a, b); ctx.quadraticCurveTo(a + (c - a) * 1.3, (b + e) / 2, c, e); ctx.stroke(); }
+    }
     // coleta o moño, por detrás de la cabeza (01/11/2026)
     if (d.hairStyle === "ponytail" || d.hairStyle === "bun") {
       const top = hy - F.ry - 3.5, L = fx - F.rx;
@@ -1929,7 +2029,8 @@
     const light = lum > 225;
     const topD = darken(d.topColor, light ? 0.12 : 0.3);
     const trim = lum < 50 ? lighten(d.topColor, 0.1) : darken(d.topColor, 0.2); // cuellos y costuras
-    humanArm(-6, -1, -2.3 + sw * 0.9, topD, sleeve, false);
+    const reach = !!d.baby; // Pamela estira los brazos hacia el bebé
+    humanArm(-6, -1, reach ? -0.55 + sw * 0.25 : -2.3 + sw * 0.9, topD, sleeve, false);
 
     // tronco
     const g = ctx.createLinearGradient(-12, -8, 12, 16);
@@ -1982,6 +2083,24 @@
       ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 4); ctx.stroke();
       ctx.fillStyle = lum < 50 ? "#55555c" : darken(d.topColor, 0.35);
       for (const by of [-2, 1.5]) { ctx.beginPath(); ctx.arc(0.8, by, 0.8, 0, Math.PI * 2); ctx.fill(); }
+    } else if (d.top === "thriller") {
+      // chaqueta roja de cuero con las uves negras en el pecho y los hombros, cremallera y cuello alto
+      ctx.fillStyle = d.topColor;
+      roundRect(-7, -11, 14, 6, 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.save();
+      roundRect(-12, -8, 24, 23, 8); ctx.clip();
+      ctx.strokeStyle = "#141414"; ctx.lineWidth = 2;
+      for (const off of [0, 4.5]) {
+        ctx.beginPath(); ctx.moveTo(-12, -6 + off); ctx.lineTo(-1.5, 3 + off); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(12, -6 + off); ctx.lineTo(1.5, 3 + off); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.strokeStyle = "#e8e8e8"; ctx.lineWidth = 1.1;
+      ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 15); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.beginPath(); ctx.ellipse(-6, -2, 2.5, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = darken(d.topColor, 0.25); ctx.fillRect(-11, 11, 22, 3.5);
     } else if (d.top === "jacket") {
       // chaqueta de cremallera con cuello alto, camiseta negra debajo y bolsillos
       ctx.fillStyle = lighten(d.topColor, 0.05);
@@ -1995,7 +2114,7 @@
       ctx.fillStyle = lum < 50 ? "#2c2d33" : darken(d.topColor, 0.15); ctx.fillRect(-11, 11, 22, 3.5);
     }
 
-    humanArm(4, -1, -2.0 - sw * 0.9, d.topColor, sleeve, !!(d.watch || d.band));
+    humanArm(4, -1, reach ? -0.2 - sw * 0.25 : -2.0 - sw * 0.9, d.topColor, sleeve, !!(d.watch || d.band));
 
     // cuello
     ctx.fillStyle = d.skinD;
@@ -2158,6 +2277,8 @@
     drawHairFront();
     if (d.glasses && mood !== "dead") drawGlasses();
     if (d.hat) drawHat(d.hat);
+    // el bebé va delante, un poco más alto, y ella detrás intentando cogerlo
+    if (d.baby) drawBaby(44, -27 + Math.sin(worldT * 2.4) * 2.5, flapPh);
     ctx.restore();
 
     function drawGlasses() {
@@ -2341,6 +2462,127 @@
         ctx.moveTo(R - 2, hy - 6); ctx.quadraticCurveTo(fx + 2, top + 1, L + 1, top + 5);
         ctx.moveTo(R - 1, hy - 3); ctx.quadraticCurveTo(fx + 4, top + 3.5, L, hy - 4);
         ctx.stroke();
+      } else if (d.hairStyle === "goldCurls") {
+        // rizos apretados con volumen arriba, algunos caen por la frente, puntas doradas
+        ctx.fillStyle = d.hair;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.moveTo(L - 0.8, hy + 3);
+        ctx.quadraticCurveTo(L - 1.6, top + 2, fx, top + 1.5);
+        ctx.quadraticCurveTo(R + 1.6, top + 2, R + 0.8, hy + 1);
+        ctx.lineTo(R - 1, hy + 1); ctx.lineTo(R - 1.2, hy - 6);
+        ctx.quadraticCurveTo(fx + 2, hy - 9.5, L + 1.2, hy - 6);
+        ctx.lineTo(L + 1, hy + 3); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 1.5; ctx.stroke();
+        // muchos rizos pequeños: poco alto, y abierto hacia los lados por encima de las orejas
+        const curls = [];
+        const cxh = fx, cyh = hy - 4, rxh = F.rx + 3.2, ryh = F.ry + 0.6;
+        for (let row = 0; row < 5; row++) {
+          const ry2 = ryh - row * 2.3;           // de fuera hacia dentro
+          const n = 13 - row * 2;
+          for (let i = 0; i < n; i++) {
+            const ang = Math.PI * (1.04 + (0.92 * (i + (row % 2) * 0.5)) / (n - 0.5));
+            const rx2 = rxh - row * 2.2;
+            const x = cxh + Math.cos(ang) * rx2, y = cyh + Math.sin(ang) * ry2 * 0.82;
+            if (y > hy - 1) continue;
+            curls.push([x, y, 2.05 - row * 0.08, (i * 7 + row * 3) % 5]);
+          }
+        }
+        // flequillo corto: unos pocos rizos sobre la frente
+        for (let i = 0; i < 5; i++) curls.push([fx - 6 + i * 3.2, hy - 8.3 + (i % 2) * 0.8, 1.8, i]);
+        ctx.fillStyle = d.hair; ctx.strokeStyle = OL; ctx.lineWidth = 1.1;
+        for (const [x, y, r] of curls) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+        ctx.fillStyle = d.hair;
+        for (const [x, y, r] of curls) { ctx.beginPath(); ctx.arc(x, y, r - 0.4, 0, Math.PI * 2); ctx.fill(); }
+        // detalle: cada rizo con su vuelta de brillo y una sombra debajo
+        curls.forEach(([x, y, r, v]) => {
+          const a0 = 3.4 + v * 0.35;
+          ctx.strokeStyle = lighten(d.hair, 0.3); ctx.lineWidth = 0.7;
+          ctx.beginPath(); ctx.arc(x - 0.2, y - 0.2, r * 0.55, a0, a0 + 1.9); ctx.stroke();
+          ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 0.6;
+          ctx.beginPath(); ctx.arc(x, y + 0.2, r * 0.8, 0.3, 2.6); ctx.stroke();
+        });
+      } else if (d.hairStyle === "shortWavy") {
+        // corto y ondulado: poco volumen arriba, lados rebajados
+        ctx.fillStyle = d.hair;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(L - 0.8, hy + 2);
+        ctx.quadraticCurveTo(L - 1.6, top + 2, fx, top + 1.5);
+        ctx.quadraticCurveTo(R + 1.6, top + 2, R + 0.8, hy + 1);
+        ctx.lineTo(R - 1, hy + 1); ctx.lineTo(R - 1.2, hy - 6);
+        ctx.quadraticCurveTo(fx + 2, hy - 9.5, L + 1.2, hy - 6);
+        ctx.lineTo(L + 1, hy + 2); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 1.5; ctx.stroke();
+        // arriba: ondas pequeñas siguiendo la forma de la cabeza
+        ctx.lineWidth = 1.6;
+        const ring = [];
+        for (let k = 0; k <= 9; k++) {
+          const ang = Math.PI * (1.1 + k * 0.0889);
+          ring.push([fx + Math.cos(ang) * (F.rx - 0.5), hy - 3 + Math.sin(ang) * (F.ry + 0.3)]);
+        }
+        ctx.beginPath();
+        ctx.moveTo(L + 1, hy - 4);
+        for (const [x, y] of ring) ctx.lineTo(x, y);
+        ctx.quadraticCurveTo(fx + 3, hy - 10, L + 1, hy - 4);
+        ctx.fill();
+        for (const [x, y] of ring) { ctx.beginPath(); ctx.arc(x, y, 2.7, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+        ctx.beginPath(); ctx.moveTo(L + 1.5, hy - 4.5); ctx.quadraticCurveTo(fx + 3, hy - 10.5, R - 1.5, hy - 5); ctx.stroke();
+        ctx.strokeStyle = lighten(d.hair, 0.32); ctx.lineWidth = 0.9;
+        for (const [x, y] of ring) { ctx.beginPath(); ctx.arc(x - 0.4, y - 0.4, 1.2, 3.4, 5.2); ctx.stroke(); }
+        ctx.beginPath(); ctx.moveTo(fx - 6, top + 4);
+        for (let x = fx - 6; x < fx + 6; x += 4) ctx.quadraticCurveTo(x + 2, top + 2.4, x + 4, top + 4);
+        ctx.stroke();
+      } else if (d.hairStyle === "dreads") {
+        ctx.fillStyle = d.hair;
+        ctx.beginPath();
+        ctx.moveTo(L - 1.5, hy + 1);
+        ctx.quadraticCurveTo(L - 3, top - 1.5, fx, top - 2);
+        ctx.quadraticCurveTo(R + 3, top - 1.5, R + 1.5, hy);
+        ctx.lineTo(R - 1.5, hy - 5);
+        ctx.quadraticCurveTo(fx + 2, hy - 10.5, L + 1.5, hy - 5);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // las rastas, saliendo de la coronilla y cayendo a los lados de la cara
+        const strands = [[L + 1, -1, -3.5], [L + 4.5, 0.5, -2], [R - 4.5, 0.5, 2], [R - 1, -1, 3.5], [fx - 3, -0.5, -1], [fx + 3, -0.5, 1]];
+        for (const [x0, dy, dx] of strands) {
+          const side = Math.abs(dx) > 2.5, endY = side ? hy + 15 : hy - 6;
+          for (const [w, c] of [[5.6, OL], [3.4, d.hair]]) {
+            ctx.strokeStyle = c; ctx.lineWidth = w;
+            ctx.beginPath(); ctx.moveTo(x0, top + 2 + dy);
+            ctx.quadraticCurveTo(x0 + dx * 1.6, (top + endY) / 2, x0 + dx + (side ? sway : 0), endY); ctx.stroke();
+          }
+        }
+        // anillitos de las rastas
+        ctx.strokeStyle = lighten(d.hair, 0.28); ctx.lineWidth = 0.9;
+        for (const [x0, dy, dx] of strands) {
+          if (Math.abs(dx) <= 2.5) continue;
+          for (let k = 1; k <= 3; k++) {
+            const t = k / 4, yy = top + 2 + (hy + 15 - top - 2) * t, xx = x0 + dx * (2 * t * (1 - t) * 1.6 + t * t);
+            ctx.beginPath(); ctx.moveTo(xx - 1.4, yy); ctx.lineTo(xx + 1.4, yy + 0.6); ctx.stroke();
+          }
+        }
+      } else if (d.hairStyle === "curlyTop") {
+        // lados cortos (degradado) y un montón de rizos arriba
+        ctx.fillStyle = d.hair;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.moveTo(L - 0.8, hy + 2);
+        ctx.quadraticCurveTo(L - 1.6, top + 2, fx, top + 1.5);
+        ctx.quadraticCurveTo(R + 1.6, top + 2, R + 0.8, hy + 1);
+        ctx.lineTo(R - 1, hy + 1); ctx.lineTo(R - 1.2, hy - 6);
+        ctx.quadraticCurveTo(fx + 2, hy - 9.5, L + 1.2, hy - 6);
+        ctx.lineTo(L + 1, hy + 2); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 1.6; ctx.stroke();
+        ctx.lineWidth = 1.8;
+        const curls = [[-8, -1], [-4, -3.5], [0.5, -4.5], [5, -3.5], [9, -1], [-6, 2], [-1.5, 0.5], [3, 0.5], [7.5, 2.5]];
+        for (const [ox, oy] of curls) {
+          ctx.beginPath(); ctx.arc(fx + ox, top + oy + 1, 3.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+        ctx.strokeStyle = lighten(d.hair, 0.35); ctx.lineWidth = 1;
+        for (const [ox, oy] of curls) { ctx.beginPath(); ctx.arc(fx + ox - 0.5, top + oy + 0.5, 1.5, 3.4, 5.2); ctx.stroke(); }
       } else if (d.hairStyle === "curly") {
         // rizos: bolitas por todo el borde de la cabeza
         ctx.fillStyle = d.hair;
@@ -2404,6 +2646,60 @@
       ctx.beginPath(); ctx.arc(ex, ey, 3.4, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.stroke();
     }
+  }
+
+  // El bebé de Pamela: pelele azul, pañal, un mechón y riéndose; patalea al volar
+  function drawBaby(x, y, ph) {
+    const k = Math.sin(ph);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(0.15);
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const SK = "#f3c9a6";
+    // piernas que patalean
+    for (const [lx, a] of [[-4, 0.5 + k * 0.35], [2, 0.2 - k * 0.35]]) {
+      const ex = lx - 3 + Math.cos(a + 1.6) * 7, ey = 9 + Math.sin(a + 1.6) * 7;
+      ctx.strokeStyle = OL; ctx.lineWidth = 6.5;
+      ctx.beginPath(); ctx.moveTo(lx, 8); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = "#8cc8f0"; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(lx, 8); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.fillStyle = SK; ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+    // cuerpo con pañal
+    ctx.fillStyle = "#8cc8f0"; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.ellipse(0, 4, 8, 7.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.ellipse(-0.5, 9, 7, 3.5, 0, 0, Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(-6, 8.5, 1.1, 0, Math.PI * 2); ctx.fill();
+    // bracitos arriba
+    for (const [sx, a] of [[-5, -2.4 + k * 0.3], [5, -0.8 - k * 0.3]]) {
+      const ex = sx + Math.cos(a) * 7, ey = 1 + Math.sin(a) * 7;
+      ctx.strokeStyle = OL; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(sx, 1); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = "#8cc8f0"; ctx.lineWidth = 3.6;
+      ctx.beginPath(); ctx.moveTo(sx, 1); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.fillStyle = SK; ctx.beginPath(); ctx.arc(ex, ey, 2.3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+    // cabeza grande y redonda
+    const g = ctx.createRadialGradient(2, -11, 1, 0, -9, 10);
+    g.addColorStop(0, lighten(SK, 0.12)); g.addColorStop(1, SK);
+    ctx.fillStyle = g; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(0, -9, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // orejita y mechón
+    ctx.fillStyle = SK; ctx.beginPath(); ctx.ellipse(-8.6, -8, 2, 2.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#6a4329"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(0, -18); ctx.quadraticCurveTo(4, -22, 5, -17.5); ctx.stroke();
+    // carita: ojos felices, mofletes y boca abierta riendo
+    ctx.strokeStyle = "#2a1c14"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(-1.5, -9.5, 1.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(4.5, -9.5, 1.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    ctx.fillStyle = "rgba(240,120,120,0.45)";
+    ctx.beginPath(); ctx.arc(-3.5, -6, 1.8, 0, Math.PI * 2); ctx.arc(7, -6, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#8a2c2c";
+    ctx.beginPath(); ctx.moveTo(-0.5, -5.5); ctx.quadraticCurveTo(1.8, -1.5, 4, -5.5); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 
   // Óvalo de cara: ancho en la frente y más estrecho en la barbilla
@@ -2774,7 +3070,7 @@
     if (sp) {
       drawFood(sp, LW / 2 - 70, LH * 0.62, worldT * 3, 0.9, true);
       text("= +5", LW / 2 - 70, LH * 0.62 + 36, 18, "#fff", "#3b2414", 5);
-      text("cada " + SPECIAL_EVERY, LW / 2 - 70, LH * 0.62 + 56, 14, "#ffe7a3", "#3b2414", 4);
+      text("cada " + specialEvery(selectedChar()), LW / 2 - 70, LH * 0.62 + 56, 14, "#ffe7a3", "#3b2414", 4);
     }
   }
 
@@ -2900,7 +3196,7 @@
       if (!c.food || c.eaten) continue;
       const fp = foodPos(c);
       if (isPower(c.kind)) drawPower(c.kind.slice(2), fp.x, fp.y, 1, true);
-      else drawFood(c.kind, fp.x, fp.y, c.bob, 1, true);
+      else drawFood(c.kind, fp.x, fp.y, c.bob, 1, true, c.girl);
     }
     drawGround(pal);
 
@@ -2915,6 +3211,9 @@
       const dead = state === STATE.DYING || state === STATE.OVER || state === STATE.NAME;
       // con el mini se encoge alrededor del centro del cuerpo
       const k = miniK, cy = player.y - 5;
+      if (girlfriend && selectedChar().id === "maykel") {
+        drawHuman(girlfriend, player.x - 33 * k, cy + (7 + Math.sin(worldT * 2.2) * 1.5) * k, player.rot, player.flap + 0.6, PLAYER_SCALE * 0.92 * k, dead ? "dead" : "");
+      }
       drawChar(dressed(selectedChar()), player.x, cy + 5 * k, player.rot, player.flap, PLAYER_SCALE * k, dead ? "dead" : "");
       if (!dead && (shield || shieldSafe > 0)) drawShieldBubble(player.x + 1, cy, 30 * k, shield ? 1 : shieldSafe / 1.3);
     }
@@ -3089,6 +3388,16 @@
       });
       ["vino", "tequila", "camara", "jamon", "queso", "huevo", "salchicha", "pollo", "pizza", "hueso"].forEach((k, i) => {
         drawFood(k, 30 + (i % 5) * 80, LH - 110 + Math.floor(i / 5) * 60, 0, 1, false);
+      });
+      return;
+    }
+    // ?hoja=maykel,pamela: solo esos, en grande
+    const only = (new URLSearchParams(location.search).get("hoja") || "").split(",").filter(Boolean);
+    if (only.length) {
+      only.map((id) => CHARACTERS.find((c) => c.id === id)).filter(Boolean).forEach((c, i) => {
+        const y = 200 + i * 290;
+        drawChar(c, c.baby ? 150 : 190, y, 0, player.flap, 3.6, "");
+        text(c.name, LW / 2, y + 120, 22, "#3b2414");
       });
       return;
     }
