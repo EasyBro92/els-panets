@@ -341,12 +341,8 @@
   const HAT = (type, color) => ({ type, color });
   const EXTRA = {
     // el gris no tiene historia; Núria, María, Isidro y Pamela la tienen desde el 03/11/2026
-    gris: { outfits: [
-      { name: "Gris", look: {} },
-      { name: "Rizos y chándal", look: { hairStyle: "curly", hair: "#5a5a5a", top: "jacket", topColor: "#9a9a9a", legs: "#7a7a7a" } },
-      { name: "Rapado con barba", look: { hairStyle: "buzz", hair: "#4f4f4f", beard: { color: "#5a5a5a", alpha: 0.9, top: 4.5 }, top: "polo", topColor: "#b0b0b0", legs: "#5e5e5e" } },
-      { name: "Gorra y gafas", look: { top: "tee", topColor: "#a3a3a3", glasses: true, hat: HAT("cap", "#6a6a6a") } },
-    ] },
+    // 03/11/2026: el gris ya no tiene ropa; en su sitio va el botón de crear tu personaje
+    gris: { outfits: [{ name: "Gris", look: {} }] },
     blanco: { story: "Fotógrafa: no se le escapa ni una foto.", power: "Cada 15 empanadillas: cámara, +5 y ¡foto!", special: "camara", outfits: [
       { name: "De blanco", look: {} },
       { name: "Fotógrafa", look: { top: "tee", topColor: "#2b2b30", hat: HAT("beret", "#b3262e") } },
@@ -461,8 +457,13 @@
   let viewIndex = charIndex; // el que se está mirando en el inicio
   const charUnlocked = (i) => (CHARACTERS[i].custom ? customState() === "aprobado" : best >= CHARACTERS[i].unlock);
   const selectedChar = () => (charUnlocked(charIndex) ? CHARACTERS[charIndex] : CHARACTERS[0]);
+  // tu personaje solo sale en la fila cuando ya lo has enviado (en revisión o aprobado);
+  // para crearlo está el botón del gris
+  const customShown = () => { const s = customState(); return s === "pendiente" || s === "aprobado"; };
+  const shownCount = () => CHARACTERS.length - (customShown() ? 0 : 1);
   function viewChar(i) {
-    viewIndex = (i + CHARACTERS.length) % CHARACTERS.length;
+    const n = shownCount();
+    viewIndex = (i + n) % n;
     if (charUnlocked(viewIndex)) { charIndex = viewIndex; store.set(CHAR_KEY, CHARACTERS[viewIndex].id); }
   }
 
@@ -897,7 +898,8 @@
       next: { x: cx + 118, y: LH * 0.31, r: 22 },
       play: { x: cx - 100, y: LH * 0.45, w: 200, h: 64 },
       cardY: LH * 0.45 + 82,
-      portraits: CHARACTERS.map((c, i) => { const st = Math.min(46, 266 / CHARACTERS.length); return { i, x: cx - (CHARACTERS.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 50, r: Math.min(19, st / 2 - 3) }; }),
+      portraits: CHARACTERS.slice(0, shownCount()).map((c, i, a) => { const st = Math.min(46, 266 / a.length); return { i, x: cx - (a.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 50, r: Math.min(19, st / 2 - 3) }; }),
+      create: { x: cx - 120, y: LH * 0.45 + 82 + 92, w: 240, h: 54 },
       outfits: OUTFIT_PTS.map((p, i) => ({ i, x: cx - 75 + i * 50, y: LH * 0.45 + 82 + 118, r: 18 })),
       edit: { x: cx - 75, y: LH * 0.45 + 82 + 103, w: 150, h: 33 },
       titleBox: { x: cx - 150, y: LH * 0.12 - 40, w: 300, h: 80 },
@@ -933,6 +935,12 @@
           if (titleTaps >= 5) { titleTaps = 0; if (window.ElsPanetsUI) window.ElsPanetsUI.openAdmin(); }
           return;
         }
+        if (CHARACTERS[viewIndex].id === "gris" && inRect(p, u.create)) {
+          const cst = customState();
+          if (cst === "libre") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); }
+          else if (cst !== "denegado") { snd.click(); viewChar(CHARACTERS.indexOf(customDef)); }
+          return;
+        }
         if (CHARACTERS[viewIndex].custom) {
           const cst = customState();
           if (inRect(p, u.play) && cst === "libre") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); return; }
@@ -943,7 +951,7 @@
         for (const c of u.portraits) {
           if (inCircle(p, { x: c.x, y: c.y, r: c.r - 3 })) { viewChar(c.i); snd.click(); return; }
         }
-        for (const o of CHARACTERS[viewIndex].custom ? [] : u.outfits) {
+        for (const o of CHARACTERS[viewIndex].custom || CHARACTERS[viewIndex].id === "gris" ? [] : u.outfits) {
           if (inCircle(p, { x: o.x, y: o.y, r: o.r - 3 })) {
             if (charUnlocked(viewIndex) && outfitUnlocked(o.i)) { store.set(outfitKey(CHARACTERS[viewIndex].id), o.i); snd.click(); }
             return;
@@ -3275,6 +3283,7 @@
   }
 
   function drawStart() {
+    if (viewIndex >= shownCount()) viewChar(0); // lo denegaron mientras lo mirabas
     const u = ui();
     const def = CHARACTERS[viewIndex], open = charUnlocked(viewIndex);
     const cst = def.custom ? customState() : null; // tu personaje: libre, pendiente, aprobado o denegado
@@ -3352,6 +3361,21 @@
       text(msg, LW / 2, oy - 34, 14, cst === "denegado" ? "#c0392b" : "#8a5a2b");
       if (cst === "pendiente" || cst === "aprobado") button(u.edit, "CAMBIARLO", true, 18);
       text(cst === "aprobado" ? "Si lo cambias, vuelve a revisión" : "Si lo deniega, se borra", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
+    } else if (def.id === "gris") {
+      // el gris no tiene ropa: aquí va, en grande, el botón de crear tu personaje
+      const gst = customState();
+      let msg = "Tú lo diseñas y el admin lo aprueba", btn = "CREA TU PERSONAJE";
+      if (gst === "pendiente") { msg = "El admin todavía no lo ha visto"; btn = "VER TU PERSONAJE"; }
+      else if (gst === "aprobado") { msg = "¡Aprobado! Ya puedes jugar con él"; btn = "TU PERSONAJE"; }
+      else if (gst === "denegado") {
+        const left = Math.max(0, (customChar.decidido || 0) + DAY_MS - Date.now());
+        msg = "Podrás crear otro en " + Math.floor(left / 3600000) + " h " + Math.floor((left % 3600000) / 60000) + " min";
+        btn = "DENEGADO";
+      }
+      text(msg, LW / 2, u.cardY + CARD_H - 14, 14, gst === "denegado" ? "#c0392b" : "#8a5a2b");
+      ctx.globalAlpha = gst === "denegado" ? 0.5 : 1;
+      button(u.create, btn, gst !== "denegado", 21);
+      ctx.globalAlpha = 1;
     } else {
     // ropa: cuatro conjuntos con el personaje en miniatura
     const selO = outfitIndex(def);
