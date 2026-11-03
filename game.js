@@ -404,7 +404,7 @@
   };
   for (const c of CHARACTERS) Object.assign(c, EXTRA[c.id]);
 
-  const OUTFIT_PTS = [0, 50, 100, 150];
+  const OUTFIT_PTS = [0, 150, 300, 450]; // el triple que antes (03/11/2026)
   const outfitKey = (id) => "elsPanetsRopa_" + id;
   const outfitUnlocked = (i) => best >= OUTFIT_PTS[i];
   function outfitIndex(def) {
@@ -1468,6 +1468,41 @@
     }
   }
 
+  // Cada personaje lleva la bandera de su tierra en las columnas
+  const FLAG_H = 12;
+  const FLAGS = { blanco: "ve", maykel: "ve", gris: "ve", deportista: "ec", maria: "cat", polo: "cat", nuria: "cat", perro: "cat", chaqueta: "do", pamela: "hn" };
+  const flagOf = (def) => FLAGS[def.id] || def.flag || "ve";
+  function drawFlagBand(x, y, w, h, f) {
+    const band = (c, y0, hh) => { ctx.fillStyle = c; ctx.fillRect(x, y + y0, w, hh); };
+    const dot = (cx, cy, r, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); };
+    const mx = x + w / 2, my = y + h / 2;
+    if (f === "ec") { // Ecuador: amarillo el doble de ancho, azul y rojo, y el escudo
+      band("#ffd100", 0, h / 2); band("#034ea2", h / 2, h / 4); band("#ed1c24", (h * 3) / 4, h / 4);
+      dot(mx, my, 2.6, "#7a5a1e"); dot(mx, my - 0.6, 1.5, "#5fb0e8");
+    } else if (f === "cat") { // senyera: cuatro barras rojas sobre amarillo
+      band("#fcdd09", 0, h);
+      for (let i = 0; i < 4; i++) band("#da121a", (h / 9) * (1 + i * 2), h / 9);
+    } else if (f === "do") { // República Dominicana: cuarteles azul y rojo con cruz blanca
+      const cw = 2.4, hw = (w - cw) / 2, hh = (h - cw) / 2;
+      band("#ffffff", 0, h);
+      ctx.fillStyle = "#002d62"; ctx.fillRect(x, y, hw, hh); ctx.fillRect(x + hw + cw, y + hh + cw, hw, hh);
+      ctx.fillStyle = "#ce1126"; ctx.fillRect(x + hw + cw, y, hw, hh); ctx.fillRect(x, y + hh + cw, hw, hh);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(mx - 3, my - 3, 6, 6);
+      dot(mx, my, 1.8, "#2f8a3a");
+    } else if (f === "hn") { // Honduras: azul, blanco y azul con cinco estrellas
+      band("#00bce4", 0, h / 3); band("#ffffff", h / 3, h / 3); band("#00bce4", (h * 2) / 3, h / 3);
+      for (const [dx, dy] of [[-6, -1], [-6, 1], [0, 0], [6, -1], [6, 1]]) dot(mx + dx, my + dy, 0.9, "#00bce4");
+    } else { // Venezuela: amarillo, azul con el arco de estrellas, rojo
+      band("#f7c600", 0, h / 3); band("#1d4fa3", h / 3, h / 3); band("#d52b1e", (h * 2) / 3, h / 3);
+      for (let i = 0; i < 8; i++) {
+        const a = Math.PI * (0.15 + (0.7 * i) / 7);
+        dot(mx - Math.cos(a) * 7, my + 1.6 - Math.sin(a) * 2.6, 0.6, "#ffffff");
+      }
+    }
+    ctx.strokeStyle = "rgba(60,40,20,0.35)"; ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  }
+
   function drawCapital(x, y, isTop) {
     const w = COL_W + CAP_OUT * 2, cx = x - CAP_OUT;
     const g = ctx.createLinearGradient(cx, 0, cx + w, 0);
@@ -1480,10 +1515,8 @@
     ctx.strokeStyle = "#5e4630";
     ctx.lineWidth = 2;
     ctx.stroke();
-    // franja tricolor junto al fuste
-    const by = isTop ? y - 9 : y + CAP_H;
-    const cols3 = isTop ? ["#f7c600", "#1d4fa3", "#d52b1e"] : ["#d52b1e", "#1d4fa3", "#f7c600"];
-    cols3.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(x + 1, by + i * 3, COL_W - 2, 3); });
+    // bandera del personaje junto al fuste (03/11/2026)
+    drawFlagBand(x + 1, isTop ? y - FLAG_H : y + CAP_H, COL_W - 2, FLAG_H, flagOf(selectedChar()));
     // moldura
     ctx.strokeStyle = "rgba(94,70,48,0.5)";
     ctx.lineWidth = 1.5;
@@ -2278,7 +2311,7 @@
     if (d.glasses && mood !== "dead") drawGlasses();
     if (d.hat) drawHat(d.hat);
     // el bebé va delante, un poco más alto, y ella detrás intentando cogerlo
-    if (d.baby) drawBaby(44, -27 + Math.sin(worldT * 2.4) * 2.5, flapPh);
+    if (d.baby) { const ag = d.babyAge || 0; drawBaby(44 + ag * 2.5, -27 - ag * 1.5 + Math.sin(worldT * 2.4) * 2.5, flapPh, ag); }
     ctx.restore();
 
     function drawGlasses() {
@@ -2648,57 +2681,123 @@
     }
   }
 
-  // El bebé de Pamela: pelele azul, pañal, un mechón y riéndose; patalea al volar
-  function drawBaby(x, y, ph) {
-    const k = Math.sin(ph);
+  // El hijo de Pamela: crece un año con cada conjunto de ella (0, 1, 2 y 3 años).
+  // De bebé: pelele y pañal; desde los 2: camiseta, pantalón corto y zapatillas.
+  function drawBaby(x, y, ph, age) {
+    age = age || 0;
+    const k = Math.sin(ph), big = age >= 2;
+    const grow = 1 + age * 0.13;               // más alto cada año
+    const legL = 7 + age * 1.6, bodyH = 7.5 + age * 0.9, headR = 9 - age * 0.35;
+    const cloth = big ? ["#8cc8f0", "#3fa66b", "#d63a32"][age - 1] || "#d63a32" : "#8cc8f0";
+    const pants = big ? "#3a4a66" : cloth;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(0.15);
+    ctx.scale(grow, grow);
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-    const SK = "#f3c9a6";
-    // piernas que patalean
+    const SK = "#f3c9a6", HAIR = "#6a4329";
+    // piernas que patalean (de mayor, con zapatillas)
     for (const [lx, a] of [[-4, 0.5 + k * 0.35], [2, 0.2 - k * 0.35]]) {
-      const ex = lx - 3 + Math.cos(a + 1.6) * 7, ey = 9 + Math.sin(a + 1.6) * 7;
+      const ex = lx - 3 + Math.cos(a + 1.6) * legL, ey = 8 + Math.sin(a + 1.6) * legL;
       ctx.strokeStyle = OL; ctx.lineWidth = 6.5;
       ctx.beginPath(); ctx.moveTo(lx, 8); ctx.lineTo(ex, ey); ctx.stroke();
-      ctx.strokeStyle = "#8cc8f0"; ctx.lineWidth = 4;
+      ctx.strokeStyle = big ? SK : pants; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(lx, 8); ctx.lineTo(ex, ey); ctx.stroke();
-      ctx.fillStyle = SK; ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      if (big) {
+        // pantalón corto hasta media pierna
+        const mx = lx + (ex - lx) * 0.45, my = 8 + (ey - 8) * 0.45;
+        ctx.strokeStyle = pants; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(lx, 8); ctx.lineTo(mx, my); ctx.stroke();
+        ctx.fillStyle = "#ffffff"; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.ellipse(ex + 1, ey + 0.5, 3.4, 2.2, 0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillStyle = SK; ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
+      }
     }
-    // cuerpo con pañal
-    ctx.fillStyle = "#8cc8f0"; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.ellipse(0, 4, 8, 7.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.ellipse(-0.5, 9, 7, 3.5, 0, 0, Math.PI); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(-6, 8.5, 1.1, 0, Math.PI * 2); ctx.fill();
+    // cuerpo
+    ctx.fillStyle = cloth; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.ellipse(0, 4, 8 - age * 0.3, bodyH, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (!big) {
+      // pañal con su imperdible
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.ellipse(-0.5, 4 + bodyH - 2.5, 7, 3.5, 0, 0, Math.PI); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(-6, 4 + bodyH - 3, 1.1, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // camiseta con una estrella y el pantalón asomando
+      ctx.fillStyle = pants;
+      ctx.beginPath(); ctx.ellipse(0, 4 + bodyH - 2, 7, 3, 0, 0, Math.PI); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const r = i % 2 ? 1.2 : 2.8, an = -Math.PI / 2 + i * Math.PI / 5; ctx.lineTo(1 + Math.cos(an) * r, 3 + Math.sin(an) * r); }
+      ctx.closePath(); ctx.fill();
+    }
     // bracitos arriba
     for (const [sx, a] of [[-5, -2.4 + k * 0.3], [5, -0.8 - k * 0.3]]) {
-      const ex = sx + Math.cos(a) * 7, ey = 1 + Math.sin(a) * 7;
+      const L = 7 + age * 0.8, ex = sx + Math.cos(a) * L, ey = 1 + Math.sin(a) * L;
       ctx.strokeStyle = OL; ctx.lineWidth = 6;
       ctx.beginPath(); ctx.moveTo(sx, 1); ctx.lineTo(ex, ey); ctx.stroke();
-      ctx.strokeStyle = "#8cc8f0"; ctx.lineWidth = 3.6;
+      ctx.strokeStyle = big ? SK : cloth; ctx.lineWidth = 3.6;
       ctx.beginPath(); ctx.moveTo(sx, 1); ctx.lineTo(ex, ey); ctx.stroke();
+      if (big) { ctx.strokeStyle = cloth; ctx.lineWidth = 4.4; ctx.beginPath(); ctx.moveTo(sx, 1); ctx.lineTo(sx + (ex - sx) * 0.4, 1 + (ey - 1) * 0.4); ctx.stroke(); }
       ctx.fillStyle = SK; ctx.beginPath(); ctx.arc(ex, ey, 2.3, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.stroke();
     }
-    // cabeza grande y redonda
-    const g = ctx.createRadialGradient(2, -11, 1, 0, -9, 10);
+    // cabeza (algo menos grande cuanto mayor)
+    const hy = -9 + age * 0.4;
+    const g = ctx.createRadialGradient(2, hy - 2, 1, 0, hy, headR + 1);
     g.addColorStop(0, lighten(SK, 0.12)); g.addColorStop(1, SK);
     ctx.fillStyle = g; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.arc(0, -9, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // orejita y mechón
-    ctx.fillStyle = SK; ctx.beginPath(); ctx.ellipse(-8.6, -8, 2, 2.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = "#6a4329"; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(0, -18); ctx.quadraticCurveTo(4, -22, 5, -17.5); ctx.stroke();
-    // carita: ojos felices, mofletes y boca abierta riendo
-    ctx.strokeStyle = "#2a1c14"; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.arc(-1.5, -9.5, 1.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
-    ctx.beginPath(); ctx.arc(4.5, -9.5, 1.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
-    ctx.fillStyle = "rgba(240,120,120,0.45)";
-    ctx.beginPath(); ctx.arc(-3.5, -6, 1.8, 0, Math.PI * 2); ctx.arc(7, -6, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, hy, headR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = SK; ctx.beginPath(); ctx.ellipse(-headR + 0.4, hy + 1, 2, 2.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // pelo: un mechón de bebé; luego cada año un poco más
+    ctx.strokeStyle = HAIR; ctx.fillStyle = HAIR;
+    if (age === 0) {
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(0, hy - 9); ctx.quadraticCurveTo(4, hy - 13, 5, hy - 8.5); ctx.stroke();
+    } else {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(0, hy, headR, 0, Math.PI * 2); ctx.clip();
+      // corte de niño: corto, pegado arriba, con las puntas de punta y la frente despejada
+      const line = hy - headR + 3 + age * 0.6;
+      ctx.beginPath();
+      ctx.moveTo(-headR - 1, hy - 1);
+      ctx.lineTo(-headR - 1, hy - headR - 1); ctx.lineTo(headR + 1, hy - headR - 1);
+      ctx.lineTo(headR + 1, line - 2);
+      ctx.quadraticCurveTo(2, line + 0.8, -headR + 2, line + 1.5);
+      ctx.lineTo(-headR + 1, hy - 1);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(0, hy, headR, Math.PI * 1.02, Math.PI * 1.98); ctx.stroke();
+      // pelillos de punta
+      ctx.fillStyle = HAIR; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+      for (const [px, h] of [[-3, 2.2], [0.5, 2.8 + age * 0.3], [4, 2.2]]) {
+        ctx.beginPath(); ctx.moveTo(px - 2, hy - headR + 0.8); ctx.lineTo(px + 0.8, hy - headR - h); ctx.lineTo(px + 2.4, hy - headR + 0.8); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+    }
+    // carita: de bebé ojos cerrados de risa; de mayor, ojos abiertos
+    ctx.strokeStyle = "#2a1c14"; ctx.fillStyle = "#2a1c14"; ctx.lineWidth = 1.4;
+    const ey = hy - 0.5;
+    if (age === 0) {
+      ctx.beginPath(); ctx.arc(-1.5, ey, 1.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      ctx.beginPath(); ctx.arc(4.5, ey, 1.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    } else {
+      for (const ex of [-1.5, 4.5]) {
+        ctx.beginPath(); ctx.arc(ex, ey, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ex + 0.5, ey - 0.5, 0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2a1c14";
+      }
+    }
+    ctx.fillStyle = age === 0 ? "rgba(240,120,120,0.45)" : "rgba(230,130,110,0.28)";
+    ctx.beginPath(); ctx.arc(-3.5, ey + 3.5, 1.8, 0, Math.PI * 2); ctx.arc(7, ey + 3.5, 1.8, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#8a2c2c";
-    ctx.beginPath(); ctx.moveTo(-0.5, -5.5); ctx.quadraticCurveTo(1.8, -1.5, 4, -5.5); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-0.5, ey + 4); ctx.quadraticCurveTo(1.8, ey + 8, 4, ey + 4); ctx.closePath(); ctx.fill();
+    if (age >= 1) {
+      // dientecitos
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0.6, ey + 4, 1.1, age >= 2 ? 1.2 : 1); ctx.fillRect(1.9, ey + 4, 1.1, age >= 2 ? 1.2 : 1);
+    }
     ctx.restore();
   }
 
@@ -3036,7 +3135,7 @@
     }
     // lo que tiene de especial
     if (def.power) text(def.power, LW / 2, u.cardY + CARD_H - 16, 14, "#b45309");
-    else text("Ropa nueva a los 50, 100 y 150 puntos", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
+    else text("Ropa nueva a los 150, 300 y 450 puntos", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
 
     // mejor puntuación
     const by = u.cardY + CARD_H + 30;
@@ -3381,6 +3480,14 @@
   const SHEET = new URLSearchParams(location.search).has("hoja");
   function drawSheet() {
     ctx.fillStyle = "#9fd6ea"; ctx.fillRect(0, 0, LW, LH);
+    // ?hoja=banderas: las cinco banderas de las columnas, en grande
+    if (new URLSearchParams(location.search).get("hoja") === "banderas") {
+      ["ve", "ec", "cat", "do", "hn"].forEach((f, i) => {
+        ctx.save(); ctx.translate(40, 40 + i * 90); ctx.scale(4.5, 4.5);
+        drawFlagBand(0, 0, COL_W - 2, FLAG_H, f); ctx.restore();
+      });
+      return;
+    }
     // ?hoja=ropa: los 4 conjuntos de cada uno y, abajo, los objetos y comidas
     if (new URLSearchParams(location.search).get("hoja") === "ropa") {
       CHARACTERS.forEach((c, r) => {
@@ -3389,6 +3496,16 @@
       ["vino", "tequila", "camara", "jamon", "queso", "huevo", "salchicha", "pollo", "pizza", "hueso"].forEach((k, i) => {
         drawFood(k, 30 + (i % 5) * 80, LH - 110 + Math.floor(i / 5) * 60, 0, 1, false);
       });
+      return;
+    }
+    // ?hoja=edades: Pamela con su hijo de 0, 1, 2 y 3 años (uno por conjunto)
+    if (new URLSearchParams(location.search).get("hoja") === "edades") {
+      const p = CHARACTERS.find((c) => c.id === "pamela");
+      for (let i = 0; i < 4; i++) {
+        const x = 55 + (i % 2) * 190, y = 190 + Math.floor(i / 2) * 300;
+        drawChar(Object.assign(dressed(p, i), { babyAge: i }), x, y, 0, player.flap, 2.0, "");
+        text(i === 0 ? "BEBÉ" : i + (i === 1 ? " AÑO" : " AÑOS"), x + 60, y + 80, 20, "#3b2414");
+      }
       return;
     }
     // ?hoja=maykel,pamela: solo esos, en grande
