@@ -340,7 +340,7 @@
   // outfits: 4 conjuntos; se desbloquean con la mejor puntuación (OUTFIT_PTS).
   const HAT = (type, color) => ({ type, color });
   const EXTRA = {
-    // gris, Núria, María e Isidro: ropa y pelo, sin historia todavía (01/11/2026)
+    // el gris no tiene historia; Núria, María, Isidro y Pamela la tienen desde el 03/11/2026
     gris: { outfits: [
       { name: "Gris", look: {} },
       { name: "Rizos y chándal", look: { hairStyle: "curly", hair: "#5a5a5a", top: "jacket", topColor: "#9a9a9a", legs: "#7a7a7a" } },
@@ -359,13 +359,13 @@
       { name: "Mexicana", look: { top: "tee", topColor: "#2e8b57", hat: HAT("sombrero", "#e9c46a") } },
       { name: "De noche", look: { topColor: "#151518", noLogo: true, glasses: true, necklace: "#d9b45a", legs: "#3a1c2e" } },
     ] },
-    nuria: { outfits: [
+    nuria: { story: "Catalana de pura cepa: pa amb tomàquet para todo.", power: "Cada 15 empanadillas: pa amb tomàquet, +5", special: "patomaquet", outfits: [
       { name: "Camiseta verde", look: {} },
       { name: "Coleta y verano", look: { hairStyle: "ponytail", scrunchie: "#ff6fa5", top: "tank", topColor: "#ffd166", noLogo: true, glasses: true } },
       { name: "Moño e invierno", look: { hairStyle: "bun", top: "longsleeve", topColor: "#b23a48", legs: "#2b2d42" } },
       { name: "Pelirroja", look: { hair: "#c8642e", hairD: "#8a3d18", roots: null, top: "jacket", topColor: "#2f5d8a" } },
     ] },
-    maria: { outfits: [
+    maria: { story: "Golosa: no perdona un postre.", power: "Cada 15 empanadillas: crema catalana, +5", special: "crema", outfits: [
       { name: "De negro", look: {} },
       { name: "Playa", look: { topColor: "#ffffff", glasses: true, hat: HAT("sunhat", "#e8d3a2") } },
       { name: "Coleta vaquera", look: { hairStyle: "ponytail", scrunchie: "#2a1c14", top: "jacket", topColor: "#5b7fae" } },
@@ -377,7 +377,7 @@
       { name: "Bodeguero", look: { topColor: "#7b1e3a", hat: HAT("beret", "#2a2a2e") } },
       { name: "Con gafas", look: { top: "jacket", topColor: "#3d4a5c", glasses: true } },
     ] },
-    chaqueta: { outfits: [
+    chaqueta: { story: "Dominicano: el mangú no falta en su mesa.", power: "Cada 15 empanadillas: mangú, +5", special: "mangu", outfits: [
       { name: "Chaqueta negra", look: {} },
       { name: "Con gorra", look: { top: "tee", topColor: "#f4f4f2", hat: HAT("cap", "#c0392b") } },
       { name: "Rizos y polo", look: { hairStyle: "curly", top: "polo", topColor: "#b8322f" } },
@@ -389,7 +389,7 @@
       { name: "Chándal", look: { top: "jacket", topColor: "#ececec", legs: "#ececec", socks: null, shoes: "#f4f4f4", shoeSole: "#d63a32" } },
       { name: "Gorra y gafas", look: { top: "tee", topColor: "#111114", legs: "#14161c", socks: null, shoes: "#f4f4f4", shoeSole: "#d63a32", glasses: true, hat: HAT("cap", "#f2f2f2") } },
     ] },
-    pamela: { outfits: [
+    pamela: { story: "Mamá a la carrera: su hijo no para quieto.", power: "Cada 15 empanadillas: biberón, +5", special: "biberon", outfits: [
       { name: "Rosa", look: {} },
       { name: "Coleta", look: { hairStyle: "ponytail", scrunchie: "#3f9a5a", top: "tank", topColor: "#ffffff", noLogo: true } },
       { name: "Vaquera", look: { top: "jacket", topColor: "#5b7fae" } },
@@ -403,6 +403,46 @@
     ] },
   };
   for (const c of CHARACTERS) Object.assign(c, EXTRA[c.id]);
+
+  // ---------- Tu propio personaje (03/11/2026) ----------
+  // Lo crea cada jugador y solo se puede usar cuando el admin lo aprueba. Si lo
+  // deniega, se borra y a las 24 h se puede crear otro.
+  const CUSTOM_BASE = { id: "propio", name: "", unlock: 0, kind: "human", custom: true,
+    skin: "#c4c4c4", skinD: "#a6a6a6", hair: "#6f6f6f", hairD: "#555555", hairStyle: "swept", part: 0,
+    face: { rx: 11.4, ry: 14.6, chin: 0.52 }, eye: "#7c7c7c", nose: 5.2, smile: "neutral",
+    brow: { color: "#5e5e5e", w: 1.8, y: 4.3, arch: 0.6 },
+    top: "tee", topColor: "#9a9a9a", legs: "#707070", shoes: "#5c5c5c", shoeSole: "#4a4a4a",
+    outfits: [{ name: "El tuyo", look: {} }] };
+  const CUSTOM_KEY = "elsPanetsPropio", DAY_MS = 24 * 3600 * 1000;
+  const customDef = Object.assign({}, CUSTOM_BASE);
+  CHARACTERS.push(customDef);
+  let customChar = null; // { estado, name, look, decidido }
+  try { customChar = JSON.parse(store.get(CUSTOM_KEY, "null")); } catch (e) { customChar = null; }
+  // en qué punto está: libre (se puede crear), pendiente, aprobado o denegado
+  function customState() {
+    if (!customChar || !customChar.estado) return "libre";
+    if (customChar.estado === "denegado" && Date.now() > (customChar.decidido || 0) + DAY_MS) return "libre";
+    return customChar.estado;
+  }
+  function applyCustom(data) {
+    customChar = data || null;
+    store.set(CUSTOM_KEY, JSON.stringify(customChar));
+    for (const k of Object.keys(customDef)) delete customDef[k];
+    Object.assign(customDef, CUSTOM_BASE);
+    if (customChar && customChar.look && customChar.estado !== "denegado") Object.assign(customDef, customChar.look);
+    customDef.name = customChar && customChar.estado === "aprobado" ? String(customChar.name || "").toUpperCase() : "";
+  }
+  applyCustom(customChar);
+  let customFetchedAt = 0;
+  function refreshCustom(force) {
+    const lb = window.TacoLeaderboard;
+    if (!lb || !lb.myCharacter || (!force && Date.now() - customFetchedAt < 20000)) return;
+    customFetchedAt = Date.now();
+    lb.myCharacter().then((d) => applyCustom(d)).catch(() => {});
+    if (lb.loadConfig) lb.loadConfig();
+  }
+  window.addEventListener("tacoLeaderboardReady", () => refreshCustom(true));
+  setTimeout(() => refreshCustom(true), 1500);
 
   const OUTFIT_PTS = [0, 150, 300, 450]; // el triple que antes (03/11/2026)
   const outfitKey = (id) => "elsPanetsRopa_" + id;
@@ -419,7 +459,7 @@
   const CHAR_KEY = "elsPanetsCharacter";
   let charIndex = Math.max(0, CHARACTERS.findIndex((c) => c.id === store.get(CHAR_KEY, "gris")));
   let viewIndex = charIndex; // el que se está mirando en el inicio
-  const charUnlocked = (i) => best >= CHARACTERS[i].unlock;
+  const charUnlocked = (i) => (CHARACTERS[i].custom ? customState() === "aprobado" : best >= CHARACTERS[i].unlock);
   const selectedChar = () => (charUnlocked(charIndex) ? CHARACTERS[charIndex] : CHARACTERS[0]);
   function viewChar(i) {
     viewIndex = (i + CHARACTERS.length) % CHARACTERS.length;
@@ -519,6 +559,11 @@
     tequila: { label: "¡TEQUILA!", colors: ["#e8a93a", "#7cc243", "#ffffff"] },
     camara: { label: "¡FOTO!", colors: ["#ffffff", "#c7ccd4", "#ffd23f"] },
     novia: { label: "¡NOVIA NUEVA!", colors: ["#ff6fa5", "#ffd1e0", "#ffffff"] },
+    // 03/11/2026: los que no tenían objeto
+    patomaquet: { label: "¡PA AMB TOMÀQUET!", colors: ["#e85a4a", "#f3dcaa", "#f0d25a"] },
+    crema: { label: "¡CREMA CATALANA!", colors: ["#f2c66a", "#d98f2e", "#ffffff"] },
+    mangu: { label: "¡MANGÚ!", colors: ["#e9d27a", "#b0397a", "#ffffff"] },
+    biberon: { label: "¡BIBERÓN!", colors: ["#5fb0e8", "#ffffff", "#ff8fb1"] },
   };
   const specialEvery = (ch) => ch.specialEvery || SPECIAL_EVERY;
 
@@ -580,6 +625,26 @@
   const PLACE_EVERY = 40;
   let placeFrom = 0, placeTo = 0, placeT = 1, placeBanner = 0;
 
+  // ---------- La sombra de tu mejor partida (03/11/2026, la activa el admin) ----------
+  // Se guarda por dónde ibas (la altura, 30 veces por segundo) en tu récord y
+  // en la siguiente partida vuela a tu lado, en transparente.
+  const GHOST_KEY = "elsPanetsSombra", GHOST_MAX = 30 * 300;
+  let ghost = null, ghostRec = [], runT = 0;
+  try { ghost = JSON.parse(store.get(GHOST_KEY, "null")); } catch (e) { ghost = null; }
+  const adminConfig = () => (window.TacoLeaderboard && window.TacoLeaderboard.getConfig && window.TacoLeaderboard.getConfig()) || {};
+  function drawGhost() {
+    if (!ghost || !ghost.length || !adminConfig().sombra) return;
+    if (state !== STATE.PLAY && state !== STATE.DYING && state !== STATE.PAUSE) return;
+    const i = Math.floor(runT * 30);
+    const fade = i < ghost.length ? 1 : Math.max(0, 1 - (i - ghost.length) / 20);
+    if (fade <= 0) return;
+    const y = ghost[Math.min(i, ghost.length - 1)];
+    ctx.save();
+    ctx.globalAlpha = 0.3 * fade;
+    drawChar(dressed(selectedChar()), player.x, y, 0, worldT * 8, PLAYER_SCALE, "");
+    ctx.restore();
+  }
+
   function setState(s) { state = s; stateT = 0; document.body.classList.toggle("enJuego", s !== STATE.START); }
 
   function resetRun() {
@@ -592,6 +657,7 @@
     newBest = false; medalPlayed = false;
     player.y = LH * 0.42; player.vy = 0; player.rot = 0;
     skyHour = START_SKY;
+    runT = 0; ghostRec = [];
   }
 
   function goReady() {
@@ -662,7 +728,7 @@
     burst(x, y, sp.colors, 22, 170);
     vibrate(kind === "camara" ? [10, 40, 10] : 20);
     if (kind === "camara") { photoPending = true; snd.shutter(); }
-    else if (kind === "novia") snd.power();
+    else if (kind === "novia" || kind === "patomaquet" || kind === "crema" || kind === "mangu" || kind === "biberon") snd.power();
     else if (kind === "vino") snd.cork();
     else snd.tequila();
   }
@@ -698,6 +764,8 @@
       best = score;
       newBest = true;
       store.set(BEST_KEY, best);
+      ghost = ghostRec.slice();
+      store.set(GHOST_KEY, JSON.stringify(ghost));
     }
     setState(STATE.DYING);
   }
@@ -739,7 +807,7 @@
   function publishRecord(name) {
     recordHolder = name;
     store.set(HOLDER_KEY, name);
-    if (window.TacoLeaderboard) window.TacoLeaderboard.submitScore(name, score, eaten);
+    if (window.TacoLeaderboard) window.TacoLeaderboard.submitScore(name, score, eaten, flagOf(selectedChar()));
   }
 
   function submitName() {
@@ -756,16 +824,63 @@
   const lbList = document.getElementById("leaderboardList");
   document.getElementById("leaderboardClose").addEventListener("click", () => lbOverlay.classList.add("hidden"));
 
+  // bandera pequeña como imagen, para el ranking y el panel del admin
+  const FLAG_NAMES = { ve: "Venezuela", ec: "Ecuador", cat: "Cataluña", do: "R. Dominicana", hn: "Honduras" };
+  const flagImgs = {};
+  function flagImg(f) {
+    if (!FLAG_NAMES[f]) return "";
+    if (!flagImgs[f]) {
+      const cv = document.createElement("canvas");
+      cv.width = (COL_W - 2) * 2; cv.height = FLAG_H * 2;
+      const keep = ctx; ctx = cv.getContext("2d"); ctx.scale(2, 2);
+      drawFlagBand(0, 0, COL_W - 2, FLAG_H, f);
+      ctx = keep;
+      flagImgs[f] = cv.toDataURL();
+    }
+    return `<img class="lbFlag" src="${flagImgs[f]}" alt="${FLAG_NAMES[f]}">`;
+  }
+
+  const lbTabs = document.getElementById("lbTabs");
+  let lbMode = "jugadores";
+  lbTabs.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-tab]");
+    if (!b) return;
+    lbMode = b.dataset.tab; snd.click(); showLeaderboard();
+  });
+
   function showLeaderboard() {
     lbOverlay.classList.remove("hidden");
     lbList.innerHTML = '<li class="lbEmpty">Cargando…</li>';
     if (!window.TacoLeaderboard) { lbList.innerHTML = '<li class="lbEmpty">Sin conexión al ranking</li>'; return; }
+    const cfg = adminConfig();
+    // el ranking por países y la bandera junto al nombre los enciende el admin
+    if (!cfg.rankingPaises) lbMode = "jugadores";
+    lbTabs.classList.toggle("hidden", !cfg.rankingPaises);
+    for (const b of lbTabs.querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === lbMode);
+    if (lbMode === "paises") {
+      window.TacoLeaderboard.fetchTop(300).then((rows) => {
+        const by = {};
+        for (const r of rows || []) {
+          if (!FLAG_NAMES[r.flag]) continue;
+          const c = by[r.flag] || (by[r.flag] = { f: r.flag, pts: 0, n: 0 });
+          c.pts += Number(r.score) || 0; c.n++;
+        }
+        const list = Object.values(by).sort((a, b) => b.pts - a.pts);
+        if (!list.length) { lbList.innerHTML = '<li class="lbEmpty">Aún no hay récords con bandera</li>'; return; }
+        lbList.innerHTML = list.map((c, i) => {
+          const cls = i < 3 ? ` class="top${i + 1}"` : "";
+          return `<li${cls}><span class="lbRank">${i + 1}</span>${flagImg(c.f)}<span class="lbName">${FLAG_NAMES[c.f]} <small>(${c.n})</small></span><span class="lbScore">${c.pts}</span></li>`;
+        }).join("") + '<li class="lbEmpty">Suma de los récords de cada país</li>';
+      }).catch(() => { lbList.innerHTML = '<li class="lbEmpty">No se pudo cargar el ranking</li>'; });
+      return;
+    }
     window.TacoLeaderboard.fetchTop(10).then((rows) => {
       if (!rows || !rows.length) { lbList.innerHTML = '<li class="lbEmpty">Aún no hay puntuaciones</li>'; return; }
       lbList.innerHTML = rows.map((r, i) => {
         const name = String(r.name || "Jugador").replace(/[<>&"']/g, "");
         const cls = i < 3 ? ` class="top${i + 1}"` : "";
-        return `<li${cls}><span class="lbRank">${i + 1}</span><span class="lbName">${name}</span><span class="lbScore">${Number(r.score) || 0}</span></li>`;
+        const fl = cfg.banderaRanking ? flagImg(r.flag) : "";
+        return `<li${cls}><span class="lbRank">${i + 1}</span>${fl}<span class="lbName">${name}</span><span class="lbScore">${Number(r.score) || 0}</span></li>`;
       }).join("");
     }).catch(() => { lbList.innerHTML = '<li class="lbEmpty">No se pudo cargar el ranking</li>'; });
   }
@@ -784,6 +899,8 @@
       cardY: LH * 0.45 + 82,
       portraits: CHARACTERS.map((c, i) => { const st = Math.min(46, 266 / CHARACTERS.length); return { i, x: cx - (CHARACTERS.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 50, r: Math.min(19, st / 2 - 3) }; }),
       outfits: OUTFIT_PTS.map((p, i) => ({ i, x: cx - 75 + i * 50, y: LH * 0.45 + 82 + 118, r: 18 })),
+      edit: { x: cx - 75, y: LH * 0.45 + 82 + 103, w: 150, h: 33 },
+      titleBox: { x: cx - 150, y: LH * 0.12 - 40, w: 300, h: 80 },
       overCard: { x: cx - 160, y: overCardY, w: 320, h: 240 },
       again: { x: cx - 150, y: overCardY + 262, w: 160, h: 58 },
       home: { x: cx + 20, y: overCardY + 262, w: 130, h: 58 },
@@ -799,7 +916,9 @@
     return { x: (src.clientX - r.left) * (LW / r.width), y: (src.clientY - r.top) * (LH / r.height) };
   }
 
+  let titleTaps = 0, titleTapT = -9;
   function press(p) {
+    if (window.ElsPanetsUI && window.ElsPanetsUI.isOpen()) return;
     startMusic();
     const u = ui();
     if (p && state !== STATE.PLAY && state !== STATE.DYING && inCircle(p, u.sound)) { setSound(!soundOn); snd.click(); return; }
@@ -808,12 +927,23 @@
     switch (state) {
       case STATE.START:
         if (!p) { if (charUnlocked(viewIndex)) { snd.click(); goReady(); } return; }
+        // 5 toques seguidos en el título: entrada del admin
+        if (inRect(p, u.titleBox)) {
+          titleTaps = worldT - titleTapT < 1.2 ? titleTaps + 1 : 1; titleTapT = worldT;
+          if (titleTaps >= 5) { titleTaps = 0; if (window.ElsPanetsUI) window.ElsPanetsUI.openAdmin(); }
+          return;
+        }
+        if (CHARACTERS[viewIndex].custom) {
+          const cst = customState();
+          if (inRect(p, u.play) && cst === "libre") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); return; }
+          if (inRect(p, u.edit) && (cst === "pendiente" || cst === "aprobado")) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(customChar); return; }
+        }
         if (inCircle(p, u.prev)) { viewChar(viewIndex - 1); snd.click(); return; }
         if (inCircle(p, u.next)) { viewChar(viewIndex + 1); snd.click(); return; }
         for (const c of u.portraits) {
           if (inCircle(p, { x: c.x, y: c.y, r: c.r - 3 })) { viewChar(c.i); snd.click(); return; }
         }
-        for (const o of u.outfits) {
+        for (const o of CHARACTERS[viewIndex].custom ? [] : u.outfits) {
           if (inCircle(p, { x: o.x, y: o.y, r: o.r - 3 })) {
             if (charUnlocked(viewIndex) && outfitUnlocked(o.i)) { store.set(outfitKey(CHARACTERS[viewIndex].id), o.i); snd.click(); }
             return;
@@ -841,7 +971,7 @@
 
   canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); press(eventPoint(e)); });
   window.addEventListener("keydown", (e) => {
-    if (state === STATE.NAME) return;
+    if (state === STATE.NAME || (window.ElsPanetsUI && window.ElsPanetsUI.isOpen())) return;
     if (state === STATE.START && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
       viewChar(viewIndex + (e.code === "ArrowLeft" ? -1 : 1));
       snd.click();
@@ -907,6 +1037,9 @@
   function stepPlay(dt) {
     player.vy = Math.min(player.vy + GRAVITY * dt, 720);
     player.y += player.vy * dt;
+    // la sombra: se apunta la altura 30 veces por segundo
+    runT += dt;
+    while (ghostRec.length < Math.min(GHOST_MAX, runT * 30)) ghostRec.push(Math.round(player.y));
     const targetRot = clamp(player.vy / 560, -0.42, 1.25);
     player.rot += (targetRot - player.rot) * Math.min(1, dt * 12);
     player.flap += dt * (player.vy < 0 ? 18 : 7);
@@ -1724,6 +1857,86 @@
         ctx.beginPath(); ctx.arc(0, 3, 6.3, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "rgba(255,255,255,0.8)";
         ctx.beginPath(); ctx.arc(-2.2, 0.8, 1.6, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case "patomaquet": {
+        // rebanada de pan de payés con tomate y un chorrito de aceite
+        ctx.fillStyle = "#c98a3e";
+        ctx.beginPath(); ctx.ellipse(0, 2, 19, 14, -0.1, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#f3dcaa";
+        ctx.beginPath(); ctx.ellipse(0, 2, 15.5, 10.5, -0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(214,58,50,0.85)";
+        ctx.beginPath(); ctx.ellipse(-1, 1.5, 13, 8.5, -0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#e85a4a";
+        for (const [tx, ty, r] of [[-7, -1, 2.4], [3, -3, 2], [6, 4, 2.6], [-3, 5, 1.8], [10, 0, 1.6]]) {
+          ctx.beginPath(); ctx.arc(tx, ty, r, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(240,210,90,0.9)"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(-10, -2); ctx.quadraticCurveTo(-2, 3, 9, -4); ctx.stroke();
+        ctx.fillStyle = "#e9e3d6";
+        for (const [sx, sy] of [[-5, 2], [1, 0], [5, -1], [-1, 6]]) ctx.fillRect(sx, sy, 1.2, 1.2);
+        ctx.strokeStyle = OL; ctx.lineWidth = 2;
+        break;
+      }
+      case "crema": {
+        // crema catalana en su cazuelita de barro, con el azúcar quemado
+        ctx.fillStyle = "#b5582c";
+        ctx.beginPath(); ctx.moveTo(-20, -3); ctx.lineTo(20, -3); ctx.quadraticCurveTo(18, 14, 0, 15); ctx.quadraticCurveTo(-18, 14, -20, -3); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#c96a36";
+        ctx.beginPath(); ctx.ellipse(0, -3, 20, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        const cg = ctx.createRadialGradient(-3, -5, 1, 0, -3, 16);
+        cg.addColorStop(0, "#f2c66a"); cg.addColorStop(0.6, "#d98f2e"); cg.addColorStop(1, "#8a4a14");
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.ellipse(0, -3, 16.5, 5.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(90,40,10,0.55)";
+        for (const [bx, by] of [[-8, -4], [5, -2], [9, -5], [-2, -1]]) { ctx.beginPath(); ctx.ellipse(bx, by, 2.2, 0.9, 0, 0, Math.PI * 2); ctx.fill(); }
+        ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-1, -6.5); ctx.stroke();
+        // cucharita
+        ctx.strokeStyle = OL; ctx.lineWidth = 2;
+        ctx.fillStyle = "#d9dde3";
+        ctx.save(); ctx.translate(13, -10); ctx.rotate(0.7);
+        roundRect(-1.5, -12, 3, 13, 1.5); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 2, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.restore();
+        break;
+      }
+      case "mangu": {
+        // plato de mangú: puré de plátano con cebolla roja por encima, y un plátano al lado
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.ellipse(0, 8, 21, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#e9d27a";
+        ctx.beginPath(); ctx.moveTo(-14, 7); ctx.quadraticCurveTo(-12, -9, 0, -10); ctx.quadraticCurveTo(12, -9, 14, 7); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "#b0397a"; ctx.lineWidth = 1.6;
+        for (const [ox, oy] of [[-5, -4], [2, -6], [6, -1], [-2, 1]]) { ctx.beginPath(); ctx.ellipse(ox, oy, 3, 1.6, 0.3, 0, Math.PI * 2); ctx.stroke(); }
+        ctx.strokeStyle = OL; ctx.lineWidth = 2;
+        ctx.save(); ctx.translate(15, -9); ctx.rotate(-0.6);
+        ctx.fillStyle = "#f2c94c";
+        ctx.beginPath(); ctx.moveTo(-9, 0); ctx.quadraticCurveTo(0, 8, 9, 0); ctx.quadraticCurveTo(0, 4, -9, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#4a3a20"; ctx.fillRect(8, -1.5, 2.5, 2.5);
+        ctx.restore();
+        break;
+      }
+      case "biberon": {
+        // biberón con leche, tetina y tapa azul
+        ctx.fillStyle = "#f6c27a";
+        ctx.beginPath(); ctx.moveTo(-3, -16); ctx.quadraticCurveTo(0, -24, 3, -16); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#5fb0e8";
+        roundRect(-8, -17, 16, 6, 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgba(235,245,252,0.95)";
+        roundRect(-8, -11, 16, 31, 5); ctx.fill();
+        ctx.fillStyle = "#fffdf6";
+        roundRect(-7, -2, 14, 21, 4); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 2;
+        roundRect(-8, -11, 16, 31, 5); ctx.stroke();
+        ctx.strokeStyle = "#5fb0e8"; ctx.lineWidth = 1.2;
+        for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-8, -6 + i * 6); ctx.lineTo(-4, -6 + i * 6); ctx.stroke(); }
+        ctx.fillStyle = "#ff8fb1";
+        ctx.beginPath(); ctx.arc(2, 9, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 2;
+        shine(5, -7, 5, 15);
         break;
       }
       case "jamon": {
@@ -2974,7 +3187,7 @@
   }
 
   // ---------- Interfaz ----------
-  function button(b, label, main) {
+  function button(b, label, main, size) {
     const t = main ? ["#ffd23f", "#f59e0b", "#b45309"] : ["#ffffff", "#e7edf5", "#8a98ad"];
     ctx.fillStyle = "rgba(0,0,0,0.25)";
     roundRect(b.x, b.y + 7, b.w, b.h, 18); ctx.fill();
@@ -2988,7 +3201,7 @@
     roundRect(b.x, b.y, b.w, b.h + 5, 18); ctx.stroke();
     ctx.fillStyle = "rgba(255,255,255,0.35)";
     roundRect(b.x + 8, b.y + 5, b.w - 16, b.h * 0.32, 10); ctx.fill();
-    text(label, b.x + b.w / 2, b.y + b.h / 2 + 2, main ? 30 : 24, main ? "#fff" : "#3b4a63", main ? "#7c3a0a" : null, 6);
+    text(label, b.x + b.w / 2, b.y + b.h / 2 + 2, size || (main ? (label.length > 9 ? 25 : 30) : 24), main ? "#fff" : "#3b4a63", main ? "#7c3a0a" : null, 6);
   }
 
   function roundIcon(b, draw) {
@@ -3064,31 +3277,43 @@
   function drawStart() {
     const u = ui();
     const def = CHARACTERS[viewIndex], open = charUnlocked(viewIndex);
+    const cst = def.custom ? customState() : null; // tu personaje: libre, pendiente, aprobado o denegado
+    refreshCustom(false);
     title(LH * 0.12);
     // la historia del personaje que se mira
-    text(def.story || "¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, def.story ? 17 : 19, "#fff", "#3b2414", 5);
+    const story = def.custom ? (cst === "aprobado" ? "Tu personaje, aprobado por el admin." : "Hazte tu propio personaje.") : def.story;
+    text(story || "¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, story ? 17 : 19, "#fff", "#3b2414", 5);
 
     // personaje que se mira, en grande y con su ropa (bloqueado: apagado y con candado)
-    ctx.globalAlpha = open ? 1 : 0.35;
+    ctx.globalAlpha = open ? 1 : def.custom ? (cst === "libre" ? 0.25 : 0.6) : 0.35;
     drawChar(dressed(def), player.x, player.y, 0, player.flap, 1.6);
     ctx.globalAlpha = 1;
-    if (!open) drawLock(player.x, player.y - 6, 1.6);
+    if (cst === "libre") text("+", player.x, player.y - 4, 54, "#ffd23f", "#5a2a06", 8);
+    else if (!open && !def.custom) drawLock(player.x, player.y - 6, 1.6);
     roundIcon(u.prev, () => chevron(-1));
     roundIcon(u.next, () => chevron(1));
     const ny = u.charY + 58;
-    if (def.name || !open) {
+    let label = def.name, labelColor = "#fff";
+    if (def.custom) {
+      if (cst === "libre") { label = "CREA TU PERSONAJE"; labelColor = "#ffd23f"; }
+      else if (cst === "pendiente") { label = "ESPERANDO AL ADMIN"; labelColor = "#ffd23f"; }
+      else if (cst === "denegado") { label = "DENEGADO"; labelColor = "#ff6b6b"; }
+    } else if (!open) { label = "LLEGA A " + def.unlock + " PUNTOS"; labelColor = "#ffd23f"; }
+    if (label) {
       ctx.fillStyle = "rgba(40,24,12,0.55)";
       roundRect(LW / 2 - 110, ny - 15, 220, 30, 15); ctx.fill();
+      text(label, LW / 2, ny + 1, 17, labelColor);
     }
-    if (def.name || !open) text(open ? def.name : "LLEGA A " + def.unlock + " PUNTOS", LW / 2, ny + 1, 17, open ? "#fff" : "#ffd23f");
 
-    const pulse = open ? 1 + Math.sin(worldT * 4) * 0.025 : 1;
+    const playOk = open || cst === "libre";
+    const pulse = playOk ? 1 + Math.sin(worldT * 4) * 0.025 : 1;
     ctx.save();
     ctx.translate(LW / 2, u.play.y + u.play.h / 2);
     ctx.scale(pulse, pulse);
     ctx.translate(-LW / 2, -(u.play.y + u.play.h / 2));
-    ctx.globalAlpha = open ? 1 : 0.5;
-    button(u.play, open ? "JUGAR" : "BLOQUEADO", open);
+    ctx.globalAlpha = playOk ? 1 : 0.5;
+    const playTxt = open ? "JUGAR" : cst === "libre" ? "CREAR" : cst === "pendiente" ? "EN REVISIÓN" : cst === "denegado" ? "DENEGADO" : "BLOQUEADO";
+    button(u.play, playTxt, playOk);
     ctx.globalAlpha = 1;
     ctx.restore();
 
@@ -3104,15 +3329,30 @@
       ctx.save();
       ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); ctx.clip();
       ctx.globalAlpha = cOpen ? 1 : 0.3;
-      if (cdef.kind === "dog") drawDog(c.x - 10, c.y + 8, 0, 1, 0.85, "", dressed(cdef));
+      if (cdef.custom && customState() === "libre") { ctx.globalAlpha = 1; text("+", c.x, c.y + 1, 20, "#b45309"); }
+      else if (cdef.kind === "dog") drawDog(c.x - 10, c.y + 8, 0, 1, 0.85, "", dressed(cdef));
       else drawChar(dressed(cdef), c.x - 3, c.y + 14, 0, 1, 0.9, "");
       ctx.restore();
-      if (!cOpen) {
+      if (!cOpen && !cdef.custom) {
         drawLock(c.x, c.y - 2, 0.75);
         text(String(cdef.unlock), c.x, c.y + c.r + 11, 12, "#9a8566");
       }
     }
 
+    // tu personaje: en lugar de la ropa, en qué punto está y el botón de cambiarlo
+    if (def.custom) {
+      const oy = u.outfits[0].y;
+      let msg = "Tú lo diseñas y el admin lo aprueba";
+      if (cst === "pendiente") msg = "El admin todavía no lo ha visto";
+      else if (cst === "aprobado") msg = "¡Aprobado! Ya puedes jugar con él";
+      else if (cst === "denegado") {
+        const left = Math.max(0, (customChar.decidido || 0) + DAY_MS - Date.now());
+        msg = "Podrás crear otro en " + Math.floor(left / 3600000) + " h " + Math.floor((left % 3600000) / 60000) + " min";
+      }
+      text(msg, LW / 2, oy - 34, 14, cst === "denegado" ? "#c0392b" : "#8a5a2b");
+      if (cst === "pendiente" || cst === "aprobado") button(u.edit, "CAMBIARLO", true, 18);
+      text(cst === "aprobado" ? "Si lo cambias, vuelve a revisión" : "Si lo deniega, se borra", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
+    } else {
     // ropa: cuatro conjuntos con el personaje en miniatura
     const selO = outfitIndex(def);
     text("ROPA · " + def.outfits[selO].name, LW / 2, u.outfits[0].y - 29, 14, "#8a5a2b");
@@ -3136,6 +3376,7 @@
     // lo que tiene de especial
     if (def.power) text(def.power, LW / 2, u.cardY + CARD_H - 16, 14, "#b45309");
     else text("Ropa nueva a los 150, 300 y 450 puntos", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
+    }
 
     // mejor puntuación
     const by = u.cardY + CARD_H + 30;
@@ -3306,6 +3547,7 @@
     }
     ctx.globalAlpha = 1;
 
+    drawGhost();
     if (state !== STATE.START) {
       const dead = state === STATE.DYING || state === STATE.OVER || state === STATE.NAME;
       // con el mini se encoge alrededor del centro del cuerpo
@@ -3532,6 +3774,7 @@
       comer: () => { const c = cols.find((c) => c.food && !c.eaten && c.x > player.x); if (c) { player.y = LH * 0.4; player.vy = -200; c.x = player.x - COL_W / 2; c.gapY = player.y - 5 - c.gap / 2; } },
       estado: () => ({ state, score, eaten, pendingSpecial, photoT, kinds: cols.map((c) => c.kind) }),
       volar: () => { player.y = LH * 0.4; player.vy = -200; },
+      sombra: () => ({ n: ghost && ghost.length, runT, rec: ghostRec.length, on: !!adminConfig().sombra }),
       poder: (k) => collectPower(k, player.x + 30, player.y),
       lugar: (i) => { placeFrom = placeTo; placeTo = i; placeT = 0; placeBanner = 2.6; },
       poderes: () => ({ powerT, shield, shieldSafe, miniK, placeTo, placeT }),
@@ -3556,6 +3799,62 @@
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+
+  // ---------- Lo que usan las ventanas de crear personaje y del admin (extras.js) ----------
+  const CREATOR = {
+    sexo: [["chico", "Chico"], ["chica", "Chica"]],
+    piel: GIRL_SKINS.concat([["#6e4428", "#55321c"]]),
+    peinadoChico: [["swept", "De lado"], ["buzz", "Rapado"], ["goldCurls", "Rizos cortos"], ["shortWavy", "Ondulado"], ["curlyTop", "Rizos arriba"], ["curly", "Rizos"], ["dreads", "Rastas"]],
+    peinadoChica: [["longStraight", "Largo liso"], ["longWavy", "Largo ondulado"], ["ponytail", "Coleta"], ["bun", "Moño"], ["curly", "Rizos"]],
+    pelo: GIRL_HAIRS.concat([["#9a9a9a", "#6f6f6f"]]),
+    ojos: [["#2a1a10", "Oscuros"], ["#4a2c18", "Marrones"], ["#6b6a3e", "Miel"], ["#3f9a5a", "Verdes"], ["#2f6fa8", "Azules"]],
+    barba: [["no", "Sin barba"], ["corta", "Barba corta"], ["larga", "Barba poblada"]],
+    ropa: [["tee", "Camiseta"], ["tank", "Tirantes"], ["longsleeve", "Manga larga"], ["jacket", "Chaqueta"], ["polo", "Polo"], ["thriller", "Thriller"]],
+    color: GIRL_COLORS,
+    pantalon: ["#3a4a66", "#1d1e23", "#e9e3d6", "#8e9198", "#5b7fae", "#3a1c2e", "#b50f29"],
+    extra: [["no", "Nada"], ["gafas", "Gafas"], ["cap", "Gorra"], ["beret", "Boina"], ["sunhat", "Pamela"], ["sombrero", "Sombrero mexicano"], ["collar", "Collar"]],
+    bandera: Object.keys(FLAG_NAMES).map((f) => [f, FLAG_NAMES[f]]),
+  };
+  // de lo elegido (un índice por opción) al dibujo del personaje
+  function buildLook(sel) {
+    const chica = sel.sexo === 1, at = (a, i) => a[Math.max(0, Math.min(a.length - 1, i | 0))];
+    const [skin, skinD] = at(CREATOR.piel, sel.piel), [hair, hairD] = at(CREATOR.pelo, sel.pelo);
+    const color = at(CREATOR.color, sel.color), extra = at(CREATOR.extra, sel.extra)[0], barba = at(CREATOR.barba, sel.barba)[0];
+    const look = {
+      fem: chica, skin, skinD, hair, hairD, part: chica ? -2 : -3,
+      hairStyle: at(chica ? CREATOR.peinadoChica : CREATOR.peinadoChico, sel.peinado)[0],
+      face: chica ? { rx: 11.2, ry: 13.8, chin: 0.46 } : { rx: 11.4, ry: 15, chin: 0.55 },
+      eye: at(CREATOR.ojos, sel.ojos)[0], nose: chica ? 4.9 : 5.5,
+      lips: chica ? "#c9776d" : "#b0705c", smile: chica ? "teeth" : "closed",
+      brow: { color: darken(hair, 0.3), w: chica ? 1.6 : 2.2, y: 4.4, arch: chica ? 1.4 : 0.7 },
+      top: at(CREATOR.ropa, sel.ropa)[0], topColor: color, noLogo: true,
+      legs: at(CREATOR.pantalon, sel.pantalon), shoes: "#f4f4f4", shoeSole: "#d0d0d0", scrunchie: color,
+      flag: at(CREATOR.bandera, sel.bandera)[0],
+    };
+    if (!chica && barba !== "no") look.beard = { color: darken(hair, 0.1), alpha: barba === "larga" ? 0.95 : 0.8, top: barba === "larga" ? 3.5 : 5 };
+    if (extra === "gafas") look.glasses = true;
+    else if (extra === "collar") look.necklace = "#d9b45a";
+    else if (extra !== "no") look.hat = HAT(extra, extra === "sombrero" ? "#e9c46a" : extra === "beret" ? "#2a2a2e" : color);
+    return look;
+  }
+  // pinta un personaje (look) en un canvas cualquiera
+  function drawLookTo(cv, look, scale) {
+    const keep = ctx;
+    ctx = cv.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const k = cv.width / 120;
+    ctx.scale(k, k);
+    try { drawChar(Object.assign({}, CUSTOM_BASE, look || {}), 60, (cv.height / k) * 0.5, 0, worldT * 6, scale || 1.5, ""); }
+    finally { ctx = keep; }
+  }
+  window.ElsPanets = {
+    CREATOR, buildLook, drawLookTo, flagImg, FLAG_NAMES,
+    playerInfo: () => ({ name: store.get(NAME_KEY, ""), char: selectedChar().id, flag: flagOf(selectedChar()) }),
+    setCustom: (d) => applyCustom(d),
+    refreshCustom: () => refreshCustom(true),
+  };
+
   // cuando llegue la letra del juego, se redibuja sola en el siguiente cuadro
   if (document.fonts && document.fonts.load) document.fonts.load("40px 'Lilita One'").catch(() => {});
 

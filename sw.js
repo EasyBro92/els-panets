@@ -1,9 +1,10 @@
-const CACHE = "els-panets-v18";
+const CACHE = "els-panets-v19";
 const FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./game.js",
+  "./extras.js",
   "./firebase-leaderboard.js",
   "./manifest.json",
   "./icons/icon.svg",

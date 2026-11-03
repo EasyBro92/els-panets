@@ -31,10 +31,44 @@
   <div id="leaderboardOverlay" class="hidden">
     <div class="nameCard">
       <div class="nameTitle">Ranking mundial</div>
+      <div id="lbTabs" class="tabs hidden"><button type="button" data-tab="jugadores">Jugadores</button><button type="button" data-tab="paises">Países</button></div>
       <ol id="leaderboardList" class="lbList"><li class="lbEmpty">Cargando…</li></ol>
       <button id="leaderboardClose">Cerrar</button>
     </div>
   </div>
+  <!-- 03/11/2026: crear tu personaje y el admin -->
+  <div id="creatorOverlay" class="overlay hidden">
+    <div class="nameCard wideCard">
+      <div class="nameTitle">Crea tu personaje</div>
+      <canvas id="creatorPreview" width="240" height="250"></canvas>
+      <input id="creatorName" type="text" maxlength="12" autocomplete="off" placeholder="Su nombre" />
+      <div id="creatorRows" class="creatorRows"></div>
+      <p class="installNote">El admin tiene que aprobarlo. Si lo deniega, se borra y podrás crear otro a las 24 h.</p>
+      <p id="creatorMsg" class="formMsg"></p>
+      <button id="creatorSend" class="bigBtn" type="button">Enviar al admin</button>
+      <button id="creatorCancel" class="ghostBtn" type="button">Cancelar</button>
+    </div>
+  </div>
+  <div id="adminLoginOverlay" class="overlay hidden">
+    <div class="nameCard">
+      <div class="nameTitle">Admin</div>
+      <div class="nameSubtitle">Escribe tu código</div>
+      <input id="adminPin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••••••" />
+      <p id="adminLoginMsg" class="formMsg"></p>
+      <button id="adminLoginBtn" class="bigBtn" type="button">Entrar</button>
+      <button id="adminLoginClose" class="ghostBtn" type="button">Cerrar</button>
+    </div>
+  </div>
+  <div id="adminOverlay" class="overlay hidden">
+    <div class="nameCard wideCard">
+      <div class="nameTitle">Panel del admin</div>
+      <div id="adminTabs" class="tabs"><button type="button" data-tab="tiempo" class="on">Tiempo</button><button type="button" data-tab="personajes">Personajes</button><button type="button" data-tab="ajustes">Ajustes</button></div>
+      <div id="adminBody" class="adminBody"></div>
+      <button id="adminClose" class="bigBtn" type="button">Cerrar</button>
+      <button id="adminLogout" class="ghostBtn" type="button">Salir del modo admin</button>
+    </div>
+  </div>
+  <button id="adminBtn" class="hidden" type="button">ADMIN</button>
   <button id="installBtn" class="hidden" type="button"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> Instalar el juego</button>
   <div id="installOverlay" class="hidden">
     <div class="nameCard">
@@ -86,5 +120,6 @@
 </script>
 <script type="module" src="firebase-leaderboard.js"></script>
 <script src="game.js"></script>
+<script src="extras.js"></script>
 </body>
 </html>
