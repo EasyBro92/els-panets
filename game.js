@@ -675,6 +675,9 @@
   function flap() {
     player.vy = FLAP_V;
     snd.flap();
+    // soplo de aire suave debajo (05/11/2026)
+    for (let i = 0; i < 4; i++) particles.push({ x: player.x - 6 + Math.random() * 10, y: player.y + 18, vx: -60 - Math.random() * 50, vy: 40 + Math.random() * 50,
+      life: 0.35 + Math.random() * 0.2, max: 0.55, color: "rgba(255,255,255,0.75)", r: 2.5 + Math.random() * 2.5 });
   }
 
   function spawnColumn(x) {
@@ -1355,8 +1358,62 @@
     else { drawMountains(pal); drawCity(pal); drawHouses(pal); }
   }
   function drawScenery(pal) {
-    if (state === STATE.START) { drawPlace(0, pal); return; }
+    if (state === STATE.START) { drawPlace(0, pal); drawLife(0, pal); return; }
     drawWiped(() => drawPlace(placeFrom, pal), () => drawPlace(placeTo, pal));
+    drawLife(placeTo, pal);
+  }
+
+  // ---------- Vida en los mapas (05/11/2026) ----------
+  // Todo se mueve despacio y sin parpadear: pájaros, y cada sitio lo suyo.
+  const SNOW = Array.from({ length: 36 }, () => ({ x: Math.random() * LW, y: Math.random(), r: 1.2 + Math.random() * 1.8, v: 18 + Math.random() * 16, p: Math.random() * 6 }));
+  const BUTTERFLIES = [{ c: "#ffd23f", p: 0 }, { c: "#ff8fb8", p: 2.1 }, { c: "#8fd3ff", p: 4.3 }];
+  function drawBird(x, y, s, ph) {
+    const w = Math.sin(ph) * 4;
+    ctx.beginPath(); ctx.moveTo(x - 7 * s, y - w * s); ctx.quadraticCurveTo(x - 3 * s, y - 3 * s, x, y); ctx.quadraticCurveTo(x + 3 * s, y - 3 * s, x + 7 * s, y - w * s); ctx.stroke();
+  }
+  function drawLife(i, pal) {
+    const gt = groundTop(), day = clamp(1 - pal.night * 1.4, 0, 1), t = worldT;
+    // bandada de pájaros que cruza de vez en cuando (de día)
+    if (day > 0.05) {
+      ctx.globalAlpha = day * 0.8;
+      ctx.strokeStyle = i === 1 ? "#ffffff" : "#3a3a48"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
+      const span = LW + 700, bx = LW + 60 - ((t * 34) % span), by = 110 + Math.sin(t * 0.4) * 14;
+      for (const [dx, dy, s] of [[0, 0, 1], [18, 9, 0.85], [30, -6, 0.8], [44, 12, 0.7]]) drawBird(bx + dx, by + dy, s, t * 7 + dx);
+      ctx.lineCap = "butt"; ctx.globalAlpha = 1;
+    }
+    if (i === 0 && day > 0.05) {
+      // ciudad: un globo que pasa muy despacio
+      const span = LW + 240, gx = ((t * 9) % span) - 80, gy = 150 + Math.sin(t * 0.5) * 8;
+      ctx.globalAlpha = day * 0.9;
+      ctx.strokeStyle = "#5a3a20"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(gx - 8, gy + 14); ctx.lineTo(gx - 5, gy + 26); ctx.moveTo(gx + 8, gy + 14); ctx.lineTo(gx + 5, gy + 26); ctx.stroke();
+      ctx.fillStyle = "#e5533d"; ctx.beginPath(); ctx.ellipse(gx, gy, 15, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.ellipse(gx, gy, 6, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#8a5a2b"; ctx.fillRect(gx - 6, gy + 25, 12, 8);
+      ctx.globalAlpha = 1;
+    } else if (i === 1) {
+      // playa: un velero en el horizonte
+      const hz = gt - 170, span = LW + 160, sx = ((t * 7) % span) - 60, sy = hz + 6;
+      ctx.fillStyle = "#5a3a20"; ctx.beginPath(); ctx.moveTo(sx - 14, sy); ctx.lineTo(sx + 14, sy); ctx.lineTo(sx + 9, sy + 6); ctx.lineTo(sx - 9, sy + 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#fffaf0"; ctx.beginPath(); ctx.moveTo(sx, sy - 26); ctx.lineTo(sx, sy - 2); ctx.lineTo(sx + 13, sy - 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#e5533d"; ctx.beginPath(); ctx.moveTo(sx - 2, sy - 20); ctx.lineTo(sx - 2, sy - 2); ctx.lineTo(sx - 11, sy - 2); ctx.closePath(); ctx.fill();
+    } else if (i === 2) {
+      // montaña: nieve que cae despacio
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      for (const f of SNOW) {
+        const y = (f.y * gt + t * f.v) % gt, x = (((f.x + Math.sin(t * 0.8 + f.p) * 10) % LW) + LW) % LW;
+        ctx.beginPath(); ctx.arc(x, y, f.r, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (i === 3 && day > 0.05) {
+      // pueblo blanco: mariposas por encima de los tejados
+      for (const b of BUTTERFLIES) {
+        const x = LW * 0.5 + Math.sin(t * 0.35 + b.p) * LW * 0.42, y = gt - 110 + Math.sin(t * 0.9 + b.p * 2) * 18;
+        const w = 0.35 + Math.abs(Math.sin(t * 9 + b.p)) * 0.65;
+        ctx.fillStyle = b.c; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 0.8;
+        for (const sd of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x + sd * 3.5 * w, y, 4 * w, 3.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+        ctx.fillStyle = "#3b2414"; ctx.fillRect(x - 0.6, y - 3, 1.2, 6);
+      }
+    }
   }
 
   // --- Playa ---
@@ -1583,29 +1640,85 @@
     const x = c.x, top = c.gapY, bot = c.gapY + c.gap, gt = groundTop();
     ctx.lineWidth = 2;
     ctx.strokeStyle = "#5e4630";
-    // fustes
+    // arriba, un tronco con pinchos que cuelga (05/11/2026); abajo, la columna de siempre
+    drawSpikyBranch(c, x, top);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#5e4630";
     ctx.fillStyle = columnGradient(x);
-    ctx.fillRect(x, -4, COL_W, top - CAP_H + 4);
-    ctx.strokeRect(x, -4, COL_W, top - CAP_H + 4);
     ctx.fillRect(x, bot + CAP_H, COL_W, gt - bot - CAP_H + 2);
     ctx.strokeRect(x, bot + CAP_H, COL_W, gt - bot - CAP_H + 2);
     // estrías
     ctx.strokeStyle = "rgba(120,90,55,0.35)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    for (const fx of [14, 26, 40, 52]) {
-      ctx.moveTo(x + fx, 0); ctx.lineTo(x + fx, top - CAP_H - 10);
-      ctx.moveTo(x + fx, bot + CAP_H + 10); ctx.lineTo(x + fx, gt);
-    }
+    for (const fx of [14, 26, 40, 52]) { ctx.moveTo(x + fx, bot + CAP_H + 10); ctx.lineTo(x + fx, gt); }
     ctx.stroke();
-    // capiteles en la boca del hueco
-    drawCapital(x, top - CAP_H, true);
     drawCapital(x, bot, false);
     // de noche se oscurecen con el resto
     if (n > 0.05) {
       ctx.fillStyle = `rgba(20,26,62,${n * 0.5})`;
       ctx.fillRect(x - CAP_OUT - 1, -4, COL_W + CAP_OUT * 2 + 2, top + 2);
       ctx.fillRect(x - CAP_OUT - 1, bot - 1, COL_W + CAP_OUT * 2 + 2, gt - bot + 3);
+    }
+  }
+
+  // Tronco que cuelga, con pinchos a los lados y una corona de pinchos en la punta.
+  // Ocupa justo lo mismo que la columna de antes (fuste + capitel), así que se choca igual.
+  function drawSpikyBranch(c, x, top) {
+    const end = top - CAP_H, seed = c.seed || (c.seed = 1 + Math.random() * 9);
+    // tronco
+    const g = ctx.createLinearGradient(x, 0, x + COL_W, 0);
+    g.addColorStop(0, "#5a3519"); g.addColorStop(0.3, "#a8743f"); g.addColorStop(0.55, "#8a5a2e"); g.addColorStop(1, "#4a2a12");
+    ctx.fillStyle = g; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2;
+    ctx.fillRect(x, -4, COL_W, end + 4); ctx.strokeRect(x, -4, COL_W, end + 4);
+    // corteza: vetas onduladas y algún nudo
+    ctx.strokeStyle = "rgba(50,28,10,0.45)"; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (const fx of [12, 25, 41, 54]) {
+      ctx.moveTo(x + fx, 0);
+      for (let y = 0; y < end - 6; y += 12) ctx.lineTo(x + fx + Math.sin(y * 0.09 + fx + seed) * 2.2, y + 12);
+    }
+    ctx.stroke();
+    for (let y = 40 + (seed * 13) % 50; y < end - 30; y += 95) {
+      const kx = x + 18 + ((y * 7 + seed * 11) % 30);
+      ctx.fillStyle = "#5a3519"; ctx.beginPath(); ctx.ellipse(kx, y, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = "#3b2414"; ctx.beginPath(); ctx.ellipse(kx, y, 1.8, 3, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    // pinchos pequeños a los lados (no salen más que el capitel de antes)
+    ctx.fillStyle = "#efe2c4"; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 1.3;
+    for (let y = 18 + (seed * 7) % 20; y < end - 10; y += 30) {
+      for (const side of [0, 1]) {
+        const yy = y + side * 15, bx = side ? x + COL_W : x, d = side ? CAP_OUT : -CAP_OUT;
+        ctx.beginPath(); ctx.moveTo(bx, yy - 5); ctx.lineTo(bx + d, yy + 2); ctx.lineTo(bx, yy + 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+    }
+    // hojitas que se mecen muy despacio
+    for (let i = 0; i < 2; i++) {
+      const ly = 30 + ((seed * 37 + i * 61) % Math.max(20, end - 70)), side = (i + Math.floor(seed)) % 2;
+      if (ly > end - 30) continue;
+      ctx.save();
+      ctx.translate(side ? x + COL_W - 2 : x + 2, ly);
+      ctx.rotate((side ? 0.5 : Math.PI - 0.5) + Math.sin(worldT * 1.3 + seed + i) * 0.12);
+      ctx.fillStyle = "#5fa83a"; ctx.strokeStyle = "#2f5e1c"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(9, -7, 20, 0); ctx.quadraticCurveTo(9, 7, 0, 0); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(17, 0); ctx.stroke();
+      ctx.restore();
+    }
+    // bandera del personaje atada al tronco
+    drawFlagBand(x + 1, end - FLAG_H - 4, COL_W - 2, FLAG_H, flagOf(selectedChar()));
+    // anillo de madera y corona de pinchos hacia abajo, en el sitio del capitel
+    const w = COL_W + CAP_OUT * 2, cx = x - CAP_OUT;
+    ctx.fillStyle = "#6b4321"; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2;
+    roundRect(cx, end, w, 8, 3); ctx.fill(); ctx.stroke();
+    const n = 6, sw = w / n;
+    for (let i = 0; i < n; i++) {
+      const px = cx + i * sw;
+      const sg = ctx.createLinearGradient(px, 0, px + sw, 0);
+      sg.addColorStop(0, "#d9c9a6"); sg.addColorStop(0.4, "#fff8e8"); sg.addColorStop(1, "#b9a57e");
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.moveTo(px + 1, end + 7); ctx.lineTo(px + sw / 2, top); ctx.lineTo(px + sw - 1, end + 7); ctx.closePath();
+      ctx.fill(); ctx.stroke();
     }
   }
 
@@ -2448,6 +2561,13 @@
       ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
       for (const ex of [cx - 5, cx + 5]) {
         ctx.beginPath(); ctx.moveTo(ex - 2.2, ey - 2.2); ctx.lineTo(ex + 2.2, ey + 2.2); ctx.moveTo(ex + 2.2, ey - 2.2); ctx.lineTo(ex - 2.2, ey + 2.2); ctx.stroke();
+      }
+    } else if (worldT % 3.8 < 0.12) {
+      // parpadeo de vez en cuando (05/11/2026)
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
+      for (const [ex, s] of [[cx - 5, 0.92], [cx + 5, 1]]) {
+        const w = (d.fem ? 3.1 : 2.8) * s;
+        ctx.beginPath(); ctx.moveTo(ex - w, ey); ctx.quadraticCurveTo(ex, ey + 1.6, ex + w, ey - 0.3); ctx.stroke();
       }
     } else {
       for (const [ex, s] of [[cx - 5, 0.92], [cx + 5, 1]]) {
