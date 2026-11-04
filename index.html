@@ -38,15 +38,21 @@
   </div>
   <!-- 03/11/2026: crear tu personaje y el admin -->
   <div id="creatorOverlay" class="overlay hidden">
-    <div class="nameCard wideCard">
+    <div class="nameCard wideCard creatorCard">
       <div class="nameTitle">Crea tu personaje</div>
-      <canvas id="creatorPreview" width="240" height="250"></canvas>
-      <input id="creatorName" type="text" maxlength="12" autocomplete="off" placeholder="Su nombre" />
+      <div class="cTop">
+        <canvas id="creatorPreview" width="240" height="250"></canvas>
+        <div class="cTopRight">
+          <input id="creatorName" type="text" maxlength="12" autocomplete="off" placeholder="Su nombre" />
+          <p class="cNote">El admin tiene que aprobarlo. Si lo deniega, se borra y podrás crear otro a las 24 h.</p>
+        </div>
+      </div>
       <div id="creatorRows" class="creatorRows"></div>
-      <p class="installNote">El admin tiene que aprobarlo. Si lo deniega, se borra y podrás crear otro a las 24 h.</p>
       <p id="creatorMsg" class="formMsg"></p>
-      <button id="creatorSend" class="bigBtn" type="button">Enviar al admin</button>
-      <button id="creatorCancel" class="ghostBtn" type="button">Cancelar</button>
+      <div class="cBtns">
+        <button id="creatorCancel" class="ghostBtn" type="button">Cancelar</button>
+        <button id="creatorSend" class="bigBtn" type="button">Enviar al admin</button>
+      </div>
     </div>
   </div>
   <div id="adminLoginOverlay" class="overlay hidden">

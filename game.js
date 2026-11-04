@@ -899,7 +899,7 @@
       play: { x: cx - 100, y: LH * 0.45, w: 200, h: 64 },
       cardY: LH * 0.45 + 82,
       portraits: CHARACTERS.slice(0, shownCount()).map((c, i, a) => { const st = Math.min(46, 266 / a.length); return { i, x: cx - (a.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 50, r: Math.min(19, st / 2 - 3) }; }),
-      create: { x: cx - 120, y: LH * 0.45 + 82 + 92, w: 240, h: 54 },
+      create: { x: cx - 95, y: LH * 0.45 + 82 + 97, w: 190, h: 42 },
       outfits: OUTFIT_PTS.map((p, i) => ({ i, x: cx - 75 + i * 50, y: LH * 0.45 + 82 + 118, r: 18 })),
       edit: { x: cx - 75, y: LH * 0.45 + 82 + 103, w: 150, h: 33 },
       titleBox: { x: cx - 150, y: LH * 0.12 - 40, w: 300, h: 80 },
@@ -3374,7 +3374,7 @@
       }
       text(msg, LW / 2, u.cardY + CARD_H - 14, 14, gst === "denegado" ? "#c0392b" : "#8a5a2b");
       ctx.globalAlpha = gst === "denegado" ? 0.5 : 1;
-      button(u.create, btn, gst !== "denegado", 21);
+      button(u.create, btn, gst !== "denegado", 17);
       ctx.globalAlpha = 1;
     } else {
     // ropa: cuatro conjuntos con el personaje en miniatura

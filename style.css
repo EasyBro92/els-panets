@@ -294,3 +294,22 @@ img.lbFlag { width: 30px; height: 12px; border-radius: 2px; flex-shrink: 0; marg
   font: 15px "Lilita One", sans-serif;
   cursor: pointer;
 }
+
+/* 04/11/2026: el creador cabe en una pantalla, sin bajar */
+.creatorCard { padding: 10px 10px 12px; max-height: 98vh; }
+.creatorCard .nameTitle { font-size: 22px; margin-bottom: 4px; }
+.cTop { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.cTop #creatorPreview { width: 86px; height: 90px; margin: 0; flex-shrink: 0; border-radius: 14px; }
+.cTopRight { flex: 1; min-width: 0; }
+.cTopRight #creatorName { padding: 6px; font-size: 18px; margin-bottom: 4px; }
+.cNote { margin: 0; font-size: 12px; line-height: 1.2; color: #8a5a2b; text-align: left; }
+.creatorCard .creatorRows { grid-template-columns: 1fr 1fr; gap: 4px; }
+.creatorCard .cRow { flex-wrap: wrap; gap: 2px 3px; padding: 3px 4px; font-size: 13px; }
+.creatorCard .cRow .cLabel { width: 100%; font-size: 11px; line-height: 1.1; text-align: center; }
+.creatorCard .cRow .cVal { min-width: 0; min-height: 24px; gap: 3px; line-height: 1.05; }
+.creatorCard .cRow button { width: 26px; height: 26px; font-size: 16px; border-radius: 8px; }
+.creatorCard .swatch { width: 18px; height: 18px; }
+.creatorCard .formMsg { min-height: 0; margin: 2px 0; }
+.cBtns { display: flex; gap: 8px; }
+.cBtns .ghostBtn { flex: 1; margin-top: 0; }
+.cBtns .bigBtn { flex: 1.6; margin-top: 0; font-size: 17px; padding: 9px 4px; }
