@@ -898,7 +898,7 @@
       next: { x: cx + 118, y: LH * 0.31, r: 22 },
       play: { x: cx - 100, y: LH * 0.45, w: 200, h: 64 },
       cardY: LH * 0.45 + 82,
-      portraits: CHARACTERS.slice(0, shownCount()).map((c, i, a) => { const st = Math.min(46, 266 / a.length); return { i, x: cx - (a.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 50, r: Math.min(19, st / 2 - 3) }; }),
+      portraits: CHARACTERS.slice(0, shownCount()).map((c, i, a) => { const st = Math.min(46, 350 / a.length); return { i, x: cx - (a.length - 1) * st / 2 + i * st, y: LH * 0.45 + 82 + 50, r: Math.min(19, st / 2 - 2.5) }; }), // 04/11: tarjeta más ancha
       create: { x: cx - 95, y: LH * 0.45 + 82 + 97, w: 190, h: 42 },
       outfits: OUTFIT_PTS.map((p, i) => ({ i, x: cx - 75 + i * 50, y: LH * 0.45 + 82 + 118, r: 18 })),
       edit: { x: cx - 75, y: LH * 0.45 + 82 + 103, w: 150, h: 33 },
@@ -3328,7 +3328,7 @@
 
     // tarjeta de personajes, su ropa y su objeto especial
     const CARD_H = 172;
-    card(LW / 2 - 140, u.cardY, 280, CARD_H);
+    card(LW / 2 - 186, u.cardY, 372, CARD_H);
     text("PERSONAJES", LW / 2, u.cardY + 16, 15, "#8a5a2b");
     for (const c of u.portraits) {
       const cdef = CHARACTERS[c.i], cOpen = charUnlocked(c.i), viewing = c.i === viewIndex;
