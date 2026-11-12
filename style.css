@@ -1,3 +1,10 @@
+/* 12/11/2026: banderas de todo el mundo (solo las letras de las banderas; el resto del texto no cambia) */
+@font-face {
+  font-family: "Twemoji Country Flags";
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+  src: url("https://cdn.jsdelivr.net/npm/country-flag-emoji-polyfill@0.1.8/dist/TwemojiCountryFlags.woff2") format("woff2");
+  font-display: swap;
+}
 * {
   margin: 0;
   padding: 0;
@@ -347,3 +354,20 @@ img.lbFlag { width: 30px; height: 12px; border-radius: 2px; flex-shrink: 0; marg
 .dDay.past { opacity: 0.5; }
 .dDay.past b::after { content: " ✓"; color: #2fa64a; }
 .dDay.today { background: #ffd23f; border-color: #3b2414; }
+
+/* 12/11/2026: buscador de banderas */
+.flagEmoji { font-family: "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-size: 18px; line-height: 1; flex-shrink: 0; display: inline-block; }
+.creatorCard { position: relative; }
+.creatorCard .cRow.wide { grid-column: 1 / -1; }
+.creatorCard .cRow .cVal[data-find] { cursor: pointer; }
+.creatorCard .cRow button.cFind { width: auto; padding: 0 9px; font-size: 13px; }
+.flagPick { position: absolute; inset: 0; background: #fff8ec; border-radius: 20px; display: flex; flex-direction: column; padding: 10px; z-index: 2; }
+.flagPick.hidden, #flagNone.hidden { display: none; }
+.flagPickTop { display: flex; gap: 6px; margin-bottom: 8px; }
+#flagSearch { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; border: 3px solid #cdbb9c; background: #fff; font: 17px "Lilita One", "Arial Black", sans-serif; color: #3b2414; outline: none; user-select: text; }
+#flagPickClose { width: 44px; border-radius: 12px; border: 2px solid #3b2414; background: #fff; font: 18px "Lilita One", sans-serif; color: #3b2414; cursor: pointer; }
+.flagList { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; align-content: start; }
+.flagList button { display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 10px; border: 2px solid #e6d6b8; background: #f3e6cf; font: 13px "Lilita One", sans-serif; color: #3b2414; text-align: left; cursor: pointer; line-height: 1.1; }
+.flagList button.on { background: #ffd23f; border-color: #3b2414; }
+.flagList img.lbFlag { width: 26px; height: 11px; }
+#flagNone { grid-column: 1 / -1; }

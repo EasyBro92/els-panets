@@ -37,7 +37,7 @@
     ["pantalon", "Pantalón", () => C.pantalon.length, (i) => swatch(C.pantalon[i]), human],
     ["pelaje", "Color", () => C.pelajes(sel.tipo).length, (i) => swatch(C.pelajes(sel.tipo)[i][0]) + C.pelajes(sel.tipo)[i][2], animal],
     ["extra", "Extra", () => C.extra.length, (i) => C.extra[i][1]],
-    ["bandera", "Bandera", () => C.bandera.length, (i) => EP.flagImg(C.bandera[i][0]) + C.bandera[i][1]],
+    ["bandera", "Bandera", () => C.bandera.length, (i) => EP.flagImg(C.bandera[i][0]) + esc(C.bandera[i][1])],
   ];
   let lockedNow = null;
   function renderRows() {
@@ -47,12 +47,14 @@
       const need = C.lockOf(r[0], sel[r[0]]), locked = need > C.best();
       if (locked && (!lockedNow || need > lockedNow.need)) lockedNow = { need, what: r[0] === "tipo" ? C.tipo[sel.tipo][1] : r[0] === "pelo" ? "ese color de pelo" : C.extra[sel.extra][1] };
       const tag = need ? `<span class="lockTag${locked ? "" : " open"}">${locked ? "🔒 " + need : "✓"}</span>` : "";
-      return `<div class="cRow${locked ? " locked" : ""}"><span class="cLabel">${r[1]}</span><button type="button" data-k="${r[0]}" data-d="-1">‹</button><span class="cVal">${r[3](sel[r[0]])}${tag}</span><button type="button" data-k="${r[0]}" data-d="1">›</button></div>`;
+      const flag = r[0] === "bandera";
+      return `<div class="cRow${locked ? " locked" : ""}${flag ? " wide" : ""}"><span class="cLabel">${r[1]}</span><button type="button" data-k="${r[0]}" data-d="-1">‹</button><span class="cVal"${flag ? ' data-find="1"' : ""}>${r[3](sel[r[0]])}${tag}</span><button type="button" data-k="${r[0]}" data-d="1">›</button>${flag ? '<button type="button" class="cFind" data-find="1">🔍 Buscar</button>' : ""}</div>`;
     }).join("");
     if (lockedNow) { msgEl.textContent = "Para usar «" + lockedNow.what + "» necesitas un récord de " + lockedNow.need + " (tienes " + C.best() + ")."; sendBtn.disabled = true; }
     else if (/récord de/.test(msgEl.textContent)) { msgEl.textContent = ""; sendBtn.disabled = false; }
   }
   rowsEl.addEventListener("click", (e) => {
+    if (e.target.closest("[data-find]")) { openFlagPick(); return; }
     const b = e.target.closest("button[data-k]");
     if (!b) return;
     sel[b.dataset.k] += Number(b.dataset.d);
@@ -60,6 +62,41 @@
     if (b.dataset.k === "tipo") sel.pelaje = 0;
     renderRows();
   });
+  // buscador de banderas: todas las del mundo, se busca sin importar tildes
+  const pickEl = $("flagPick"), findEl = $("flagSearch"), flagList = $("flagList");
+  const norm = (t) => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  let flagListBuilt = false;
+  function openFlagPick() {
+    if (!flagListBuilt) {
+      flagList.innerHTML = C.bandera.map((b, i) => `<button type="button" data-i="${i}" data-n="${esc(norm(b[1] + " " + b[0]))}">${EP.flagImg(b[0])}<span>${esc(b[1])}</span></button>`).join("") +
+        '<div id="flagNone" class="aEmpty hidden">No hay ningún país con ese nombre</div>';
+      flagListBuilt = true;
+    }
+    findEl.value = "";
+    filterFlags();
+    for (const b of flagList.querySelectorAll("button[data-i]")) b.classList.toggle("on", Number(b.dataset.i) === sel.bandera);
+    pickEl.classList.remove("hidden");
+    const on = flagList.querySelector("button.on");
+    flagList.scrollTop = on ? Math.max(0, on.offsetTop - flagList.offsetTop - 60) : 0;
+    setTimeout(() => findEl.focus(), 60);
+  }
+  function filterFlags() {
+    const q = norm(findEl.value.trim());
+    let shown = 0;
+    for (const b of flagList.querySelectorAll("button[data-i]")) { const ok = !q || b.dataset.n.includes(q); b.style.display = ok ? "" : "none"; if (ok) shown++; }
+    const none = $("flagNone"); if (none) none.classList.toggle("hidden", shown > 0);
+    if (q) flagList.scrollTop = 0;
+  }
+  function chooseFlag(i) { sel.bandera = i; pickEl.classList.add("hidden"); renderRows(); }
+  findEl.addEventListener("input", filterFlags);
+  findEl.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const first = [...flagList.querySelectorAll("button[data-i]")].find((b) => b.style.display !== "none");
+    if (first) chooseFlag(Number(first.dataset.i));
+  });
+  flagList.addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) chooseFlag(Number(b.dataset.i)); });
+  $("flagPickClose").addEventListener("click", () => pickEl.classList.add("hidden"));
+
   const drawPreview = () => { if (sel) EP.drawLookTo(preview, EP.buildLook(sel), 2.1); };
   function openCreator(current) {
     sel = Object.assign({ tipo: 0, sexo: 0, piel: 1, peinado: 0, pelo: 0, ojos: 1, barba: 0, ropa: 0, color: 0, pantalon: 0, pelaje: 0, extra: 0, bandera: 0 },
@@ -73,7 +110,7 @@
     anim = setInterval(drawPreview, 50);
     drawPreview();
   }
-  function closeCreator() { hide($("creatorOverlay")); clearInterval(anim); }
+  function closeCreator() { hide($("creatorOverlay")); pickEl.classList.add("hidden"); clearInterval(anim); }
   $("creatorCancel").addEventListener("click", closeCreator);
   sendBtn.addEventListener("click", async () => {
     const name = nameEl.value.trim().slice(0, 12);

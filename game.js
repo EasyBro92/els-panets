@@ -936,9 +936,69 @@
 
   // bandera pequeña como imagen, para el ranking y el panel del admin
   const FLAG_NAMES = { ve: "Venezuela", ec: "Ecuador", cat: "Cataluña", do: "R. Dominicana", hn: "Honduras" };
+  // ---------- Banderas de todo el mundo (12/11/2026) ----------
+  // Las cinco de los personajes están dibujadas a mano; el resto sale de los emojis
+  // de bandera con la letra «Twemoji Country Flags» (style.css), igual en todos los móviles.
+  const WORLD_CODES = ("ad ae af ag ai al am ao aq ar as at au aw ax az ba bb bd be bf bg bh bi bj bl bm bn bo bq br bs bt bw by bz " +
+    "ca cc cd cf cg ch ci ck cl cm cn co cr cu cv cw cx cy cz de dj dk dm dz ee eg eh er es et fi fj fk fm fo fr ga gb gd ge gf gg gh gi " +
+    "gl gm gn gp gq gr gs gt gu gw gy hk hr ht hu id ie il im in io iq ir is it je jm jo jp ke kg kh ki km kn kp kr kw ky kz la lb lc li " +
+    "lk lr ls lt lu lv ly ma mc md me mf mg mh mk ml mm mn mo mp mq mr ms mt mu mv mw mx my mz na nc ne nf ng ni nl no np nr nu nz om pa " +
+    "pe pf pg ph pk pl pm pn pr ps pt pw py qa re ro rs ru rw sa sb sc sd se sg sh si sk sl sm sn so sr ss st sv sx sy sz tc td tf tg th " +
+    "tj tk tl tm tn to tr tt tv tw tz ua ug us uy uz va vc vg vi vn vu wf ws xk ye yt za zm zw").split(" ");
+  const SUB_FLAGS = { eng: ["gbeng", "Inglaterra"], sct: ["gbsct", "Escocia"], wls: ["gbwls", "Gales"] };
+  const WORLD_SET = new Set(WORLD_CODES.concat(Object.keys(SUB_FLAGS)));
+  const regionNames = (() => { try { return new Intl.DisplayNames(["es"], { type: "region" }); } catch (e) { return null; } })();
+  function flagName(f) {
+    if (FLAG_NAMES[f]) return FLAG_NAMES[f];
+    if (!WORLD_SET.has(f)) return "";
+    if (SUB_FLAGS[f]) return SUB_FLAGS[f][1];
+    let n = "";
+    try { n = regionNames ? regionNames.of(f.toUpperCase()) : ""; } catch (e) {}
+    return n || f.toUpperCase();
+  }
+  function flagEmoji(f) {
+    if (SUB_FLAGS[f]) return "\u{1F3F4}" + [...SUB_FLAGS[f][0]].map((ch) => String.fromCodePoint(0xe0000 + ch.charCodeAt(0))).join("") + "\u{E007F}";
+    return String.fromCodePoint(...[...f.toUpperCase()].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
+  }
+  const FLAG_FONT = '"Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+  // la bandera dibujada una vez en un lienzo, recortada a su tamaño
+  const emojiFlags = {};
+  function emojiFlagCanvas(f) {
+    if (emojiFlags[f] !== undefined) return emojiFlags[f];
+    const S = 80, cv = document.createElement("canvas");
+    cv.width = cv.height = S;
+    const c = cv.getContext("2d");
+    c.font = "60px " + FLAG_FONT; c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText(flagEmoji(f), S / 2, S / 2 + 4);
+    let box = null;
+    try {
+      const d = c.getImageData(0, 0, S, S).data;
+      let x0 = S, y0 = S, x1 = -1, y1 = -1;
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (d[(y * S + x) * 4 + 3] > 60) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      if (x1 > x0 && y1 > y0) box = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+    } catch (e) {}
+    emojiFlags[f] = box ? { cv, box } : null;
+    return emojiFlags[f];
+  }
+  // cuando llega la letra de las banderas, se vuelven a dibujar
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load("60px \"Twemoji Country Flags\"", "\u{1F1EA}\u{1F1F8}").then(() => { for (const k of Object.keys(emojiFlags)) delete emojiFlags[k]; }).catch(() => {});
+  }
+  // cinta con la bandera repetida, para las columnas
+  function drawWorldBand(x, y, w, h, f) {
+    ctx.fillStyle = "#f4ead6"; ctx.fillRect(x, y, w, h);
+    const e = emojiFlagCanvas(f);
+    if (e) {
+      const fw = (h * e.box.w) / e.box.h, n = Math.max(1, Math.floor(w / (fw + 2))), gap = (w - n * fw) / n;
+      for (let i = 0; i < n; i++) ctx.drawImage(e.cv, e.box.x, e.box.y, e.box.w, e.box.h, x + gap / 2 + i * (fw + gap), y, fw, h);
+    }
+    ctx.strokeStyle = "rgba(60,40,20,0.35)"; ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  }
+
   const flagImgs = {};
   function flagImg(f) {
-    if (!FLAG_NAMES[f]) return "";
+    if (!FLAG_NAMES[f]) return WORLD_SET.has(f) ? `<span class="lbFlag flagEmoji" title="${flagName(f)}">${flagEmoji(f)}</span>` : "";
     if (!flagImgs[f]) {
       const cv = document.createElement("canvas");
       cv.width = (COL_W - 2) * 2; cv.height = FLAG_H * 2;
@@ -971,7 +1031,7 @@
       window.TacoLeaderboard.fetchTop(300).then((rows) => {
         const by = {};
         for (const r of rows || []) {
-          if (!FLAG_NAMES[r.flag]) continue;
+          if (!flagName(r.flag)) continue;
           const c = by[r.flag] || (by[r.flag] = { f: r.flag, pts: 0, n: 0 });
           c.pts += Number(r.score) || 0; c.n++;
         }
@@ -979,7 +1039,7 @@
         if (!list.length) { lbList.innerHTML = '<li class="lbEmpty">Aún no hay récords con bandera</li>'; return; }
         lbList.innerHTML = list.map((c, i) => {
           const cls = i < 3 ? ` class="top${i + 1}"` : "";
-          return `<li${cls}><span class="lbRank">${i + 1}</span>${flagImg(c.f)}<span class="lbName">${FLAG_NAMES[c.f]} <small>(${c.n})</small></span><span class="lbScore">${c.pts}</span></li>`;
+          return `<li${cls}><span class="lbRank">${i + 1}</span>${flagImg(c.f)}<span class="lbName">${flagName(c.f)} <small>(${c.n})</small></span><span class="lbScore">${c.pts}</span></li>`;
         }).join("") + '<li class="lbEmpty">Suma de los récords de cada país</li>';
       }).catch(() => { lbList.innerHTML = '<li class="lbEmpty">No se pudo cargar el ranking</li>'; });
       return;
@@ -1842,6 +1902,7 @@
   const FLAGS = { blanco: "ve", maykel: "ve", gris: "ve", deportista: "ec", maria: "cat", polo: "cat", nuria: "cat", perro: "cat", chaqueta: "do", pamela: "hn" };
   const flagOf = (def) => FLAGS[def.id] || def.flag || "ve";
   function drawFlagBand(x, y, w, h, f) {
+    if (!FLAG_NAMES[f] && WORLD_SET.has(f)) { drawWorldBand(x, y, w, h, f); return; }
     const band = (c, y0, hh) => { ctx.fillStyle = c; ctx.fillRect(x, y + y0, w, hh); };
     const dot = (cx, cy, r, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); };
     const mx = x + w / 2, my = y + h / 2;
@@ -4589,7 +4650,9 @@
     color: GIRL_COLORS,
     pantalon: ["#3a4a66", "#1d1e23", "#e9e3d6", "#8e9198", "#5b7fae", "#3a1c2e", "#b50f29"],
     extra: [["no", "Nada"], ["gafas", "Gafas"], ["cap", "Gorra"], ["beret", "Boina"], ["sunhat", "Pamela"], ["sombrero", "Sombrero mexicano"], ["collar", "Collar"]],
-    bandera: Object.keys(FLAG_NAMES).map((f) => [f, FLAG_NAMES[f]]),
+    // las cinco de siempre primero (para no cambiar los ya enviados) y después todo el mundo por orden
+    bandera: Object.keys(FLAG_NAMES).map((f) => [f, FLAG_NAMES[f]]).concat(
+      WORLD_CODES.concat(Object.keys(SUB_FLAGS)).filter((f) => !FLAG_NAMES[f]).map((f) => [f, flagName(f)]).sort((a, b) => a[1].localeCompare(b[1], "es"))),
   };
   // 12/11/2026: animales, más gorros y colores de pelo; algunos se desbloquean con tu récord.
   // (Lo nuevo va al final de cada lista para no cambiar los personajes ya enviados.)
@@ -4656,7 +4719,7 @@
     finally { ctx = keep; }
   }
   window.ElsPanets = {
-    CREATOR, buildLook, drawLookTo, flagImg, FLAG_NAMES,
+    CREATOR, buildLook, drawLookTo, flagImg, FLAG_NAMES, flagName,
     playerInfo: () => ({ name: store.get(NAME_KEY, ""), char: selectedChar().id, flag: flagOf(selectedChar()) }),
     setCustom: (d) => applyCustom(d),
     // caja, hucha y premio diario (12/11/2026)
