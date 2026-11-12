@@ -313,3 +313,37 @@ img.lbFlag { width: 30px; height: 12px; border-radius: 2px; flex-shrink: 0; marg
 .cBtns { display: flex; gap: 8px; }
 .cBtns .ghostBtn { flex: 1; margin-top: 0; }
 .cBtns .bigBtn { flex: 1.6; margin-top: 0; font-size: 17px; padding: 9px 4px; }
+
+/* 12/11/2026: candados del creador, caja sorpresa y premio diario */
+.lockTag { font-size: 11px; background: #3b2414; color: #ffd23f; border-radius: 8px; padding: 1px 5px; white-space: nowrap; }
+.lockTag.open { background: #2fa64a; color: #fff; }
+.cRow.locked { background: #ead7b8; }
+.cRow.locked .cVal { opacity: 0.75; }
+.boxCard { padding: 12px 12px 14px; max-height: 98vh; }
+.boxCard .nameTitle { font-size: 24px; }
+.boxHucha { display: flex; align-items: center; justify-content: center; gap: 6px; color: #8a5a2b; font-size: 15px; }
+.boxHucha img { width: 28px; height: 28px; }
+.boxHucha b { color: #b45309; font-size: 22px; font-weight: normal; }
+.boxStrip { position: relative; overflow: hidden; height: 76px; margin: 8px 0 4px; background: #3b2414; border-radius: 14px; border: 3px solid #3b2414; }
+.boxReel { display: flex; height: 100%; align-items: center; will-change: transform; }
+.bTile { flex: 0 0 64px; width: 64px; height: 64px; margin: 0 3px; border-radius: 10px; border: 3px solid #8a9bb0; background: radial-gradient(#fffaf0, #f3e6cf); box-sizing: border-box; }
+.bTile canvas { width: 100%; height: 100%; display: block; }
+.bTile.got { box-shadow: 0 0 0 3px #ffd23f; }
+.boxMark { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 4px; margin-left: -2px; background: #ffd23f; border-radius: 2px; box-shadow: 0 0 0 1px #3b2414; }
+.boxMsg { margin: 4px 0; font-size: 14px; color: #8a5a2b; min-height: 36px; line-height: 1.25; }
+.boxItems { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; max-height: 32vh; overflow-y: auto; margin: 4px 0 8px; }
+.bItem { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 2px 4px; border: 3px solid #cdbb9c; border-radius: 12px; background: #fff8ec; font: 11px "Lilita One", sans-serif; color: #3b2414; cursor: pointer; line-height: 1.1; }
+.bItem canvas { width: 52px; height: 52px; }
+.bItem.off { opacity: 0.45; cursor: default; }
+.bItem.off canvas { filter: grayscale(1) brightness(0.6); }
+.bItem.on { background: #ffd23f; box-shadow: 0 0 0 2px #3b2414; }
+.bNone { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; color: #9a8566; font-size: 13px; }
+.dailyCard { width: min(94vw, 380px); }
+.dailyDays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 10px 0 6px; }
+.dDay { display: flex; flex-direction: column; align-items: center; background: #f3e6cf; border-radius: 10px; padding: 4px 1px; color: #8a5a2b; border: 2px solid transparent; }
+.dDay small { font-size: 10px; }
+.dDay img, .dDay canvas { width: 30px; height: 30px; }
+.dDay b { font-weight: normal; color: #3b2414; font-size: 13px; }
+.dDay.past { opacity: 0.5; }
+.dDay.past b::after { content: " ✓"; color: #2fa64a; }
+.dDay.today { background: #ffd23f; border-color: #3b2414; }

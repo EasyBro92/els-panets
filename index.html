@@ -44,7 +44,7 @@
         <canvas id="creatorPreview" width="240" height="250"></canvas>
         <div class="cTopRight">
           <input id="creatorName" type="text" maxlength="12" autocomplete="off" placeholder="Su nombre" />
-          <p class="cNote">El admin tiene que aprobarlo. Si lo deniega, se borra y podrás crear otro a las 24 h.</p>
+          <p class="cNote">El admin tiene que aprobarlo. Los animales y los gorros con 🔒 se desbloquean con tu récord.</p>
         </div>
       </div>
       <div id="creatorRows" class="creatorRows"></div>
@@ -72,6 +72,28 @@
       <div id="adminBody" class="adminBody"></div>
       <button id="adminClose" class="bigBtn" type="button">Cerrar</button>
       <button id="adminLogout" class="ghostBtn" type="button">Salir del modo admin</button>
+    </div>
+  </div>
+  <!-- 12/11/2026: caja sorpresa y premio diario -->
+  <div id="boxOverlay" class="overlay hidden">
+    <div class="nameCard wideCard boxCard">
+      <div class="nameTitle">Caja sorpresa</div>
+      <div class="boxHucha"><img id="boxPanet" alt="" /><b id="boxCount">0</b><span>panets en tu hucha</span></div>
+      <div class="boxStrip"><div id="boxReel" class="boxReel"></div><div class="boxMark"></div></div>
+      <p id="boxMsg" class="boxMsg"></p>
+      <button id="boxOpen" class="bigBtn" type="button">Abrir caja</button>
+      <div id="boxTabs" class="tabs"><button type="button" data-tab="estela" class="on">Estelas</button><button type="button" data-tab="gorro">Gorros</button></div>
+      <div id="boxItems" class="boxItems"></div>
+      <button id="boxClose" class="ghostBtn" type="button">Cerrar</button>
+    </div>
+  </div>
+  <div id="dailyOverlay" class="overlay hidden">
+    <div class="nameCard dailyCard">
+      <div class="nameTitle">Premio diario</div>
+      <div id="dailySub" class="nameSubtitle"></div>
+      <div id="dailyDays" class="dailyDays"></div>
+      <p id="dailyMsg" class="boxMsg"></p>
+      <button id="dailyTake" class="bigBtn" type="button">¡Cógelo!</button>
     </div>
   </div>
   <button id="adminBtn" class="hidden" type="button">ADMIN</button>

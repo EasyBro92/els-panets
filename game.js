@@ -452,6 +452,64 @@
     const o = def.outfits && def.outfits[i == null ? outfitIndex(def) : i];
     return o ? Object.assign({}, def, o.look) : def;
   }
+  // ---------- Hucha, premio diario, caja sorpresa y lo que llevas puesto (12/11/2026) ----------
+  // Las empanadillas que comes van a la hucha aunque pierdas. Con la hucha se abren cajas
+  // (estelas y gorros para todos los personajes). Cada día hay premio y la racha lo sube.
+  const HUCHA_KEY = "elsPanetsHucha", OWN_KEY = "elsPanetsCosas", WEAR_KEY = "elsPanetsPuesto", DAILY_KEY = "elsPanetsDiario";
+  const BOX_COST = 50, DUP_BACK = 20, DAILY = [10, 15, 20, 25, 30, 40, 50];
+  const readJSON = (k) => { try { return JSON.parse(store.get(k, "{}")) || {}; } catch (e) { return {}; } };
+  let hucha = Number(store.get(HUCHA_KEY, 0)) || 0;
+  let owned = readJSON(OWN_KEY), wear = readJSON(WEAR_KEY);
+  function addHucha(n) { hucha = Math.max(0, hucha + Math.round(n)); store.set(HUCHA_KEY, hucha); }
+  const saveOwned = () => store.set(OWN_KEY, JSON.stringify(owned));
+  function setWear(kind, id) { if (id && !owned[id]) return; wear[kind] = id || null; store.set(WEAR_KEY, JSON.stringify(wear)); }
+  const PRIZES = [
+    ["e_burbujas", "estela", "Burbujas", 0], ["e_hojas", "estela", "Hojas", 0], ["e_corazones", "estela", "Corazones", 0],
+    ["e_notas", "estela", "Notas musicales", 1], ["e_estrellas", "estela", "Estrellas", 1], ["e_copos", "estela", "Copos de nieve", 1], ["e_fuego", "estela", "Fuego", 1],
+    ["e_arcoiris", "estela", "Arcoíris", 2], ["e_panets", "estela", "Panets", 2],
+    ["g_fiesta", "gorro", "Gorro de fiesta", 0], ["g_flor", "gorro", "Flor", 0], ["g_cocinero", "gorro", "Gorro de cocinero", 0],
+    ["g_cascos", "gorro", "Cascos", 1], ["g_orejas", "gorro", "Orejas de gato", 1], ["g_pirata", "gorro", "Sombrero pirata", 1], ["g_chistera", "gorro", "Chistera", 1], ["g_papanoel", "gorro", "Gorro de Papá Noel", 1],
+    ["g_vikingo", "gorro", "Casco vikingo", 2], ["g_cuernos", "gorro", "Cuernos", 2], ["g_aureola", "gorro", "Aureola", 2],
+    ["g_corona", "gorro", "Corona de la racha", 3],
+  ].map(([id, kind, name, rar]) => ({ id, kind, name, rar }));
+  const RARITY = [{ name: "Común", color: "#8a9bb0", w: 62 }, { name: "Rara", color: "#3b82f6", w: 30 }, { name: "Épica", color: "#a855f7", w: 8 }, { name: "Exclusiva", color: "#f5a300", w: 0 }];
+  const HAT_COLORS = { fiesta: "#9b5de5", flor: "#ff6fa5", cocinero: "#ffffff", cascos: "#e63946", orejas: "#2a2a2e", pirata: "#1e1b1f", chistera: "#1e1b1f",
+    papanoel: "#d62828", vikingo: "#9aa0a8", cuernos: "#d62828", aureola: "#ffd23f", corona: "#f5c400" };
+  function pickRarity() {
+    let r = Math.random() * 100;
+    for (let i = 0; i < 3; i++) { if (r < RARITY[i].w) return i; r -= RARITY[i].w; }
+    return 0;
+  }
+  function randomPrize() { const rar = pickRarity(), pool = PRIZES.filter((p) => p.rar === rar); return pool[Math.floor(Math.random() * pool.length)]; }
+  function rollBox() {
+    if (hucha < BOX_COST) return null;
+    addHucha(-BOX_COST);
+    const p = randomPrize(), dup = !!owned[p.id];
+    if (dup) addHucha(DUP_BACK); else { owned[p.id] = 1; saveOwned(); setWear(p.kind, p.id); }
+    return { id: p.id, dup };
+  }
+  const dayStr = (d) => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  function dailyState() {
+    const s = readJSON(DAILY_KEY), today = dayStr(new Date()), yest = dayStr(new Date(Date.now() - 864e5));
+    if (s.last === today) return { claimed: true, streak: s.streak || 1, idx: ((s.streak || 1) - 1) % 7 };
+    const streak = s.last === yest ? (s.streak || 0) + 1 : 1;
+    return { claimed: false, streak, idx: (streak - 1) % 7, lost: s.last && s.last !== yest && (s.streak || 0) > 1 ? s.streak : 0 };
+  }
+  function claimDaily() {
+    const st = dailyState();
+    if (st.claimed) return null;
+    let n = DAILY[st.idx], item = null;
+    if (st.idx === 6) { if (!owned.g_corona) { owned.g_corona = 1; saveOwned(); setWear("gorro", "g_corona"); item = "g_corona"; } else n += 30; }
+    addHucha(n);
+    store.set(DAILY_KEY, JSON.stringify({ last: dayStr(new Date()), streak: st.streak }));
+    return { n, item, streak: st.streak, idx: st.idx };
+  }
+  // el personaje con su ropa y, encima, el gorro de la caja si lleva uno
+  function worn(def) {
+    const d = dressed(def), g = wear.gorro && owned[wear.gorro] ? wear.gorro.slice(2) : null;
+    return g ? Object.assign({}, d, { hat: HAT(g, HAT_COLORS[g] || "#e63946") }) : d;
+  }
+
   const CHAR_KEY = "elsPanetsCharacter";
   let charIndex = Math.max(0, CHARACTERS.findIndex((c) => c.id === store.get(CHAR_KEY, "gris")));
   let viewIndex = charIndex; // el que se está mirando en el inicio
@@ -642,14 +700,14 @@
     const y = ghost[Math.min(i, ghost.length - 1)];
     ctx.save();
     ctx.globalAlpha = 0.3 * fade;
-    drawChar(dressed(selectedChar()), player.x, y, 0, worldT * 8, PLAYER_SCALE, "");
+    drawChar(worn(selectedChar()), player.x, y, 0, worldT * 8, PLAYER_SCALE, "");
     ctx.restore();
   }
 
   function setState(s) { state = s; stateT = 0; document.body.classList.toggle("enJuego", s !== STATE.START); }
 
   function resetRun() {
-    cols = []; particles = []; floaters = [];
+    cols = []; particles = []; floaters = []; trail = []; trailAcc = 0; overMsgs = [];
     score = START_SCORE; eaten = START_EATEN; speed = 150; gap = 178;
     pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0; girlfriend = null;
     powerT = {}; shield = false; shieldSafe = 0; sinceLastPower = 0; miniK = 1;
@@ -663,6 +721,7 @@
 
   function goReady() {
     resetRun();
+    loadRanking();
     setState(STATE.READY);
   }
 
@@ -764,6 +823,9 @@
     flashT = 1;
     burst(player.x, player.y, ["#ffffff", "#ffd166", "#ef476f"], 16, 160);
     player.vy = Math.min(player.vy, -120);
+    prevBest = best;
+    runEarned = Math.max(0, eaten - START_EATEN);
+    if (runEarned) addHucha(runEarned);
     if (score > best) {
       best = score;
       newBest = true;
@@ -771,6 +833,7 @@
       ghost = ghostRec.slice();
       store.set(GHOST_KEY, JSON.stringify(ghost));
     }
+    overMsgs = buildOverMessages();
     setState(STATE.DYING);
   }
 
@@ -787,6 +850,49 @@
     setState(STATE.OVER);
     pressLockUntil = worldT + 0.7;
     if (newBest) setTimeout(() => snd.record(), 350);
+  }
+
+  // ---------- «¡Casi!» y a quién adelantas del ranking (12/11/2026) ----------
+  let rankCache = null, rankAt = 0, prevBest = 0, runEarned = 0, overMsgs = [];
+  function loadRanking() {
+    const lb = window.TacoLeaderboard;
+    if (!lb || !lb.fetchTop || Date.now() - rankAt < 60000) return;
+    rankAt = Date.now();
+    lb.fetchTop(100).then((r) => { rankCache = r; }).catch(() => { rankAt = 0; });
+  }
+  const niceName = (n) => { n = String(n || "").trim(); return n.length <= 2 ? n : n.charAt(0).toUpperCase() + n.slice(1).toLowerCase(); };
+  function nextGoal() {
+    // lo siguiente que se desbloquea con un récord más alto que el que tienes
+    const goals = [];
+    for (const c of CHARACTERS) if (!c.custom && c.name && c.unlock > best) goals.push([c.unlock, "a " + niceName(c.name)]);
+    for (const p of OUTFIT_PTS) if (p > best) goals.push([p, "ropa nueva"]);
+    for (const k of SPECIES_KEYS) if (SPECIES[k].pts > best) goals.push([SPECIES[k].pts, SPECIES[k].art + " en «Crea tu personaje»"]);
+    goals.sort((a, b) => a[0] - b[0]);
+    return goals[0] || null;
+  }
+  function buildOverMessages() {
+    const out = [];
+    if (!newBest && best > 0 && score > 0 && best - score <= Math.max(3, Math.round(best * 0.2))) {
+      out.push({ txt: "¡Casi! Te faltaron " + (best - score + 1) + " para tu récord", color: "#ffd23f" });
+    } else {
+      const g = nextGoal();
+      if (g) {
+        const n = g[0] - score;
+        out.push({ txt: n <= 25 ? "¡Casi! Te faltaron " + n + " para desbloquear " + g[1] : "Llega a " + g[0] + " para desbloquear " + g[1], color: n <= 25 ? "#ffd23f" : "#fff" });
+      }
+    }
+    const lb = window.TacoLeaderboard, me = lb && lb.myId ? lb.myId() : null;
+    const others = (rankCache || []).filter((r) => r.id !== me && typeof r.score === "number" && r.name);
+    if (others.length && score > 0) {
+      const passed = newBest ? others.filter((r) => r.score >= prevBest && r.score < score).sort((a, b) => b.score - a.score) : [];
+      if (passed.length) out.push({ txt: "¡Has adelantado a " + passed[0].name + (passed.length > 1 ? " y " + (passed.length - 1) + " más" : "") + "!", color: "#7dff9a" });
+      else {
+        const above = others.filter((r) => r.score >= score).sort((a, b) => a.score - b.score)[0];
+        if (above) out.push({ txt: "Te faltan " + (above.score - score + 1) + " para pasar a " + above.name, color: "#fff" });
+        else if (newBest) out.push({ txt: "¡Eres el número 1 del ranking!", color: "#7dff9a" });
+      }
+    }
+    return out;
   }
 
   function burst(x, y, colors, n, sp) {
@@ -905,6 +1011,7 @@
       create: { x: cx - 95, y: LH * 0.45 + 82 + 97, w: 190, h: 42 },
       outfits: OUTFIT_PTS.map((p, i) => ({ i, x: cx - 75 + i * 50, y: LH * 0.45 + 82 + 118, r: 18 })),
       edit: { x: cx - 75, y: LH * 0.45 + 82 + 103, w: 150, h: 33 },
+      caja: { x: cx + 6, y: LH * 0.45 + 82 + 172 + 30 - 18, w: 170, h: 36 },
       titleBox: { x: cx - 150, y: LH * 0.12 - 40, w: 300, h: 80 },
       overCard: { x: cx - 160, y: overCardY, w: 320, h: 240 },
       again: { x: cx - 150, y: overCardY + 262, w: 160, h: 58 },
@@ -932,6 +1039,7 @@
     switch (state) {
       case STATE.START:
         if (!p) { if (charUnlocked(viewIndex)) { snd.click(); goReady(); } return; }
+        if (inRect(p, u.caja)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openBox(); return; }
         // 5 toques seguidos en el título: entrada del admin
         if (inRect(p, u.titleBox)) {
           titleTaps = worldT - titleTapT < 1.2 ? titleTaps + 1 : 1; titleTapT = worldT;
@@ -1040,6 +1148,13 @@
     }
 
     for (const pt of particles) { pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += 520 * dt; pt.life -= dt; }
+    // estela: un punto cada poco, que se va con el escenario
+    if (state === STATE.PLAY) {
+      for (const p of trail) p.x -= speed * dt;
+      trailAcc += dt;
+      if (trailAcc >= 0.055) { trailAcc = 0; trail.push({ x: player.x - 12, y: player.y - 2, t: worldT }); }
+      while (trail.length && worldT - trail[0].t > TRAIL_LIFE) trail.shift();
+    }
     particles = particles.filter((pt) => pt.life > 0);
     for (const f of floaters) f.t += dt;
     floaters = floaters.filter((f) => f.t < 0.9);
@@ -2306,6 +2421,7 @@
   function drawChar(def, px, py, rot, flapPh, scale, mood) {
     if (def.kind === "human") drawHuman(def, px, py, rot, flapPh, scale, mood);
     else if (def.kind === "dog") drawDog(px, py, rot, flapPh, scale, mood, def);
+    else if (def.kind === "critter") drawCritter(def, px, py, rot, flapPh, scale, mood);
     else drawPlayer(px, py, rot, flapPh, currentSkin(), scale, mood);
   }
 
@@ -2671,6 +2787,7 @@
 
     function drawHat(h) {
       const top = hy - F.ry - 3.5, L = fx - F.rx, R = fx + F.rx;
+      if (!OLD_HATS.includes(h.type)) { drawHeadwear(h, fx, top, F.rx); return; }
       const c = h.color;
       ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
       if (h.type === "cap" || h.type === "beanie") {
@@ -3288,7 +3405,8 @@
       ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 0.9;
       ctx.beginPath(); ctx.moveTo(hx + 2, hy - 3.8); ctx.lineTo(hx + 3.8, hy - 3.8); ctx.stroke();
     }
-    if (d.hat) {
+    if (d.hat && d.hat.type !== "cap") drawHeadwear(d.hat, hx, hy - 10.5, 9.5);
+    else if (d.hat) {
       const c = d.hat.color;
       ctx.fillStyle = c; ctx.strokeStyle = OL; ctx.lineWidth = 1.8;
       ctx.beginPath();
@@ -3312,6 +3430,482 @@
       ctx.beginPath(); ctx.ellipse(ex, ey, 3.8, 3, ang, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = OL; ctx.lineWidth = 1.4; ctx.stroke();
     }
+  }
+
+  // ---------- Animales para «Crea tu personaje» (12/11/2026) ----------
+  // Todos con el mismo cuerpo redondo que el pastor alemán: cabeza grande mirando a
+  // la derecha y patitas que reman. Cada uno se desbloquea con un récord distinto.
+  const SPECIES = {
+    gato: { name: "Gato", art: "el gato", pts: 40, ear: "pointy", snout: "cat", tail: "thin",
+      colors: [["#f0a04b", "#ffe2bf", "Naranja"], ["#9aa0a8", "#eceef1", "Gris"], ["#3a3a44", "#70707c", "Negro"], ["#f3efe6", "#ffffff", "Blanco"]] },
+    conejo: { name: "Conejo", art: "el conejo", pts: 60, ear: "long", snout: "bunny", tail: "pom",
+      colors: [["#f3efe9", "#ffffff", "Blanco"], ["#b58a63", "#efd9c0", "Marrón"], ["#9c9ca6", "#e3e3ea", "Gris"]] },
+    oso: { name: "Oso", art: "el oso", pts: 75, ear: "round", snout: "bear", tail: "stub",
+      colors: [["#8a5a34", "#d9b48c", "Pardo"], ["#f2f0ea", "#ffffff", "Polar"], ["#3b3030", "#8a6a5a", "Negro"]] },
+    zorro: { name: "Zorro", art: "el zorro", pts: 90, ear: "pointy", earTip: "#3a2418", snout: "fox", tail: "fluffy",
+      colors: [["#e8742c", "#fff3e6", "Rojo"], ["#e9eef2", "#ffffff", "Ártico"]] },
+    cerdito: { name: "Cerdito", art: "el cerdito", pts: 110, ear: "pig", snout: "pig", tail: "curl",
+      colors: [["#f7a8b8", "#ffd3dc", "Rosa"], ["#c9906c", "#e8c2a5", "Ibérico"]] },
+    panda: { name: "Panda", art: "el panda", pts: 130, ear: "round", earColor: "#26262c", snout: "bear", tail: "stub", pattern: "panda", limbs: "#26262c",
+      colors: [["#f5f5f2", "#ffffff", "Blanco y negro"]] },
+    pinguino: { name: "Pingüino", art: "el pingüino", pts: 150, ear: "none", snout: "beak", tail: "none", flippers: true,
+      colors: [["#2b2f3a", "#ffffff", "Clásico"], ["#4a6a8a", "#f0f4f8", "Azulado"]] },
+    rana: { name: "Rana", art: "la rana", pts: 170, ear: "none", snout: "frog", tail: "none", eyesTop: true,
+      colors: [["#6cbf4a", "#d8f0b0", "Verde"], ["#e0b030", "#fff0b0", "Dorada"], ["#4aa3d8", "#cdeaff", "Azul"]] },
+    mono: { name: "Mono", art: "el mono", pts: 190, ear: "side", snout: "monkey", tail: "long",
+      colors: [["#8a5a34", "#f0d0a8", "Marrón"], ["#4a4a50", "#e8d0b8", "Gris"]] },
+    koala: { name: "Koala", art: "el koala", pts: 215, ear: "fluffy", snout: "koala", tail: "stub",
+      colors: [["#9aa0a8", "#e8e8ec", "Gris"]] },
+    leon: { name: "León", art: "el león", pts: 240, ear: "round", snout: "cat", tail: "tuft", mane: "lion",
+      colors: [["#e0a848", "#fbe3b0", "Dorado"], ["#f2ead8", "#ffffff", "Blanco"]] },
+    tigre: { name: "Tigre", art: "el tigre", pts: 270, ear: "round", snout: "cat", tail: "thin", stripes: true,
+      colors: [["#f08a2c", "#fff4e6", "Naranja"], ["#f2f2f0", "#ffffff", "Blanco"]] },
+    unicornio: { name: "Unicornio", art: "el unicornio", pts: 320, ear: "pointy", snout: "horse", tail: "rainbow", horn: true, wings: "feather", mane: "rainbow",
+      colors: [["#ffffff", "#fdf2ff", "Blanco"], ["#ffd6ec", "#fff0f8", "Rosa"]] },
+    dragon: { name: "Dragón", art: "el dragón", pts: 400, ear: "none", snout: "dragon", tail: "spiky", horns: true, wings: "bat", spikes: true,
+      colors: [["#4caf50", "#d8f0a8", "Verde"], ["#d84a3a", "#ffd0a0", "Rojo"], ["#7a5ac8", "#e0d0ff", "Morado"]] },
+  };
+  const SPECIES_KEYS = Object.keys(SPECIES);
+  const RAINBOW = ["#ff6b9a", "#ffb347", "#ffe066", "#7ad67a", "#6ab7ff", "#b07cff"];
+
+  function drawCritter(d, px, py, rot, flapPh, scale, mood) {
+    const S = SPECIES[d.species] || SPECIES.gato;
+    const C1 = d.body || S.colors[0][0], C2 = d.belly || S.colors[0][1];
+    const LIMB = S.limbs || C1, PAW = S.limbs ? "#3a3a42" : C2, PINK = "#f6b3c3";
+    ctx.save();
+    ctx.translate(px, py); ctx.rotate(rot || 0); ctx.scale(scale || 1, scale || 1);
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const sw = Math.sin(flapPh), wag = Math.sin(worldT * 3 + 1) * 0.18;
+    const hx = 12, hy = -9, HR = 11;
+    const ink = (w) => { ctx.strokeStyle = OL; ctx.lineWidth = w || 2; ctx.stroke(); };
+    const tri = (a, b, c, e, g, h) => { ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, e); ctx.lineTo(g, h); ctx.closePath(); };
+    const bodyTop = (x) => 3 - 10.5 * Math.sqrt(Math.max(0, 1 - ((x + 2) / 15) ** 2));
+
+    // cola
+    ctx.save(); ctx.translate(-15, 2); ctx.rotate(wag); tail(S.tail); ctx.restore();
+    // ala de atrás
+    if (S.wings) wing(-3, -4, -0.25 + sw * 0.5, true);
+    // patas de atrás
+    if (S.flippers) { pfoot(-7, 12); pfoot(-1, 13); }
+    else { leg(-9, 9, 1.9 + sw * 0.5, darken(LIMB, 0.12)); leg(-3, 10, 1.7 - sw * 0.5, darken(LIMB, 0.15)); leg(6, 9, 1.2 - sw * 0.9, darken(LIMB, 0.15)); }
+    // púas del dragón, asomando por el lomo
+    if (S.spikes) {
+      ctx.fillStyle = C2;
+      for (let i = 0; i < 4; i++) { const sx = -13 + i * 5.5, by = bodyTop(sx); tri(sx - 3, by + 2.5, sx - 0.5, by - 6, sx + 3, by + 2.5); ctx.fill(); ink(1.3); }
+    }
+    // cuerpo y barriga
+    ctx.fillStyle = C1;
+    ctx.beginPath(); ctx.ellipse(-2, 3, 15, 10.5, -0.05, 0, Math.PI * 2); ctx.fill(); ink();
+    ctx.fillStyle = C2;
+    ctx.beginPath(); ctx.ellipse(3, 6.5, 9, 5.8, 0.15, 0, Math.PI * 2); ctx.fill();
+    if (S.pattern === "panda") { ctx.fillStyle = "#26262c"; ctx.beginPath(); ctx.ellipse(5, -2.5, 7, 5.5, 0.3, 0, Math.PI * 2); ctx.fill(); }
+    if (S.stripes) {
+      ctx.strokeStyle = "#2a1c14"; ctx.lineWidth = 2;
+      for (const sx of [-13, -7, -1]) { const by = bodyTop(sx); ctx.beginPath(); ctx.moveTo(sx, by + 0.5); ctx.quadraticCurveTo(sx + 2.5, by + 4, sx, by + 8); ctx.stroke(); }
+    }
+    // pata y aleta de delante, y ala de delante
+    if (S.flippers) flipper(5, 1, 0.5 + sw * 0.7); else leg(9, 8, 1.0 + sw * 0.9, LIMB);
+    if (S.wings) wing(0, -5, -0.45 + sw * 0.6, false);
+
+    // melena o crin, por detrás de la cabeza
+    if (S.mane === "lion") {
+      ctx.fillStyle = darken(C1, 0.35);
+      ctx.beginPath();
+      for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2, r = i % 2 ? 13.5 : 16.5; ctx.lineTo(hx - 1.5 + Math.cos(a) * r, hy + Math.sin(a) * r); }
+      ctx.closePath(); ctx.fill(); ink(1.6);
+    }
+    if (S.mane === "rainbow") {
+      RAINBOW.forEach((c, i) => { ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(hx - 10 + i * 0.6, hy - 7 + i * 3.2, 6, 2.8, -0.5, 0, Math.PI * 2); ctx.fill(); });
+    }
+    ears(S.ear);
+    // cabeza
+    ctx.fillStyle = C1;
+    ctx.beginPath(); ctx.arc(hx, hy, HR, 0, Math.PI * 2); ctx.fill(); ink();
+    if (S.stripes) {
+      ctx.strokeStyle = "#2a1c14"; ctx.lineWidth = 1.8;
+      for (const [x0, y0, x1, y1] of [[hx - 3, hy - 10.5, hx - 2, hy - 6], [hx + 1, hy - 11, hx + 1.5, hy - 7], [hx - 10, hy - 2, hx - 6, hy - 1]]) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+    }
+    if (S.pattern === "panda") {
+      ctx.fillStyle = "#26262c";
+      ctx.beginPath(); ctx.ellipse(hx + 1.2, hy - 1.5, 3.6, 4.6, -0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(hx + 7.4, hy - 2, 3.2, 4.2, 0.4, 0, Math.PI * 2); ctx.fill();
+    }
+    snout(S.snout);
+    eyes();
+    // cuerno y cuernos
+    if (S.horn) {
+      const g = ctx.createLinearGradient(hx, hy - 24, hx + 5, hy - 9);
+      g.addColorStop(0, "#fff4b0"); g.addColorStop(1, "#e8b830");
+      ctx.fillStyle = g; tri(hx - 1, hy - 9, hx + 5, hy - 25, hx + 5, hy - 9.5); ctx.fill(); ink(1.4);
+      ctx.strokeStyle = "rgba(160,110,20,0.7)"; ctx.lineWidth = 0.9;
+      for (const k of [0.35, 0.6, 0.8]) { ctx.beginPath(); ctx.moveTo(hx - 1 + 6 * k * 0.9, hy - 9 - 16 * k); ctx.lineTo(hx + 5, hy - 9.5 - 15.5 * k + 1.2); ctx.stroke(); }
+    }
+    if (S.horns) {
+      ctx.fillStyle = "#f3ead2";
+      tri(hx - 6, hy - 8, hx - 9, hy - 17, hx - 2, hy - 9.5); ctx.fill(); ink(1.3);
+      tri(hx + 1, hy - 10.5, hx, hy - 19, hx + 5.5, hy - 10); ctx.fill(); ink(1.3);
+    }
+    // complementos
+    if (d.necklace || d.collar) {
+      ctx.strokeStyle = OL; ctx.lineWidth = 4.5;
+      ctx.beginPath(); ctx.moveTo(4, 0); ctx.quadraticCurveTo(9, 3, 15, 1); ctx.stroke();
+      ctx.strokeStyle = d.collar || d.necklace; ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(4, 0); ctx.quadraticCurveTo(9, 3, 15, 1); ctx.stroke();
+      ctx.fillStyle = "#f2c94c"; ctx.beginPath(); ctx.arc(9.5, 4.5, 2.2, 0, Math.PI * 2); ctx.fill(); ink(1);
+    }
+    const ey = S.eyesTop ? hy - 10 : hy - 2;
+    if (d.glasses && mood !== "dead") {
+      ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(hx - 2, ey - 0.5); ctx.lineTo(hx - 9, ey - 1.5); ctx.stroke();
+      for (const ex of [hx + 1.5, hx + 7.4]) { ctx.fillStyle = "#1b1c22"; roundRect(ex - 3.4, ey - 2.6, 6.8, 5, 2.2); ctx.fill(); ink(1); }
+      ctx.beginPath(); ctx.moveTo(hx + 4.9, ey - 0.6); ctx.lineTo(hx + 4, ey - 0.6); ctx.stroke();
+    }
+    if (d.hat) drawHeadwear(d.hat, hx, hy - HR - (S.eyesTop ? 4 : 0), HR * 0.9);
+    ctx.restore();
+
+    function leg(sx, sy, ang, color) {
+      const ex = sx + Math.cos(ang) * 10, ey2 = sy + Math.sin(ang) * 10;
+      ctx.strokeStyle = OL; ctx.lineWidth = 7.5; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey2); ctx.stroke();
+      ctx.strokeStyle = color; ctx.lineWidth = 4.6; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey2); ctx.stroke();
+      ctx.fillStyle = PAW; ctx.beginPath(); ctx.ellipse(ex, ey2, 3.6, 2.8, ang, 0, Math.PI * 2); ctx.fill(); ink(1.3);
+    }
+    function pfoot(x, y) { ctx.fillStyle = "#f5a623"; ctx.beginPath(); ctx.ellipse(x, y, 4, 2.2, 0.2, 0, Math.PI * 2); ctx.fill(); ink(1.2); }
+    function flipper(x, y, ang) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      ctx.fillStyle = darken(C1, 0.1); ctx.beginPath(); ctx.ellipse(-2, 7, 3.6, 8, 0.2, 0, Math.PI * 2); ctx.fill(); ink(1.5);
+      ctx.restore();
+    }
+    function wing(x, y, ang, back) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      if (S.wings === "feather") {
+        ctx.fillStyle = back ? "#ece6ff" : "#ffffff";
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-5, -15, -18, -18); ctx.quadraticCurveTo(-15, -13, -19, -10);
+        ctx.quadraticCurveTo(-14, -7, -17, -3); ctx.quadraticCurveTo(-9, -2, 0, 0); ctx.fill(); ink(1.5);
+        ctx.strokeStyle = "rgba(140,120,200,0.5)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-4, -4); ctx.lineTo(-14, -12); ctx.moveTo(-4, -2); ctx.lineTo(-13, -5); ctx.stroke();
+      } else {
+        ctx.fillStyle = back ? darken(C1, 0.28) : darken(C1, 0.12);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-6, -17); ctx.lineTo(-20, -15); ctx.quadraticCurveTo(-16, -11, -19, -7);
+        ctx.quadraticCurveTo(-13, -6, -14, -2); ctx.quadraticCurveTo(-7, -3, 0, 0); ctx.fill(); ink(1.5);
+        ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-6, -17); ctx.lineTo(-12, -4); ctx.moveTo(-6, -17); ctx.lineTo(-17, -9); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    function tail(t) {
+      const rope = (draw, w, color) => { ctx.strokeStyle = OL; ctx.lineWidth = w + 2.4; draw(); ctx.stroke(); ctx.strokeStyle = color; ctx.lineWidth = w; draw(); ctx.stroke(); };
+      if (t === "thin" || t === "tuft") {
+        rope(() => { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-11, 2, -12, -10); }, 3.2, C1);
+        if (S.stripes) { ctx.strokeStyle = "#2a1c14"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-6, -1); ctx.lineTo(-7, 2); ctx.moveTo(-10.5, -5); ctx.lineTo(-13, -4); ctx.stroke(); }
+        if (t === "tuft") { ctx.fillStyle = darken(C1, 0.35); ctx.beginPath(); ctx.ellipse(-12, -12, 2.6, 3.6, 0.3, 0, Math.PI * 2); ctx.fill(); ink(1.2); }
+      } else if (t === "fluffy") {
+        ctx.fillStyle = C1; ctx.beginPath(); ctx.ellipse(-9, -2, 11, 5, -0.4, 0, Math.PI * 2); ctx.fill(); ink(1.6);
+        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.ellipse(-17, -5.5, 3.6, 2.8, -0.4, 0, Math.PI * 2); ctx.fill();
+      } else if (t === "pom") {
+        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(-1, -1, 5, 0, Math.PI * 2); ctx.fill(); ink(1.5);
+      } else if (t === "stub") {
+        ctx.fillStyle = LIMB; ctx.beginPath(); ctx.arc(0, -1, 3.6, 0, Math.PI * 2); ctx.fill(); ink(1.4);
+      } else if (t === "curl") {
+        rope(() => { ctx.beginPath(); ctx.moveTo(1, 0); ctx.bezierCurveTo(-6, -1, -7, -8, -3, -8); ctx.quadraticCurveTo(0, -7, -2, -4.5); }, 2, C1);
+      } else if (t === "long") {
+        rope(() => { ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-14, 4, -20, -8, -12, -14); ctx.quadraticCurveTo(-8, -17, -10, -11); }, 3, C1);
+      } else if (t === "rainbow") {
+        RAINBOW.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(0, -2 + i * 0.8); ctx.quadraticCurveTo(-10, -6 + i * 1.6, -17, 2 + i * 1.8); ctx.stroke(); });
+      } else if (t === "spiky") {
+        ctx.fillStyle = C1;
+        ctx.beginPath(); ctx.moveTo(1, -4); ctx.quadraticCurveTo(-12, -5, -21, 2); ctx.quadraticCurveTo(-12, 3, 1, 4); ctx.closePath(); ctx.fill(); ink(1.6);
+        ctx.fillStyle = C2; tri(-21, 2, -27, -2, -25, 5); ctx.fill(); ink(1.3);
+      }
+    }
+    function ears(t) {
+      const at = (x, y, a, fn) => { ctx.save(); ctx.translate(x, y); ctx.rotate(a); fn(); ctx.restore(); };
+      if (t === "pointy") {
+        for (const [x, y, a] of [[hx - 6, hy - 6, -0.35], [hx + 3, hy - 8.5, 0.1]]) at(x, y, a, () => {
+          ctx.fillStyle = C1; tri(-4.5, 2, 0, -11, 4.5, 2); ctx.fill(); ink(1.8);
+          ctx.fillStyle = PINK; tri(-2, 0, 0, -6.5, 2, 0); ctx.fill();
+          if (S.earTip) { ctx.fillStyle = S.earTip; tri(-2.3, -6.4, 0, -11, 2.3, -6.4); ctx.fill(); }
+        });
+      } else if (t === "long") {
+        for (const [x, y, a] of [[hx - 5, hy - 8, -0.3 + sw * 0.06], [hx + 2, hy - 9, 0.1 - sw * 0.06]]) at(x, y, a, () => {
+          ctx.fillStyle = C1; ctx.beginPath(); ctx.ellipse(0, -9, 3.6, 9.5, 0, 0, Math.PI * 2); ctx.fill(); ink(1.8);
+          ctx.fillStyle = PINK; ctx.beginPath(); ctx.ellipse(0, -9, 1.7, 6.8, 0, 0, Math.PI * 2); ctx.fill();
+        });
+      } else if (t === "round" || t === "fluffy") {
+        const big = t === "fluffy", r = big ? 7.2 : 4.6;
+        for (const [x, y] of big ? [[hx - 9, hy - 6], [hx + 5, hy - 9.5]] : [[hx - 7, hy - 7.5], [hx + 4, hy - 9.5]]) {
+          ctx.fillStyle = S.earColor || C1; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ink(1.8);
+          ctx.fillStyle = S.earColor ? "#4a4a52" : C2; ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (t === "side") {
+        ctx.fillStyle = C1; ctx.beginPath(); ctx.arc(hx - 10, hy + 0.5, 4.8, 0, Math.PI * 2); ctx.fill(); ink(1.8);
+        ctx.fillStyle = C2; ctx.beginPath(); ctx.arc(hx - 10, hy + 0.5, 2.6, 0, Math.PI * 2); ctx.fill();
+      } else if (t === "pig") {
+        for (const [x, y, a] of [[hx - 6, hy - 6.5, -0.7], [hx + 3, hy - 8.5, 0.45]]) at(x, y, a, () => {
+          ctx.fillStyle = C1; tri(-4, 2, 0, -8.5, 4, 2); ctx.fill(); ink(1.6);
+          ctx.fillStyle = darken(C1, 0.12); tri(-2, 0.5, 0, -4.5, 2, 0.5); ctx.fill();
+        });
+      }
+    }
+    function snout(t) {
+      ctx.lineWidth = 1.2;
+      if (t === "cat" || t === "bunny") {
+        ctx.fillStyle = C2; ctx.beginPath(); ctx.ellipse(hx + 8, hy + 4, 5.5, 3.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f28aa0"; tri(hx + 9, hy + 1.4, hx + 12.6, hy + 1.4, hx + 10.8, hy + 3.6); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.moveTo(hx + 10.8, hy + 3.6); ctx.quadraticCurveTo(hx + 9.6, hy + 6.2, hx + 7.9, hy + 5);
+        ctx.moveTo(hx + 10.8, hy + 3.6); ctx.quadraticCurveTo(hx + 12, hy + 6.2, hx + 13.5, hy + 5); ctx.stroke();
+        if (t === "bunny") { ctx.fillStyle = "#fff"; ctx.fillRect(hx + 9.5, hy + 5.4, 2.6, 2.8); ctx.strokeRect(hx + 9.5, hy + 5.4, 2.6, 2.8); }
+        else {
+          ctx.strokeStyle = "rgba(42,28,20,0.55)"; ctx.lineWidth = 0.8;
+          ctx.beginPath(); ctx.moveTo(hx + 13, hy + 3.2); ctx.lineTo(hx + 19.5, hy + 1.6); ctx.moveTo(hx + 13, hy + 4.2); ctx.lineTo(hx + 19.5, hy + 5); ctx.stroke();
+        }
+      } else if (t === "bear") {
+        ctx.fillStyle = S.pattern === "panda" ? "#ffffff" : C2; ctx.beginPath(); ctx.ellipse(hx + 8.5, hy + 3.6, 6, 4.6, 0, 0, Math.PI * 2); ctx.fill(); ink(1.3);
+        ctx.fillStyle = "#2a1c14"; ctx.beginPath(); ctx.ellipse(hx + 12, hy + 1.8, 2.6, 1.9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(hx + 12, hy + 3.6); ctx.quadraticCurveTo(hx + 10.5, hy + 6.4, hx + 8.5, hy + 5.6); ctx.stroke();
+      } else if (t === "fox") {
+        ctx.fillStyle = C1; ctx.beginPath(); ctx.moveTo(hx + 4, hy - 1.5); ctx.quadraticCurveTo(hx + 12, hy - 1, hx + 18.5, hy + 3);
+        ctx.quadraticCurveTo(hx + 12, hy + 8, hx + 4, hy + 7.5); ctx.closePath(); ctx.fill(); ink(1.5);
+        ctx.fillStyle = C2; ctx.beginPath(); ctx.moveTo(hx + 5, hy + 3.4); ctx.lineTo(hx + 17.5, hy + 3.6); ctx.quadraticCurveTo(hx + 12, hy + 7.4, hx + 5, hy + 7); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#2a1c14"; ctx.beginPath(); ctx.arc(hx + 18.2, hy + 3, 1.9, 0, Math.PI * 2); ctx.fill();
+      } else if (t === "pig") {
+        ctx.fillStyle = darken(C1, 0.06); ctx.beginPath(); ctx.ellipse(hx + 11.5, hy + 3, 3.4, 4.4, 0, 0, Math.PI * 2); ctx.fill(); ink(1.4);
+        ctx.fillStyle = darken(C1, 0.45);
+        for (const ny of [hy + 1.5, hy + 4.5]) { ctx.beginPath(); ctx.ellipse(hx + 12, ny, 0.9, 1.2, 0, 0, Math.PI * 2); ctx.fill(); }
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(hx + 6, hy + 7); ctx.quadraticCurveTo(hx + 8, hy + 8.4, hx + 9.6, hy + 7); ctx.stroke();
+      } else if (t === "beak") {
+        ctx.fillStyle = C2; ctx.beginPath(); ctx.ellipse(hx + 5, hy + 2, 6.5, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f5a623"; tri(hx + 8.5, hy - 0.5, hx + 18, hy + 2.2, hx + 8.5, hy + 4.6); ctx.fill(); ink(1.3);
+      } else if (t === "frog") {
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(hx + 1, hy + 3); ctx.quadraticCurveTo(hx + 8, hy + 9.5, hx + 12.5, hy + 2.5); ctx.stroke();
+        ctx.fillStyle = "rgba(240,110,130,0.45)"; ctx.beginPath(); ctx.ellipse(hx + 3, hy + 2, 2.2, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+      } else if (t === "monkey") {
+        ctx.fillStyle = C2;
+        ctx.beginPath(); ctx.ellipse(hx + 4, hy - 2.5, 4.4, 4, 0, 0, Math.PI * 2); ctx.ellipse(hx + 8.6, hy - 2.8, 4, 3.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(hx + 7, hy + 3.5, 6.6, 4.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2a1c14";
+        for (const nx of [hx + 9.6, hx + 11.4]) { ctx.beginPath(); ctx.arc(nx, hy + 2, 0.75, 0, Math.PI * 2); ctx.fill(); }
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(hx + 5, hy + 5); ctx.quadraticCurveTo(hx + 8.5, hy + 7.6, hx + 12, hy + 4.8); ctx.stroke();
+      } else if (t === "koala") {
+        ctx.fillStyle = "#2a2a30"; ctx.beginPath(); ctx.ellipse(hx + 9.6, hy + 2.4, 3.2, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(hx + 6, hy + 7.4); ctx.quadraticCurveTo(hx + 8, hy + 8.6, hx + 10, hy + 7.4); ctx.stroke();
+      } else if (t === "horse" || t === "dragon") {
+        ctx.fillStyle = t === "horse" ? C2 : C1; ctx.beginPath(); ctx.ellipse(hx + 11, hy + 3.8, 7.4, 5, 0.05, 0, Math.PI * 2); ctx.fill(); ink(1.4);
+        ctx.fillStyle = darken(t === "horse" ? C2 : C1, 0.45);
+        ctx.beginPath(); ctx.ellipse(hx + 15.5, hy + 2.6, 1.1, 0.8, 0, 0, Math.PI * 2); ctx.fill();
+        if (t === "dragon") { ctx.beginPath(); ctx.ellipse(hx + 13, hy + 2.2, 1, 0.7, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#fff"; tri(hx + 9, hy + 7.6, hx + 10.2, hy + 9.6, hx + 11.4, hy + 7.6); ctx.fill(); }
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(hx + 7, hy + 6.6); ctx.quadraticCurveTo(hx + 11, hy + 8.4, hx + 15, hy + 6); ctx.stroke();
+      }
+    }
+    function eyes() {
+      const pos = S.eyesTop ? [[hx - 0.5, hy - 10, 2.4], [hx + 6.5, hy - 10.8, 2.6]] : [[hx + 1.5, hy - 2, 2.3], [hx + 7.4, hy - 2.4, 2.6]];
+      if (S.eyesTop) for (const [x, y] of pos) { ctx.fillStyle = C1; ctx.beginPath(); ctx.arc(x, y, 4.4, 0, Math.PI * 2); ctx.fill(); ink(1.6); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill(); }
+      const dark = S.pattern === "panda" ? "#ffffff" : "#2a1c14";
+      if (mood === "dead") {
+        ctx.strokeStyle = S.pattern === "panda" ? "#fff" : OL; ctx.lineWidth = 1.6;
+        for (const [x, y] of pos) { ctx.beginPath(); ctx.moveTo(x - 2, y - 2); ctx.lineTo(x + 2, y + 2); ctx.moveTo(x + 2, y - 2); ctx.lineTo(x - 2, y + 2); ctx.stroke(); }
+      } else if (worldT % 3.8 < 0.12) {
+        ctx.strokeStyle = S.pattern === "panda" ? "#fff" : OL; ctx.lineWidth = 1.4;
+        for (const [x, y, r] of pos) { ctx.beginPath(); ctx.moveTo(x - r, y); ctx.quadraticCurveTo(x, y + 1.4, x + r, y); ctx.stroke(); }
+      } else {
+        for (const [x, y, r] of pos) {
+          ctx.fillStyle = S.pattern === "panda" ? "#1b1b20" : dark;
+          if (S.pattern === "panda") { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x, y, r * 0.9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#1b1b20"; }
+          ctx.beginPath(); ctx.ellipse(x + 0.3, y, r * (S.pattern === "panda" ? 0.6 : 1), r * (S.pattern === "panda" ? 0.7 : 1.15), 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x + 1, y - 1, 0.85, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+  }
+
+  // ---------- Gorros: los nuevos sirven para personas, el perro y los animales (12/11/2026) ----------
+  const OLD_HATS = ["cap", "beanie", "beret", "sunhat", "sombrero"];
+  // fx: centro de la cabeza; top: lo alto de la cabeza; rx: medio ancho de la cabeza
+  function drawHeadwear(h, fx, top, rx) {
+    const c = h.color || "#e63946", t = h.type, L = fx - rx, R = fx + rx;
+    ctx.save();
+    ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.strokeStyle = OL; ctx.lineWidth = 1.6;
+    const ink = (w) => { ctx.strokeStyle = OL; ctx.lineWidth = w || 1.6; ctx.stroke(); };
+    if (t === "cap" || t === "beanie") {
+      const by = top + rx * 0.8, up = t === "beanie" ? 6 : 3;
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(L - 1.5, by); ctx.quadraticCurveTo(L - 2, top - up, fx, top - up); ctx.quadraticCurveTo(R + 2, top - up, R + 1.5, by); ctx.closePath(); ctx.fill(); ink();
+      if (t === "cap") { ctx.fillStyle = darken(c, 0.18); ctx.beginPath(); ctx.moveTo(R - 5, by - 1.2); ctx.quadraticCurveTo(R + 7, by - 2.5, R + 10, by + 1.4); ctx.quadraticCurveTo(R + 3, by + 2.6, R - 5, by + 1.2); ctx.closePath(); ctx.fill(); ink(); }
+      else { ctx.fillStyle = darken(c, 0.08); roundRect(L - 2, by - 4, R - L + 4, 4.6, 2); ctx.fill(); ink(); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(fx, top - 7.5, 2.8, 0, Math.PI * 2); ctx.fill(); ink(1.3); }
+    } else if (t === "beret") {
+      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(fx - 1, top + 1.5, rx + 3, 4.4, -0.18, 0, Math.PI * 2); ctx.fill(); ink();
+      ctx.beginPath(); ctx.moveTo(fx - 2, top - 2.5); ctx.lineTo(fx - 1.5, top - 5); ink(1.5);
+    } else if (t === "sunhat" || t === "sombrero") {
+      const big = t === "sombrero", brimY = top + (big ? 2.5 : 3.5), brimR = rx + (big ? 15 : 9), cw = big ? 7 : rx - 1, chh = big ? 12 : 7;
+      ctx.fillStyle = darken(c, 0.12); ctx.beginPath(); ctx.ellipse(fx, brimY, brimR, big ? 4.5 : 3.4, 0, Math.PI, Math.PI * 2); ctx.fill(); ink();
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(fx - cw, brimY); ctx.quadraticCurveTo(fx - cw - 1, brimY - chh, fx, brimY - chh); ctx.quadraticCurveTo(fx + cw + 1, brimY - chh, fx + cw, brimY); ctx.closePath(); ctx.fill(); ink();
+      ctx.fillStyle = big ? "#c0392b" : "#3b2a20"; ctx.fillRect(fx - cw, brimY - (big ? 4 : 2.8), cw * 2, big ? 3 : 2);
+      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(fx, brimY, brimR, big ? 4.5 : 3.4, 0, 0, Math.PI); ctx.fill(); ink();
+    } else if (t === "corona") {
+      const y = top + 3, w = rx * 0.95;
+      const g = ctx.createLinearGradient(0, y - 11, 0, y); g.addColorStop(0, "#fff1a0"); g.addColorStop(1, "#e0a800");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(fx - w, y); ctx.lineTo(fx - w, y - 8); ctx.lineTo(fx - w * 0.5, y - 4); ctx.lineTo(fx, y - 11.5);
+      ctx.lineTo(fx + w * 0.5, y - 4); ctx.lineTo(fx + w, y - 8); ctx.lineTo(fx + w, y); ctx.closePath(); ctx.fill(); ink(1.5);
+      for (const [gx, gc] of [[fx, "#e63946"], [fx - w * 0.62, "#3b82f6"], [fx + w * 0.62, "#2fa64a"]]) { ctx.fillStyle = gc; ctx.beginPath(); ctx.arc(gx, y - 2.6, 1.5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = "#fff6c8"; for (const gx of [fx - w, fx, fx + w]) { ctx.beginPath(); ctx.arc(gx, gx === fx ? y - 11.5 : y - 8, 1.3, 0, Math.PI * 2); ctx.fill(); }
+    } else if (t === "fiesta") {
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(fx - rx * 0.62, top + 3); ctx.lineTo(fx + 2, top - 15); ctx.lineTo(fx + rx * 0.62, top + 3); ctx.closePath(); ctx.fill(); ink();
+      ctx.save(); ctx.clip(); ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 2.2;
+      for (const k of [-7, -1, 5]) { ctx.beginPath(); ctx.moveTo(fx - rx, top + k + 2); ctx.lineTo(fx + rx, top + k - 4); ctx.stroke(); }
+      ctx.restore();
+      ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(fx + 2, top - 15.5, 2.6, 0, Math.PI * 2); ctx.fill(); ink(1.2);
+    } else if (t === "chistera") {
+      const w = rx * 0.72;
+      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(fx, top + 2.5, rx + 4.5, 2.6, 0, 0, Math.PI * 2); ctx.fill(); ink();
+      ctx.fillRect(fx - w, top - 14, w * 2, 16.5); ctx.strokeRect(fx - w, top - 14, w * 2, 16.5);
+      ctx.fillStyle = "#c0392b"; ctx.fillRect(fx - w + 0.8, top - 2.5, w * 2 - 1.6, 3);
+      ctx.fillStyle = lighten(c, 0.15); ctx.beginPath(); ctx.ellipse(fx, top - 14, w, 1.8, 0, 0, Math.PI * 2); ctx.fill(); ink(1.2);
+    } else if (t === "vikingo") {
+      for (const sd of [-1, 1]) {
+        ctx.fillStyle = "#f3ead2"; ctx.beginPath(); ctx.moveTo(fx + sd * rx * 0.75, top + 2); ctx.quadraticCurveTo(fx + sd * (rx + 7), top - 1, fx + sd * (rx + 6), top - 13);
+        ctx.quadraticCurveTo(fx + sd * (rx + 2), top - 4, fx + sd * rx * 0.45, top - 1); ctx.closePath(); ctx.fill(); ink(1.4);
+      }
+      ctx.fillStyle = c; ctx.beginPath(); ctx.arc(fx, top + 5, rx + 1, Math.PI, 0); ctx.closePath(); ctx.fill(); ink();
+      ctx.fillStyle = "#c9a227"; ctx.fillRect(L - 1, top + 2.5, R - L + 2, 3); ctx.strokeRect(L - 1, top + 2.5, R - L + 2, 3);
+      ctx.fillRect(fx - 1.2, top - 5.5, 2.4, 8);
+    } else if (t === "aureola") {
+      ctx.strokeStyle = "rgba(120,80,0,0.6)"; ctx.lineWidth = 4.2; ctx.beginPath(); ctx.ellipse(fx, top - 6, rx * 0.85, 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = "#ffe066"; ctx.lineWidth = 2.6; ctx.stroke();
+    } else if (t === "cuernos") {
+      for (const sd of [-1, 1]) {
+        const bx = fx + sd * rx * 0.5;
+        ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(bx - 2.8, top + 3.5); ctx.quadraticCurveTo(bx + sd * 1.5, top - 2, bx + sd * 4, top - 7.5); ctx.quadraticCurveTo(bx + sd * 3.5, top, bx + 2.8, top + 3.5); ctx.closePath(); ctx.fill(); ink(1.3);
+      }
+    } else if (t === "cocinero") {
+      ctx.fillStyle = "#ffffff";
+      for (const [ox, oy, r] of [[-rx * 0.5, -6, 5], [rx * 0.5, -6, 5], [0, -9.5, 6]]) { ctx.beginPath(); ctx.arc(fx + ox, top + oy, r, 0, Math.PI * 2); ctx.fill(); ink(1.4); }
+      roundRect(fx - rx * 0.78, top - 3, rx * 1.56, 6.5, 1.5); ctx.fill(); ink(1.4);
+    } else if (t === "cascos") {
+      ctx.strokeStyle = OL; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(fx, top + rx * 0.95, rx + 2, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+      ctx.strokeStyle = c; ctx.lineWidth = 2.2; ctx.stroke();
+      ctx.fillStyle = c;
+      for (const x of [L - 3.5, R - 1.5]) { roundRect(x, top + rx * 0.62, 5, 8.5, 2); ctx.fill(); ink(1.3); }
+    } else if (t === "orejas") {
+      ctx.strokeStyle = OL; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.arc(fx, top + rx * 0.9, rx + 0.5, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      for (const [x, a] of [[fx - rx * 0.55, -0.3], [fx + rx * 0.45, 0.2]]) {
+        ctx.save(); ctx.translate(x, top + 1.5); ctx.rotate(a);
+        ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(-4, 1); ctx.lineTo(0, -8.5); ctx.lineTo(4, 1); ctx.closePath(); ctx.fill(); ink(1.4);
+        ctx.fillStyle = "#ff9fb8"; ctx.beginPath(); ctx.moveTo(-1.8, 0); ctx.lineTo(0, -4.8); ctx.lineTo(1.8, 0); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    } else if (t === "flor") {
+      const x = fx - rx * 0.45, y = top + 2;
+      ctx.fillStyle = c;
+      for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 3, y + Math.sin(a) * 3, 2.5, 0, Math.PI * 2); ctx.fill(); ink(1); }
+      ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); ink(1);
+    } else if (t === "pirata") {
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(L - 5, top + 4); ctx.quadraticCurveTo(L - 1, top - 11, fx, top - 9); ctx.quadraticCurveTo(R + 1, top - 11, R + 5, top + 4);
+      ctx.quadraticCurveTo(fx, top - 1, L - 5, top + 4); ctx.closePath(); ctx.fill(); ink();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(fx, top - 4, 2.3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(fx - 3, top - 0.5); ctx.lineTo(fx + 3, top - 2.5); ctx.moveTo(fx + 3, top - 0.5); ctx.lineTo(fx - 3, top - 2.5); ctx.stroke();
+    } else if (t === "papanoel") {
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(L - 1, top + 3); ctx.quadraticCurveTo(fx - 1, top - 16, R + 6, top - 5); ctx.lineTo(R + 1, top + 3); ctx.closePath(); ctx.fill(); ink();
+      ctx.fillStyle = "#ffffff"; roundRect(L - 2, top + 0.5, R - L + 4, 5, 2.5); ctx.fill(); ink(1.3);
+      ctx.beginPath(); ctx.arc(R + 6, top - 5, 2.8, 0, Math.PI * 2); ctx.fill(); ink(1.3);
+    }
+    ctx.restore();
+  }
+
+  // ---------- Estela que deja el personaje al volar (12/11/2026) ----------
+  // Las formas se apagan poco a poco; nada parpadea.
+  const TRAIL_LIFE = 0.7;
+  let trail = [], trailAcc = 0;
+  function drawTrail() {
+    const id = wear.estela && owned[wear.estela] ? wear.estela.slice(2) : null;
+    if (!id || state === STATE.START || trail.length < 2) return;
+    ctx.save();
+    if (id === "arcoiris") {
+      ctx.lineCap = "round";
+      for (let i = 1; i < trail.length; i++) {
+        const a = trail[i - 1], b = trail[i], age = clamp((worldT - b.t) / TRAIL_LIFE, 0, 1);
+        ctx.globalAlpha = (1 - age) * 0.85;
+        RAINBOW.forEach((c, k) => { ctx.strokeStyle = c; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(a.x, a.y - 6 + k * 2.4); ctx.lineTo(b.x, b.y - 6 + k * 2.4); ctx.stroke(); });
+      }
+    } else {
+      for (let i = 0; i < trail.length - 1; i++) {
+        const p = trail[i], age = clamp((worldT - p.t) / TRAIL_LIFE, 0, 1);
+        ctx.globalAlpha = (1 - age) * 0.9;
+        trailShape(id, p.x, p.y + Math.sin(p.t * 7) * 2.5, 1 - age * 0.45, p.t);
+      }
+    }
+    ctx.restore();
+  }
+  function trailShape(id, x, y, s, seed) {
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    if (id === "burbujas") {
+      ctx.fillStyle = "rgba(190,230,255,0.35)"; ctx.strokeStyle = "#7cc4f0"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 4 * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.beginPath(); ctx.arc(x - 1.4 * s, y - 1.4 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
+    } else if (id === "hojas") {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(seed * 3); ctx.fillStyle = "#6cbf4a"; ctx.strokeStyle = "#2f6e22"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(0, 0, 5 * s, 2.4 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
+    } else if (id === "corazones") {
+      drawHeart(x, y, 3.6 * s, "#ff5c8a");
+    } else if (id === "notas") {
+      ctx.fillStyle = "#5a3fc0"; ctx.strokeStyle = "#5a3fc0"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.ellipse(x, y + 3 * s, 2.6 * s, 2 * s, -0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x + 2.3 * s, y + 2.5 * s); ctx.lineTo(x + 2.3 * s, y - 6 * s); ctx.lineTo(x + 5.5 * s, y - 4 * s); ctx.stroke();
+    } else if (id === "estrellas") {
+      ctx.fillStyle = "#ffd23f"; ctx.strokeStyle = "#b45309"; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const r = (i % 2 ? 2.2 : 5) * s, a = -Math.PI / 2 + (i * Math.PI) / 5; ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (id === "copos") {
+      for (const [col, lw] of [["#7cc4f0", 2.6], ["#ffffff", 1.3]]) for (let i = 0; i < 3; i++) { ctx.strokeStyle = col; ctx.lineWidth = lw; const a = (i * Math.PI) / 3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * 4.5 * s, y - Math.sin(a) * 4.5 * s); ctx.lineTo(x + Math.cos(a) * 4.5 * s, y + Math.sin(a) * 4.5 * s); ctx.stroke(); }
+    } else if (id === "fuego") {
+      ctx.fillStyle = "rgba(255,120,30,0.75)"; ctx.beginPath(); ctx.arc(x, y, 5 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,220,90,0.9)"; ctx.beginPath(); ctx.arc(x + 0.5, y + 0.5, 2.6 * s, 0, Math.PI * 2); ctx.fill();
+    } else if (id === "panets") {
+      drawEmpanada(x, y, seed * 2, 0.32 * s, false);
+    }
+  }
+
+  // regalo pequeño para el botón de la caja
+  function drawGift(x, y, s) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    ctx.strokeStyle = OL; ctx.lineWidth = 1.8; ctx.lineJoin = "round";
+    ctx.fillStyle = "#e63946"; roundRect(-9, -4, 18, 13, 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ff5a67"; roundRect(-10.5, -8, 21, 5, 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ffd23f"; ctx.fillRect(-2, -8, 4, 17); ctx.strokeRect(-2, -8, 4, 17);
+    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sd * 4, -10.5, 4, 2.4, sd * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  // dibujo pequeño de un premio de la caja (para la ruleta y «tus cosas»)
+  function drawPrizeTo(cv, id) {
+    const keep = ctx;
+    ctx = cv.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const k = cv.width / 64;
+    ctx.scale(k, k);
+    try {
+      const kind = id.slice(0, 2), t = id.slice(2);
+      if (kind === "g_") {
+        drawHuman(Object.assign({}, CHARACTERS[0], { hat: HAT(t, HAT_COLORS[t] || "#e63946") }), 29, 66, 0, 1, 1.05, "");
+      } else if (t === "arcoiris") {
+        RAINBOW.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 3.6; ctx.beginPath(); ctx.arc(32, 50, 28 - i * 3.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); });
+      } else {
+        const keepT = worldT;
+        for (let i = 0; i < 4; i++) { ctx.globalAlpha = 1 - i * 0.2; trailShape(t, 48 - i * 12, 26 + i * 5, 1.6 - i * 0.18, i * 1.3); }
+        ctx.globalAlpha = 1;
+        worldT = keepT;
+      }
+    } finally { ctx = keep; }
+  }
+  // empanadilla pequeña como imagen (para las ventanas)
+  let foodImgUrl = null;
+  function foodImg() {
+    if (foodImgUrl) return foodImgUrl;
+    const cv = document.createElement("canvas"); cv.width = cv.height = 48;
+    const keep = ctx; ctx = cv.getContext("2d");
+    try { ctx.scale(2, 2); drawEmpanada(12, 12, 0, 0.62, false); } finally { ctx = keep; }
+    foodImgUrl = cv.toDataURL();
+    return foodImgUrl;
   }
 
   // ---------- Interfaz ----------
@@ -3402,6 +3996,7 @@
     ctx.restore();
   }
 
+  let dailyShown = false;
   function drawStart() {
     if (viewIndex >= shownCount()) viewChar(0); // lo denegaron mientras lo mirabas
     const u = ui();
@@ -3415,7 +4010,7 @@
 
     // personaje que se mira, en grande y con su ropa (bloqueado: apagado y con candado)
     ctx.globalAlpha = open ? 1 : def.custom ? (cst === "libre" ? 0.25 : 0.6) : 0.35;
-    drawChar(dressed(def), player.x, player.y, 0, player.flap, 1.6);
+    drawChar(open ? worn(def) : dressed(def), player.x, player.y, 0, player.flap, 1.6);
     ctx.globalAlpha = 1;
     if (cst === "libre") text("+", player.x, player.y - 4, 54, "#ffd23f", "#5a2a06", 8);
     else if (!open && !def.custom) drawLock(player.x, player.y - 6, 1.6);
@@ -3460,6 +4055,7 @@
       ctx.globalAlpha = cOpen ? 1 : 0.3;
       if (cdef.custom && customState() === "libre") { ctx.globalAlpha = 1; text("+", c.x, c.y + 1, 20, "#b45309"); }
       else if (cdef.kind === "dog") drawDog(c.x - 10, c.y + 8, 0, 1, 0.85, "", dressed(cdef));
+      else if (cdef.kind === "critter") drawCritter(dressed(cdef), c.x - 7, c.y + 6, 0, 1, 0.8, "");
       else drawChar(dressed(cdef), c.x - 3, c.y + 14, 0, 1, 0.9, "");
       ctx.restore();
       if (!cOpen && !cdef.custom) {
@@ -3478,7 +4074,7 @@
         const left = Math.max(0, (customChar.decidido || 0) + DAY_MS - Date.now());
         msg = "Podrás crear otro en " + Math.floor(left / 3600000) + " h " + Math.floor((left % 3600000) / 60000) + " min";
       }
-      text(msg, LW / 2, oy - 34, 14, cst === "denegado" ? "#c0392b" : "#8a5a2b");
+      text(msg, LW / 2, oy - 25, 14, cst === "denegado" ? "#c0392b" : "#8a5a2b");
       if (cst === "pendiente" || cst === "aprobado") button(u.edit, "CAMBIARLO", true, 18);
       text(cst === "aprobado" ? "Si lo cambias, vuelve a revisión" : "Si lo deniega, se borra", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
     } else if (def.id === "gris") {
@@ -3525,9 +4121,29 @@
     // mejor puntuación
     const by = u.cardY + CARD_H + 30;
     ctx.fillStyle = "rgba(40,24,12,0.55)";
-    roundRect(LW / 2 - 100, by - 18, 200, 36, 18); ctx.fill();
-    ctx.save(); ctx.translate(LW / 2 - 76, by + 1); ctx.scale(0.8, 0.8); iconTrophy(); ctx.restore();
-    text("MEJOR: " + best, LW / 2 + 8, by + 1, 20, "#fff");
+    roundRect(LW / 2 - 176, by - 18, 170, 36, 18); ctx.fill();
+    ctx.save(); ctx.translate(LW / 2 - 152, by + 1); ctx.scale(0.75, 0.75); iconTrophy(); ctx.restore();
+    text("MEJOR: " + best, LW / 2 - 80, by + 1, 19, "#fff");
+    // botón de la caja sorpresa con lo que hay en la hucha
+    const cb = u.caja;
+    ctx.fillStyle = "#b45309"; roundRect(cb.x, cb.y + 4, cb.w, cb.h, 18); ctx.fill();
+    const cg = ctx.createLinearGradient(0, cb.y, 0, cb.y + cb.h);
+    cg.addColorStop(0, "#ffd23f"); cg.addColorStop(1, "#f59e0b");
+    ctx.fillStyle = cg; roundRect(cb.x, cb.y, cb.w, cb.h, 18); ctx.fill();
+    drawGift(cb.x + 22, by - 1, 0.9);
+    text("CAJA", cb.x + 64, by + 1, 19, "#fff", "#7c3a0a", 4);
+    drawFood("empanada", cb.x + 110, by, 0, 0.5);
+    text(String(hucha), cb.x + 143, by + 1, 18, "#fff", "#7c3a0a", 4);
+    if (hucha >= BOX_COST) {
+      ctx.fillStyle = "#d63a32"; ctx.beginPath(); ctx.arc(cb.x + cb.w - 4, cb.y + 2, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+      text("!", cb.x + cb.w - 4, cb.y + 3, 13, "#fff");
+    }
+    // el premio diario sale solo, una vez, al entrar
+    if (!dailyShown && worldT > 1.2) {
+      dailyShown = true;
+      if (!dailyState().claimed && window.ElsPanetsUI && window.ElsPanetsUI.openDaily && !window.ElsPanetsUI.isOpen()) window.ElsPanetsUI.openDaily();
+    }
     if (recordHolder && by + 36 < groundTop()) text("Récord de " + recordHolder, LW / 2, by + 32, 15, "#fff", "#3b2414", 4);
   }
 
@@ -3650,14 +4266,26 @@
     ctx.fillStyle = "#f3e6cf";
     roundRect(c.x + 20, c.y + 186, c.w - 40, 38, 14); ctx.fill();
     drawFood(counterFood(), c.x + 52, c.y + 202, 0, 0.75);
-    text((counterFood() === "jamon" ? "Comida: " : "Empanadillas comidas: ") + eaten, c.x + 74, c.y + 206, 18, "#3b2414", null, 0, "left");
+    text((counterFood() === "jamon" ? "Comida: " : "Empanadillas: ") + eaten + "   ·   hucha " + hucha, c.x + 74, c.y + 206, 18, "#3b2414", null, 0, "left");
 
     const ready = worldT >= pressLockUntil;
     ctx.globalAlpha = ready ? 1 : 0.6;
     button(u.again, "OTRA VEZ", true);
     button(u.home, "INICIO", false);
     ctx.globalAlpha = 1;
-    if (recordHolder) text("Récord de " + recordHolder, LW / 2, u.again.y + 92, 15, "#fff", "#3b2414", 4);
+    // «¡casi!» y el ranking de los amigos
+    let my = u.again.y + 90;
+    ctx.globalAlpha = clamp((t - 1) / 0.4, 0, 1);
+    for (const m of overMsgs) {
+      ctx.font = "16px " + FONT;
+      const w = Math.min(LW - 16, ctx.measureText(m.txt).width + 30);
+      ctx.fillStyle = "rgba(40,24,12,0.6)";
+      roundRect(LW / 2 - w / 2, my - 14, w, 28, 14); ctx.fill();
+      text(m.txt, LW / 2, my + 1, 16, m.color || "#fff");
+      my += 34;
+    }
+    ctx.globalAlpha = 1;
+    if (recordHolder) text("Récord de " + recordHolder, LW / 2, my + 2, 15, "#fff", "#3b2414", 4);
     ctx.restore();
   }
 
@@ -3691,6 +4319,7 @@
     }
     ctx.globalAlpha = 1;
 
+    drawTrail();
     drawGhost();
     if (state !== STATE.START) {
       const dead = state === STATE.DYING || state === STATE.OVER || state === STATE.NAME;
@@ -3699,7 +4328,7 @@
       if (girlfriend && selectedChar().id === "maykel") {
         drawHuman(girlfriend, player.x - 33 * k, cy + (7 + Math.sin(worldT * 2.2) * 1.5) * k, player.rot, player.flap + 0.6, PLAYER_SCALE * 0.92 * k, dead ? "dead" : "");
       }
-      drawChar(dressed(selectedChar()), player.x, cy + 5 * k, player.rot, player.flap, PLAYER_SCALE * k, dead ? "dead" : "");
+      drawChar(worn(selectedChar()), player.x, cy + 5 * k, player.rot, player.flap, PLAYER_SCALE * k, dead ? "dead" : "");
       if (!dead && (shield || shieldSafe > 0)) drawShieldBubble(player.x + 1, cy, 30 * k, shield ? 1 : shieldSafe / 1.3);
     }
     if (photoPending) takePhoto();
@@ -3922,6 +4551,9 @@
       poder: (k) => collectPower(k, player.x + 30, player.y),
       lugar: (i) => { placeFrom = placeTo; placeTo = i; placeT = 0; placeBanner = 2.6; },
       poderes: () => ({ powerT, shield, shieldSafe, miniK, placeTo, placeT }),
+      hucha: (n) => addHucha(n),
+      diarioOtraVez: (ayer) => store.set(DAILY_KEY, ayer ? JSON.stringify({ last: dayStr(new Date(Date.now() - 864e5)), streak: ayer }) : "{}"),
+      ranking: () => ({ rankCache, overMsgs }),
     };
   }
 
@@ -3959,9 +4591,37 @@
     extra: [["no", "Nada"], ["gafas", "Gafas"], ["cap", "Gorra"], ["beret", "Boina"], ["sunhat", "Pamela"], ["sombrero", "Sombrero mexicano"], ["collar", "Collar"]],
     bandera: Object.keys(FLAG_NAMES).map((f) => [f, FLAG_NAMES[f]]),
   };
+  // 12/11/2026: animales, más gorros y colores de pelo; algunos se desbloquean con tu récord.
+  // (Lo nuevo va al final de cada lista para no cambiar los personajes ya enviados.)
+  CREATOR.tipo = [["persona", "Persona"]].concat(SPECIES_KEYS.map((k) => [k, SPECIES[k].name]));
+  CREATOR.pelajes = (t) => (t > 0 ? SPECIES[SPECIES_KEYS[Math.min(SPECIES_KEYS.length, t) - 1]].colors : []);
+  CREATOR.pelo = CREATOR.pelo.concat([["#ff8fc8", "#d9609c"], ["#5aa9ff", "#2f6fd6"], ["#7ad67a", "#3f9a4a"], ["#b07cff", "#7a4ad8"], ["#ff5a3a", "#c8321a"], ["#f4f4f8", "#c8c8d4"]]);
+  CREATOR.ojos = CREATOR.ojos.concat([["#7a8a96", "Grises"], ["#8a5ac8", "Violetas"]]);
+  CREATOR.pantalon = CREATOR.pantalon.concat(["#2e8b57", "#9b5de5", "#f28c28"]);
+  CREATOR.extra = CREATOR.extra.concat([["beanie", "Gorro de lana"], ["flor", "Flor"], ["fiesta", "Gorro de fiesta"], ["cascos", "Cascos"], ["orejas", "Orejas de gato"],
+    ["cocinero", "Gorro de cocinero"], ["chistera", "Chistera"], ["pirata", "Sombrero pirata"], ["vikingo", "Casco vikingo"], ["cuernos", "Cuernos"], ["aureola", "Aureola"]]);
+  CREATOR.locks = {
+    tipo: [0].concat(SPECIES_KEYS.map((k) => SPECIES[k].pts)),
+    pelo: [0, 0, 0, 0, 0, 0, 0, 0, 20, 35, 50, 65, 80, 100],
+    extra: [0, 0, 0, 0, 0, 0, 0, 0, 15, 25, 40, 55, 70, 90, 110, 140, 170, 200],
+  };
+  CREATOR.lockOf = (k, i) => (CREATOR.locks[k] && CREATOR.locks[k][i]) || 0;
+  CREATOR.best = () => best;
+  function applyExtra(look, extra, color) {
+    if (extra === "gafas") look.glasses = true;
+    else if (extra === "collar") look.necklace = "#d9b45a";
+    else if (extra !== "no") look.hat = HAT(extra, HAT_COLORS[extra] || (extra === "sombrero" ? "#e9c46a" : extra === "beret" ? "#2a2a2e" : color));
+  }
   // de lo elegido (un índice por opción) al dibujo del personaje
   function buildLook(sel) {
     const chica = sel.sexo === 1, at = (a, i) => a[Math.max(0, Math.min(a.length - 1, i | 0))];
+    if ((sel.tipo | 0) > 0) {
+      const key = SPECIES_KEYS[Math.min(SPECIES_KEYS.length, sel.tipo | 0) - 1], S = SPECIES[key];
+      const [body, belly] = at(S.colors, sel.pelaje);
+      const look = { kind: "critter", species: key, body, belly, flag: at(CREATOR.bandera, sel.bandera)[0] };
+      applyExtra(look, at(CREATOR.extra, sel.extra)[0], "#e63946");
+      return look;
+    }
     const [skin, skinD] = at(CREATOR.piel, sel.piel), [hair, hairD] = at(CREATOR.pelo, sel.pelo);
     const color = at(CREATOR.color, sel.color), extra = at(CREATOR.extra, sel.extra)[0], barba = at(CREATOR.barba, sel.barba)[0];
     const look = {
@@ -3976,9 +4636,7 @@
       flag: at(CREATOR.bandera, sel.bandera)[0],
     };
     if (!chica && barba !== "no") look.beard = { color: darken(hair, 0.1), alpha: barba === "larga" ? 0.95 : 0.8, top: barba === "larga" ? 3.5 : 5 };
-    if (extra === "gafas") look.glasses = true;
-    else if (extra === "collar") look.necklace = "#d9b45a";
-    else if (extra !== "no") look.hat = HAT(extra, extra === "sombrero" ? "#e9c46a" : extra === "beret" ? "#2a2a2e" : color);
+    applyExtra(look, extra, color);
     return look;
   }
   // pinta un personaje (look) en un canvas cualquiera
@@ -3987,15 +4645,25 @@
     ctx = cv.getContext("2d");
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cv.width, cv.height);
-    const k = cv.width / 120;
+    const k = cv.width / 120, h = cv.height / k;
     ctx.scale(k, k);
-    try { drawChar(Object.assign({}, CUSTOM_BASE, look || {}), 60, (cv.height / k) * 0.5, 0, worldT * 6, scale || 1.5, ""); }
+    // tamaño pensado para que quepan los gorros altos y los pies (12/11/2026)
+    const def = Object.assign({}, CUSTOM_BASE, look || {});
+    try {
+      if (def.kind === "critter") drawCritter(def, 60, h * 0.61, 0, worldT * 6, 1.65, "");
+      else drawChar(def, 57, h * 0.66, 0, worldT * 6, 1.3, "");
+    }
     finally { ctx = keep; }
   }
   window.ElsPanets = {
     CREATOR, buildLook, drawLookTo, flagImg, FLAG_NAMES,
     playerInfo: () => ({ name: store.get(NAME_KEY, ""), char: selectedChar().id, flag: flagOf(selectedChar()) }),
     setCustom: (d) => applyCustom(d),
+    // caja, hucha y premio diario (12/11/2026)
+    PRIZES, RARITY, BOX_COST, DUP_BACK, DAILY,
+    hucha: () => hucha, owned: () => owned, wear: () => wear, setWear, rollBox, randomPrize,
+    dailyState, claimDaily, drawPrizeTo, foodImg,
+    sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     refreshCustom: () => refreshCustom(true),
   };
 

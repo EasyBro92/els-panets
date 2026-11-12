@@ -80,7 +80,7 @@ async function submitScore(name, score, tacos, flag) {
 async function fetchTop(n) {
   const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(n || 10));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data());
+  return snap.docs.map((d) => Object.assign({ id: d.id }, d.data()));
 }
 
 // ---------- Ajustes que activa el admin ----------
@@ -182,7 +182,7 @@ async function adminSetConfig(patch) {
 }
 
 window.TacoLeaderboard = {
-  submitScore, fetchTop,
+  submitScore, fetchTop, myId: getPlayerId,
   getConfig: () => config, loadConfig,
   myCharacter, submitCharacter, cancelCharacter,
   isAdmin, adminLogin, adminLogout, adminList, adminDecide, adminSetConfig,
