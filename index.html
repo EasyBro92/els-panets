@@ -44,14 +44,14 @@
         <canvas id="creatorPreview" width="240" height="250"></canvas>
         <div class="cTopRight">
           <input id="creatorName" type="text" maxlength="12" autocomplete="off" placeholder="Su nombre" />
-          <p class="cNote">El admin tiene que aprobarlo. Los animales y los gorros con 🔒 se desbloquean con tu récord.</p>
+          <p class="cNote">Se guarda en este móvil. Los animales y los gorros con 🔒 se desbloquean con tu récord.</p>
         </div>
       </div>
       <div id="creatorRows" class="creatorRows"></div>
       <p id="creatorMsg" class="formMsg"></p>
       <div class="cBtns">
         <button id="creatorCancel" class="ghostBtn" type="button">Cancelar</button>
-        <button id="creatorSend" class="bigBtn" type="button">Enviar al admin</button>
+        <button id="creatorSend" class="bigBtn" type="button">Guardar</button>
       </div>
       <div id="flagPick" class="flagPick hidden">
         <div class="flagPickTop"><input id="flagSearch" type="search" autocomplete="off" placeholder="Busca un país" /><button id="flagPickClose" type="button">✕</button></div>
@@ -72,7 +72,7 @@
   <div id="adminOverlay" class="overlay hidden">
     <div class="nameCard wideCard">
       <div class="nameTitle">Panel del admin</div>
-      <div id="adminTabs" class="tabs"><button type="button" data-tab="tiempo" class="on">Tiempo</button><button type="button" data-tab="personajes">Personajes</button><button type="button" data-tab="ajustes">Ajustes</button></div>
+      <div id="adminTabs" class="tabs"><button type="button" data-tab="tiempo" class="on">Tiempo</button><button type="button" data-tab="ajustes">Ajustes</button></div>
       <div id="adminBody" class="adminBody"></div>
       <button id="adminClose" class="bigBtn" type="button">Cerrar</button>
       <button id="adminLogout" class="ghostBtn" type="button">Salir del modo admin</button>

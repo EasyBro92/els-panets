@@ -112,21 +112,15 @@
   }
   function closeCreator() { hide($("creatorOverlay")); pickEl.classList.add("hidden"); clearInterval(anim); }
   $("creatorCancel").addEventListener("click", closeCreator);
-  sendBtn.addEventListener("click", async () => {
+  // se guarda en el móvil al momento y queda elegido para jugar (13/11/2026: sin el admin)
+  sendBtn.addEventListener("click", () => {
     const name = nameEl.value.trim().slice(0, 12);
     if (!name) { msgEl.textContent = "Ponle un nombre"; return; }
     if (lockedNow) return;
-    if (!lb() || !lb().submitCharacter) { msgEl.textContent = "Sin conexión, prueba otra vez"; return; }
     const look = Object.assign(EP.buildLook(sel), { _sel: Object.assign({}, sel) });
-    sendBtn.disabled = true; msgEl.textContent = "Enviando…";
-    try {
-      await lb().submitCharacter(name, look);
-      EP.setCustom({ estado: "pendiente", name, look, decidido: 0 });
-      closeCreator();
-    } catch (e) {
-      msgEl.textContent = "No se pudo enviar. Revisa la conexión.";
-      sendBtn.disabled = false;
-    }
+    EP.setCustom({ estado: "aprobado", name, look, decidido: 0 }, true);
+    EP.sfx("record");
+    closeCreator();
   });
 
   // ---------- Entrada del admin ----------

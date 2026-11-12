@@ -401,8 +401,8 @@
   for (const c of CHARACTERS) Object.assign(c, EXTRA[c.id]);
 
   // ---------- Tu propio personaje (03/11/2026) ----------
-  // Lo crea cada jugador y solo se puede usar cuando el admin lo aprueba. Si lo
-  // deniega, se borra y a las 24 h se puede crear otro.
+  // Lo crea cada jugador y se guarda en su móvil al momento (desde el 13/11/2026 ya no
+  // pasa por el admin). Los que estaban esperando al admin se pueden usar ya.
   const CUSTOM_BASE = { id: "propio", name: "", unlock: 0, kind: "human", custom: true,
     skin: "#c4c4c4", skinD: "#a6a6a6", hair: "#6f6f6f", hairD: "#555555", hairStyle: "swept", part: 0,
     face: { rx: 11.4, ry: 14.6, chin: 0.52 }, eye: "#7c7c7c", nose: 5.2, smile: "neutral",
@@ -414,19 +414,19 @@
   CHARACTERS.push(customDef);
   let customChar = null; // { estado, name, look, decidido }
   try { customChar = JSON.parse(store.get(CUSTOM_KEY, "null")); } catch (e) { customChar = null; }
-  // en qué punto está: libre (se puede crear), pendiente, aprobado o denegado
+  // libre (aún no lo ha hecho) o aprobado (ya lo tiene guardado)
   function customState() {
-    if (!customChar || !customChar.estado) return "libre";
-    if (customChar.estado === "denegado" && Date.now() > (customChar.decidido || 0) + DAY_MS) return "libre";
-    return customChar.estado;
+    if (!customChar || !customChar.look || customChar.estado === "denegado") return "libre";
+    return "aprobado";
   }
   function applyCustom(data) {
     customChar = data || null;
     store.set(CUSTOM_KEY, JSON.stringify(customChar));
     for (const k of Object.keys(customDef)) delete customDef[k];
     Object.assign(customDef, CUSTOM_BASE);
-    if (customChar && customChar.look && customChar.estado !== "denegado") Object.assign(customDef, customChar.look);
-    customDef.name = customChar && customChar.estado === "aprobado" ? String(customChar.name || "").toUpperCase() : "";
+    const ok = customState() === "aprobado";
+    if (ok) Object.assign(customDef, customChar.look);
+    customDef.name = ok ? String(customChar.name || "").toUpperCase() : "";
   }
   applyCustom(customChar);
   let customFetchedAt = 0;
@@ -434,7 +434,7 @@
     const lb = window.TacoLeaderboard;
     if (!lb || !lb.myCharacter || (!force && Date.now() - customFetchedAt < 20000)) return;
     customFetchedAt = Date.now();
-    lb.myCharacter().then((d) => applyCustom(d)).catch(() => {});
+    // el personaje ya no se baja de Firebase: vive en el móvil; solo se miran los ajustes del admin
     if (lb.loadConfig) lb.loadConfig();
   }
   window.addEventListener("tacoLeaderboardReady", () => refreshCustom(true));
@@ -4075,7 +4075,7 @@
     refreshCustom(false);
     title(LH * 0.12);
     // la historia del personaje que se mira
-    const story = def.custom ? (cst === "aprobado" ? "Tu personaje, aprobado por el admin." : "Hazte tu propio personaje.") : def.story;
+    const story = def.custom ? (cst === "aprobado" ? "Tu personaje, hecho por ti." : "Hazte tu propio personaje.") : def.story;
     text(story || "¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, story ? 17 : 19, "#fff", "#3b2414", 5);
 
     // personaje que se mira, en grande y con su ropa (bloqueado: apagado y con candado)
@@ -4137,22 +4137,20 @@
     // tu personaje: en lugar de la ropa, en qué punto está y el botón de cambiarlo
     if (def.custom) {
       const oy = u.outfits[0].y;
-      let msg = "Tú lo diseñas y el admin lo aprueba";
-      if (cst === "pendiente") msg = "El admin todavía no lo ha visto";
-      else if (cst === "aprobado") msg = "¡Aprobado! Ya puedes jugar con él";
+      let msg = "Tú lo diseñas y se guarda en tu móvil";
+      if (cst === "aprobado") msg = "¡Listo! Ya puedes jugar con él";
       else if (cst === "denegado") {
         const left = Math.max(0, (customChar.decidido || 0) + DAY_MS - Date.now());
         msg = "Podrás crear otro en " + Math.floor(left / 3600000) + " h " + Math.floor((left % 3600000) / 60000) + " min";
       }
       text(msg, LW / 2, oy - 25, 14, cst === "denegado" ? "#c0392b" : "#8a5a2b");
       if (cst === "pendiente" || cst === "aprobado") button(u.edit, "CAMBIARLO", true, 18);
-      text(cst === "aprobado" ? "Si lo cambias, vuelve a revisión" : "Si lo deniega, se borra", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
+      text("Se guarda solo en este móvil", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
     } else if (def.id === "gris") {
       // el gris no tiene ropa: aquí va, en grande, el botón de crear tu personaje
       const gst = customState();
-      let msg = "Tú lo diseñas y el admin lo aprueba", btn = "CREA TU PERSONAJE";
-      if (gst === "pendiente") { msg = "El admin todavía no lo ha visto"; btn = "VER TU PERSONAJE"; }
-      else if (gst === "aprobado") { msg = "¡Aprobado! Ya puedes jugar con él"; btn = "TU PERSONAJE"; }
+      let msg = "Tú lo diseñas y se guarda en tu móvil", btn = "CREA TU PERSONAJE";
+      if (gst === "aprobado") { msg = "Ya tienes tu personaje"; btn = "TU PERSONAJE"; }
       else if (gst === "denegado") {
         const left = Math.max(0, (customChar.decidido || 0) + DAY_MS - Date.now());
         msg = "Podrás crear otro en " + Math.floor(left / 3600000) + " h " + Math.floor((left % 3600000) / 60000) + " min";
@@ -4730,7 +4728,8 @@
   window.ElsPanets = {
     CREATOR, buildLook, drawLookTo, flagImg, FLAG_NAMES, flagName, flagsReady: () => flagsReady,
     playerInfo: () => ({ name: store.get(NAME_KEY, ""), char: selectedChar().id, flag: flagOf(selectedChar()) }),
-    setCustom: (d) => applyCustom(d),
+    // guarda el personaje y, si se pide, lo deja elegido para jugar
+    setCustom: (d, pick) => { applyCustom(d); if (pick && customState() === "aprobado") viewChar(CHARACTERS.indexOf(customDef)); },
     // caja, hucha y premio diario (12/11/2026)
     PRIZES, RARITY, BOX_COST, DUP_BACK, DAILY,
     hucha: () => hucha, owned: () => owned, wear: () => wear, setWear, rollBox, randomPrize,
