@@ -67,10 +67,10 @@
   const norm = (t) => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   let flagListBuilt = false;
   function openFlagPick() {
-    if (!flagListBuilt) {
+    if (!flagListBuilt || flagListBuilt !== EP.flagsReady()) {
       flagList.innerHTML = C.bandera.map((b, i) => `<button type="button" data-i="${i}" data-n="${esc(norm(b[1] + " " + b[0]))}">${EP.flagImg(b[0])}<span>${esc(b[1])}</span></button>`).join("") +
         '<div id="flagNone" class="aEmpty hidden">No hay ningún país con ese nombre</div>';
-      flagListBuilt = true;
+      flagListBuilt = EP.flagsReady() || "pronto";
     }
     findEl.value = "";
     filterFlags();

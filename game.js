@@ -963,7 +963,9 @@
   const FLAG_FONT = '"Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   // la bandera dibujada una vez en un lienzo, recortada a su tamaño
   const emojiFlags = {};
+  let flagsReady = false; // ya llegó la letra de las banderas (o se dejó de esperar)
   function emojiFlagCanvas(f) {
+    if (!flagsReady) return null; // mientras llega, no se guarda nada a medias
     if (emojiFlags[f] !== undefined) return emojiFlags[f];
     const S = 80, cv = document.createElement("canvas");
     cv.width = cv.height = S;
@@ -982,23 +984,30 @@
   }
   // cuando llega la letra de las banderas, se vuelven a dibujar
   if (document.fonts && document.fonts.load) {
-    document.fonts.load("60px \"Twemoji Country Flags\"", "\u{1F1EA}\u{1F1F8}").then(() => { for (const k of Object.keys(emojiFlags)) delete emojiFlags[k]; }).catch(() => {});
-  }
-  // cinta con la bandera repetida, para las columnas
+    const ready = () => {
+      if (flagsReady) return;
+      flagsReady = true;
+      for (const k of Object.keys(emojiFlags)) delete emojiFlags[k];
+      for (const k of Object.keys(flagImgs)) if (!FLAG_NAMES[k]) delete flagImgs[k];
+    };
+    document.fonts.load("60px \"Twemoji Country Flags\"", "\u{1F1EA}\u{1F1F8}").then(ready, ready);
+    setTimeout(ready, 5000); // sin conexión: se usan los emojis del móvil
+  } else flagsReady = true;
+  // la bandera estirada a lo largo de toda la cinta, igual que las cinco dibujadas a mano
   function drawWorldBand(x, y, w, h, f) {
-    ctx.fillStyle = "#f4ead6"; ctx.fillRect(x, y, w, h);
     const e = emojiFlagCanvas(f);
     if (e) {
-      const fw = (h * e.box.w) / e.box.h, n = Math.max(1, Math.floor(w / (fw + 2))), gap = (w - n * fw) / n;
-      for (let i = 0; i < n; i++) ctx.drawImage(e.cv, e.box.x, e.box.y, e.box.w, e.box.h, x + gap / 2 + i * (fw + gap), y, fw, h);
-    }
+      const b = e.box, k = Math.max(1, Math.round(b.h * 0.05)); // sin el borde redondeado
+      ctx.drawImage(e.cv, b.x + k, b.y + k, b.w - 2 * k, b.h - 2 * k, x, y, w, h);
+    } else { ctx.fillStyle = "#f4ead6"; ctx.fillRect(x, y, w, h); }
     ctx.strokeStyle = "rgba(60,40,20,0.35)"; ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   }
 
   const flagImgs = {};
   function flagImg(f) {
-    if (!FLAG_NAMES[f]) return WORLD_SET.has(f) ? `<span class="lbFlag flagEmoji" title="${flagName(f)}">${flagEmoji(f)}</span>` : "";
+    if (!FLAG_NAMES[f] && !WORLD_SET.has(f)) return "";
+    if (!FLAG_NAMES[f] && !flagsReady) return `<span class="lbFlag flagEmoji" title="${flagName(f)}">${flagEmoji(f)}</span>`;
     if (!flagImgs[f]) {
       const cv = document.createElement("canvas");
       cv.width = (COL_W - 2) * 2; cv.height = FLAG_H * 2;
@@ -1007,7 +1016,7 @@
       ctx = keep;
       flagImgs[f] = cv.toDataURL();
     }
-    return `<img class="lbFlag" src="${flagImgs[f]}" alt="${FLAG_NAMES[f]}">`;
+    return `<img class="lbFlag" src="${flagImgs[f]}" alt="${flagName(f)}">`;
   }
 
   const lbTabs = document.getElementById("lbTabs");
@@ -4719,7 +4728,7 @@
     finally { ctx = keep; }
   }
   window.ElsPanets = {
-    CREATOR, buildLook, drawLookTo, flagImg, FLAG_NAMES, flagName,
+    CREATOR, buildLook, drawLookTo, flagImg, FLAG_NAMES, flagName, flagsReady: () => flagsReady,
     playerInfo: () => ({ name: store.get(NAME_KEY, ""), char: selectedChar().id, flag: flagOf(selectedChar()) }),
     setCustom: (d) => applyCustom(d),
     // caja, hucha y premio diario (12/11/2026)
