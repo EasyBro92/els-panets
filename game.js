@@ -4076,12 +4076,13 @@
     title(LH * 0.12);
     // la historia del personaje que se mira
     const story = def.custom ? (cst === "aprobado" ? "Tu personaje, hecho por ti." : "Hazte tu propio personaje.") : def.story;
-    text(story || "¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, story ? 17 : 19, "#fff", "#3b2414", 5);
-
-    // personaje que se mira, en grande y con su ropa (bloqueado: apagado y con candado)
+    // personaje que se mira, en grande y con su ropa (bloqueado: apagado y con candado).
+    // Con un gorro alto baja un poco y la frase de arriba se pinta encima (16/11/2026).
+    const look = open ? worn(def) : dressed(def), tall = look.hat && !OLD_HATS.includes(look.hat.type) ? 8 : 0;
     ctx.globalAlpha = open ? 1 : def.custom ? (cst === "libre" ? 0.25 : 0.6) : 0.35;
-    drawChar(open ? worn(def) : dressed(def), player.x, player.y, 0, player.flap, 1.6);
+    drawChar(look, player.x, player.y + tall, 0, player.flap, 1.6);
     ctx.globalAlpha = 1;
+    text(story || "¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, story ? 17 : 19, "#fff", "#3b2414", 5);
     if (cst === "libre") text("+", player.x, player.y - 4, 54, "#ffd23f", "#5a2a06", 8);
     else if (!open && !def.custom) drawLock(player.x, player.y - 6, 1.6);
     roundIcon(u.prev, () => chevron(-1));
