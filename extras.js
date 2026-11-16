@@ -6,7 +6,7 @@
   const $ = (id) => document.getElementById(id);
   const EP = window.ElsPanets;
   const lb = () => window.TacoLeaderboard;
-  const overlays = ["creatorOverlay", "adminLoginOverlay", "adminOverlay", "boxOverlay", "dailyOverlay", "settingsOverlay"].map($);
+  const overlays = ["creatorOverlay", "adminLoginOverlay", "adminOverlay", "boxOverlay", "dailyOverlay", "settingsOverlay", "progOverlay"].map($);
   const show = (el) => el.classList.remove("hidden");
   const hide = (el) => el.classList.add("hidden");
   const esc = (s) => String(s == null ? "" : s).replace(/[<>&"']/g, "");
@@ -277,7 +277,46 @@
       }).join("");
     paintPrizes(boxItems);
   }
-  function openBox() {
+  // ---------- Tienda de mejoras (17/11/2026): en la misma ventana que la caja ----------
+  const POWER_NAMES = { iman: "Imán", doble: "Puntos x2", mini: "Mini", paraguas: "Paraguas", lenta: "Cámara lenta", lluvia: "Lluvia de panets", escudo: "Escudo", corazon: "Vida extra" };
+  const START_TXT = { escudo: "Te salva de un choque", iman: "Atrae la comida", doble: "Puntos dobles al empezar", corazon: "Una vida de más" };
+  let shopTab = "caja";
+  function setShop(t) {
+    shopTab = t;
+    for (const b of $("shopTabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.shop === t);
+    for (const id of ["boxStrip", "boxMsg", "boxOpen", "boxOdds", "boxSure", "boxTabs", "boxItems"]) $(id).classList.toggle("shopHide", t !== "caja");
+    $("shopBody").classList.toggle("hidden", t !== "mejoras");
+    if (t === "mejoras") renderShop(); else refreshBox();
+  }
+  function renderShop() {
+    $("boxCount").textContent = EP.hucha();
+    const up = EP.upgrades(), C = EP.UPGRADE_COSTS, P = EP.POWERS, pick = EP.startPower();
+    const rows = EP.UPGRADABLE.map((k) => {
+      const lv = up[k] || 0, max = lv >= C.length, cost = C[lv];
+      const dots = C.map((_, i) => `<i class="${i < lv ? "on" : ""}"></i>`).join("");
+      return `<div class="upRow"><canvas width="80" height="80" data-pw="${k}"></canvas><div class="upTxt"><b>${POWER_NAMES[k]}</b>
+        <small>Dura ${P[k].time + lv} s${max ? "" : " → " + (P[k].time + lv + 1) + " s"}</small><div class="upDots">${dots}</div></div>
+        ${max ? '<span class="upMax">Al máximo</span>' : `<button type="button" class="upBuy" data-up="${k}" ${EP.hucha() < cost ? "disabled" : ""}>Mejorar · ${cost}</button>`}</div>`;
+    }).join("");
+    const starts = Object.keys(EP.START_COSTS).map((k) => {
+      const cost = EP.START_COSTS[k], mine = pick === k;
+      return `<button type="button" class="stBuy${mine ? " on" : ""}" data-st="${k}" ${pick || EP.hucha() < cost ? "disabled" : ""}>
+        <canvas width="80" height="80" data-pw="${k}"></canvas><b>${POWER_NAMES[k]}</b><small>${mine ? "Preparado" : START_TXT[k]}</small><span>${mine ? "✓" : cost}</span></button>`;
+    }).join("");
+    $("shopBody").innerHTML = '<div class="mHead">Mejora tus poderes <small>· cada nivel, 1 segundo más</small></div>' + rows +
+      '<div class="mHead">Para tu próxima partida <small>· se gasta al empezar</small></div><div class="stGrid">' + starts + "</div>" +
+      (pick ? '<p class="boxMsg">Ya tienes un poder preparado para la próxima partida.</p>' : "");
+    $("shopBody").querySelectorAll("canvas[data-pw]").forEach((cv) => EP.drawPowerTo(cv, cv.dataset.pw));
+  }
+  $("shopTabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-shop]"); if (b && !spinning) setShop(b.dataset.shop); });
+  $("shopBody").addEventListener("click", (e) => {
+    const u = e.target.closest("button[data-up]");
+    if (u && EP.buyUpgrade(u.dataset.up)) { EP.sfx("power"); renderShop(); return; }
+    const st = e.target.closest("button[data-st]");
+    if (st && EP.buyStartPower(st.dataset.st)) { EP.sfx("power"); renderShop(); }
+  });
+
+  function openBox(which) {
     spinning = false;
     reel.style.transition = "none"; reel.style.transform = "translateX(0)";
     const ids = []; for (let i = 0; i < 8; i++) ids.push(EP.randomPrize().id);
@@ -286,6 +325,7 @@
     boxMsg.textContent = "Cada caja cuesta " + EP.BOX_COST + " panets y nunca trae un premio repetido. Las empanadillas que comes van a la hucha.";
     $("boxPanet").src = EP.foodImg();
     refreshBox();
+    setShop(which === "mejoras" ? "mejoras" : "caja");
     show($("boxOverlay"));
     clearInterval(boxAnim);
   }

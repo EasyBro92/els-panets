@@ -54,6 +54,14 @@
     del(k) { try { localStorage.removeItem(k); } catch (e) {} },
   };
   let sim = false; // medición de la dificultad: sin sonido ni guardado
+  // Avisos de lo que pasa en la partida (17/11/2026): los escucha progreso.js
+  // (misiones, logros, estadísticas y álbum). En la medición no se avisa de nada.
+  const listeners = {};
+  function emit(ev, data) {
+    if (sim) return;
+    const l = listeners[ev];
+    if (l) for (const f of l) { try { f(data); } catch (e) {} }
+  }
   // 16/11/2026: las claves antiguas (tacoSuitFlap…, compartidas con MR Taco President)
   // se copian una vez a las propias (elsPanets…). Las antiguas se dejan como estaban.
   if (store.get("elsPanetsMigrado", null) === null) {
@@ -569,6 +577,7 @@
     owned[p.id] = 1; saveOwned(); setWear(p.kind, p.id);
     pity = rar >= 1 ? 0 : pity + 1;
     store.set(PITY_KEY, pity);
+    emit("caja", { id: p.id, rar });
     return { id: p.id };
   }
   const dayStr = (d) => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -585,6 +594,7 @@
     if (st.idx === 6) { if (!owned.g_corona) { owned.g_corona = 1; saveOwned(); setWear("gorro", "g_corona"); item = "g_corona"; } else n += 30; }
     addHucha(n);
     store.set(DAILY_KEY, JSON.stringify({ last: dayStr(new Date()), streak: st.streak }));
+    emit("diario", st.streak);
     return { n, item, streak: st.streak, idx: st.idx };
   }
   // el personaje con su ropa y, encima, el gorro de la caja si lleva uno
@@ -763,7 +773,43 @@
     escudo: { label: "¡ESCUDO!", time: 0, colors: ["#7fd3f0", "#ffffff", "#2a8bb5"], halo: "120,210,255" },
     doble: { label: "¡PUNTOS x2!", time: 8, colors: ["#ffd23f", "#f59e0b", "#ffffff"], halo: "255,220,110" },
     mini: { label: "¡MINI!", time: 6, colors: ["#7ee08a", "#2fa64a", "#ffffff"], halo: "130,230,140" },
+    // 17/11/2026: cuatro nuevos
+    paraguas: { label: "¡PARAGUAS!", time: 6, colors: ["#b07cff", "#ffffff", "#ffd23f"], halo: "190,150,255" },
+    lenta: { label: "¡CÁMARA LENTA!", time: 5, colors: ["#6ab7ff", "#ffffff", "#2a6fb5"], halo: "150,200,255" },
+    corazon: { label: "¡VIDA EXTRA!", time: 0, colors: ["#ff4d6d", "#ffffff", "#ffb3c1"], halo: "255,120,150" },
+    lluvia: { label: "¡LLUVIA DE PANETS!", time: 6, colors: ["#f2a93b", "#ffe2a0", "#c96d16"], halo: "255,200,120" },
   };
+  // Mejoras de la tienda: cada nivel suma 1 segundo al poder (hasta 5 niveles)
+  const UPG_KEY = "elsPanetsMejoras", UPGRADABLE = ["iman", "doble", "mini", "paraguas", "lenta", "lluvia"];
+  const UPGRADE_COSTS = [40, 80, 150, 250, 400];
+  let upgrades = readJSON(UPG_KEY);
+  const powerTime = (k) => POWERS[k].time + (upgrades[k] || 0);
+  function buyUpgrade(k) {
+    const lv = upgrades[k] || 0;
+    if (!UPGRADABLE.includes(k) || lv >= UPGRADE_COSTS.length || hucha < UPGRADE_COSTS[lv]) return false;
+    addHucha(-UPGRADE_COSTS[lv]);
+    upgrades[k] = lv + 1;
+    store.set(UPG_KEY, JSON.stringify(upgrades));
+    emit("mejora", k);
+    return true;
+  }
+  // Poder de salida: se compra para la próxima partida y se gasta al empezarla
+  const START_KEY = "elsPanetsSalida", START_COSTS = { escudo: 20, iman: 20, doble: 30, corazon: 40 };
+  function buyStartPower(k) {
+    if (!START_COSTS[k] || store.get(START_KEY, "") || hucha < START_COSTS[k]) return false;
+    addHucha(-START_COSTS[k]);
+    store.set(START_KEY, k);
+    return true;
+  }
+  let lives = 0; // vidas extra (corazones), como mucho 2
+  // racha: comer seguidas sin dejarse ninguna; desde 5, cada empanadilla da 1 punto más
+  let combo = 0, runMaxCombo = 0, runPowers = 0, runPlaces = 0;
+  function gainCombo() {
+    combo++;
+    if (combo > runMaxCombo) runMaxCombo = combo;
+    if (combo >= 5 && combo % 5 === 0) floaters.push({ x: Math.max(player.x + 30, 90), y: player.y - 62, txt: "¡RACHA x" + combo + "!", t: 0, size: 20, color: "#ffe066" });
+    return combo >= 5 ? 1 : 0;
+  }
   const POWER_MIN_SCORE = 5, POWER_GAP_COLS = 6, POWER_CHANCE = 0.22;
   let powerT = {}, shield = false, shieldSafe = 0, sinceLastPower = 0, miniK = 1;
   const powerOn = (k) => (powerT[k] || 0) > 0;
@@ -822,6 +868,7 @@
     score = START_SCORE; eaten = START_EATEN; speed = speedAt(score); gap = gapAt(score);
     pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0; girlfriend = null;
     powerT = {}; shield = false; shieldSafe = 0; sinceLastPower = 0; miniK = 1;
+    lives = 0; combo = 0; runMaxCombo = 0; runPowers = 0; runPlaces = 0;
     placeFrom = placeTo = Math.floor(START_SCORE / PLACE_EVERY) % PLACES.length; placeT = 1; placeBanner = 0;
     distToSpawn = 0; lastGapY = groundTop() / 2 - gap / 2;
     newBest = false; medalPlayed = false;
@@ -858,6 +905,10 @@
     setState(STATE.PLAY);
     spawnColumn(LW + 60);
     flap();
+    // poder de salida comprado en la tienda
+    const sp = store.get(START_KEY, "");
+    if (sp && POWERS[sp]) { store.del(START_KEY); collectPower(sp, player.x + 30, player.y); }
+    emit("partida", { char: selectedChar().id });
   }
 
   function flap() {
@@ -891,11 +942,17 @@
     else if (ch.kind === "dog") kind = DOG_FOODS[Math.floor(Math.random() * DOG_FOODS.length)];
     sinceLastPower++;
     if (!SPECIALS[kind] && score >= POWER_MIN_SCORE && sinceLastPower >= POWER_GAP_COLS && Math.random() < POWER_CHANCE) {
-      const pick = Object.keys(POWERS).filter((k) => !(k === "escudo" && shield) && !powerOn(k));
+      let pick = Object.keys(POWERS).filter((k) => !(k === "escudo" && shield) && !(k === "corazon" && lives >= 2) && !powerOn(k));
+      // la vida extra sale menos que los demás
+      if (pick.length > 1 && Math.random() < 0.6) pick = pick.filter((k) => k !== "corazon");
       if (pick.length) { kind = "p_" + pick[Math.floor(Math.random() * pick.length)]; food = true; sinceLastPower = 0; }
     }
     // 16/11/2026: la comida normal a veces va arriba o abajo del hueco (cuesta más cogerla,
     // pero siempre se llega: queda a 34 del borde y se coge desde 29)
+    // lluvia de panets: todas las columnas llevan comida
+    if (powerOn("lluvia") && !SPECIALS[kind] && !isPower(kind)) food = true;
+    // empanadilla dorada: de vez en cuando, vale 10
+    if (!oldRules && kind === "empanada" && food && score >= 15 && Math.random() < 0.05) kind = "dorada";
     let fdy = 0;
     const normal = !SPECIALS[kind] && !isPower(kind);
     if (!oldRules && normal && food && score >= 10 && Math.random() < 0.35) fdy = (Math.random() < 0.5 ? -1 : 1) * (gap / 2 - 34);
@@ -905,7 +962,8 @@
     // parecida, para que dé tiempo a ir y volver.
     sinceLastRow++;
     const cyA = y + gap / 2, cyB = nextGapY + gap / 2;
-    if (!oldRules && score >= 20 && sinceLastRow >= 3 && Math.abs(cyB - cyA) <= 80 && Math.random() < 0.45) {
+    const rain = powerOn("lluvia");
+    if (!oldRules && (rain || (score >= 20 && sinceLastRow >= 3 && Math.abs(cyB - cyA) <= 80 && Math.random() < 0.45))) {
       sinceLastRow = 0;
       const mx = x + COL_W + (SPACING - COL_W) / 2, mid = (cyA + cyB) / 2;
       let side = Math.random() < 0.5 ? -1 : 1;
@@ -939,6 +997,7 @@
     b.eaten = true;
     player.eatT = 0.3;
     eaten++;
+    emit("come", 1);
     addScore(1);
     snd.eat();
     vibrate(8);
@@ -946,6 +1005,7 @@
     if (++b.row.n === 3) {
       addScore(2, x, y - 18);
       floaters.push({ x: Math.max(x, 90), y: y - 46, txt: "¡FILA ENTERA!", t: 0, size: 20, color: "#fff" });
+      emit("fila");
     }
     if (selectedChar().special && eaten % specialEvery(selectedChar()) === 0) pendingSpecial = true;
   }
@@ -953,7 +1013,11 @@
 
   function collectPower(k, x, y) {
     const p = POWERS[k];
-    if (k === "escudo") shield = true; else powerT[k] = p.time;
+    if (k === "escudo") shield = true;
+    else if (k === "corazon") lives = Math.min(2, lives + 1);
+    else powerT[k] = powerTime(k);
+    runPowers++;
+    emit("poder", k);
     floaters.push({ x: Math.max(x, 90), y: y - 44, txt: p.label, t: 0, size: 22, color: "#fff" });
     burst(x, y, p.colors, 18, 150);
     vibrate(15);
@@ -972,6 +1036,7 @@
 
   function collectSpecial(kind, x, y) {
     const sp = SPECIALS[kind];
+    emit("especial", kind);
     addScore(5, x, y - 20);
     floaters.push({ x, y: y - 52, txt: sp.label, t: 0, size: 22, color: "#fff" });
     burst(x, y, sp.colors, 22, 170);
@@ -993,6 +1058,8 @@
       placeFrom = placeT < 1 ? placeFrom : placeTo;
       placeTo = pi; placeT = 0; placeBanner = 2.6;
       snd.place();
+      runPlaces++;
+      emit("lugar", { i: pi, score });
     }
     // la velocidad y el hueco los marca la curva de dificultad (speedAt y gapAt)
   }
@@ -1002,6 +1069,8 @@
     prevBest = best;
     runEarned = Math.max(0, eaten - START_EATEN);
     if (runEarned) addHucha(runEarned);
+    emit("fin", { score, comidas: runEarned, poderes: runPowers, lugares: runPlaces, racha: runMaxCombo,
+      segundos: Math.round(runT), char: selectedChar().id, record: score > best, prev: best });
     if (score > best) {
       best = score;
       newBest = true;
@@ -1017,6 +1086,16 @@
     if (state !== STATE.PLAY) return;
     if (sim) { simDead = true; return; }
     if (LOCAL && window.elsPanetsPrueba && window.elsPanetsPrueba.inmortal) return;
+    // vida extra: se salva, sube un poco y atraviesa las columnas un momento
+    if (lives > 0) {
+      lives--;
+      shieldSafe = 1.6;
+      player.y = Math.min(player.y, groundTop() - 70); player.vy = FLAP_V;
+      burst(player.x, player.y - 5, POWERS.corazon.colors, 20, 170);
+      floaters.push({ x: Math.max(player.x + 20, 90), y: player.y - 50, txt: "¡TE SALVA EL CORAZÓN!", t: 0, size: 20, color: "#fff" });
+      vibrate(30); snd.shieldPop();
+      return;
+    }
     snd.hit();
     snd.fall();
     vibrate([40, 30, 60]);
@@ -1352,6 +1431,7 @@
       resume: { x: cx - 110, y: LH * 0.4 + 44, w: 220, h: 60 },
       pauseHome: { x: cx - 80, y: LH * 0.4 + 126, w: 160, h: 48 },
       rank: { x: LW - 36, y: 40, r: 22 },
+      misiones: { x: LW - 92, y: 40, r: 22 },
       charY: LH * 0.31,
       prev: { x: cx - 118, y: LH * 0.31, r: 22 },
       next: { x: cx + 118, y: LH * 0.31, r: 22 },
@@ -1386,6 +1466,7 @@
     // la rueda de ajustes: en el inicio y en la pausa
     if (p && (state === STATE.START || state === STATE.PAUSE) && inCircle(p, u.gear)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openSettings(); return; }
     if (p && (state === STATE.START || state === STATE.OVER) && inCircle(p, u.rank)) { snd.click(); showLeaderboard(); return; }
+    if (p && (state === STATE.START || state === STATE.OVER) && inCircle(p, u.misiones) && window.ElsPanetsProgreso) { snd.click(); window.ElsPanetsProgreso.open(); return; }
 
     switch (state) {
       case STATE.START:
@@ -1533,7 +1614,7 @@
     for (const c of clouds) { c.x -= c.v * dt; if (c.x < -90) c.x += LW + 180; }
 
     const moving = state === STATE.START || state === STATE.READY || state === STATE.PLAY || state === STATE.OVER;
-    if (moving) scroll += (state === STATE.PLAY ? speed : 110) * dt;
+    if (moving) scroll += (state === STATE.PLAY ? worldSpeed() : 110) * dt;
 
     switch (state) {
       case STATE.START:
@@ -1574,7 +1655,7 @@
     particles.length = k;
     // estela: un punto cada poco, que se va con el escenario
     if (state === STATE.PLAY) {
-      for (let i = 0; i < trail.length; i++) trail[i].x -= speed * dt;
+      for (let i = 0; i < trail.length; i++) trail[i].x -= worldSpeed() * dt;
       trailAcc += dt;
       if (trailAcc >= 0.055) { trailAcc = 0; trail.push({ x: player.x - 12, y: player.y - 2, t: worldT }); }
       while (trail.length && worldT - trail[0].t > TRAIL_LIFE) trail.shift();
@@ -1585,7 +1666,9 @@
   }
 
   function stepPlay(dt) {
-    player.vy = Math.min(player.vy + GRAVITY * dt, 720);
+    // paraguas: cae despacio
+    const umb = powerOn("paraguas");
+    player.vy = Math.min(player.vy + GRAVITY * (umb ? 0.5 : 1) * dt, umb ? 260 : 720);
     player.y += player.vy * dt;
     // la sombra: se apunta la altura 30 veces por segundo
     runT += dt;
@@ -1611,14 +1694,16 @@
 
     // la velocidad va hacia la que toca por puntos, sin saltos
     speed += (speedAt(score) - speed) * Math.min(1, dt * 1.5);
-    distToSpawn += speed * dt;
+    // cámara lenta: el mundo va más despacio (el personaje no)
+    const wsp = worldSpeed();
+    distToSpawn += wsp * dt;
     if (distToSpawn >= SPACING) { distToSpawn -= SPACING; spawnColumn(LW + 20); }
 
     // filas de tres: se cogen de cerca (o vienen solas con el imán)
     let nb = 0;
     for (let i = 0; i < bites.length; i++) {
       const b = bites[i];
-      b.x -= speed * dt;
+      b.x -= wsp * dt;
       if (powerOn("iman") && (b.pull > 0 || (b.x > hx - 20 && Math.hypot(b.x - hx, b.y - hy) < 200))) b.pull = Math.min(1, b.pull + dt * 2.4);
       const bp = bitePos(b), bx = bp.x, by = bp.y;
       if ((hx - bx) ** 2 + (hy - by) ** 2 < (hr + 12) ** 2) eatBite(b, bx, by);
@@ -1628,7 +1713,7 @@
 
     for (let ci = 0; ci < cols.length; ci++) {
       const c = cols[ci];
-      c.x -= speed * dt;
+      c.x -= wsp * dt;
       c.bob += dt * 3;
       const top = c.gapY, bot = c.gapY + c.gap;
       if (shieldSafe <= 0 && (hitRect(hx, hy, hr, c.x, -50, COL_W, top + 50 - CAP_H) || hitRect(hx, hy, hr, c.x - CAP_OUT, top - CAP_H, COL_W + CAP_OUT * 2, CAP_H) ||
@@ -1636,7 +1721,11 @@
         if (shield) breakShield();
         else { crash(); return; }
       }
-      if (!c.passed && c.x + COL_W < hx - hr) { c.passed = true; addScore(1); snd.point(); }
+      if (!c.passed && c.x + COL_W < hx - hr) {
+        c.passed = true; addScore(1); snd.point();
+        // se ha dejado la empanadilla: la racha vuelve a empezar
+        if (c.food && !c.eaten && !isPower(c.kind) && !SPECIALS[c.kind]) combo = 0;
+      }
       if (c.food && !c.eaten) {
         // imán: la comida cercana (no los poderes) viene sola
         if (powerOn("iman") && !isPower(c.kind)) {
@@ -1651,8 +1740,11 @@
           if (c.kind === "novia") girlfriend = c.girl;
           if (SPECIALS[c.kind]) { collectSpecial(c.kind, fx, fy); continue; }
           eaten++;
-          addScore(3, fx, fy - 20);
-          snd.eat();
+          const gold = c.kind === "dorada", extra = gainCombo();
+          addScore((gold ? 10 : 3) + extra, fx, fy - 20);
+          if (gold) { floaters.push({ x: Math.max(fx, 90), y: fy - 52, txt: "¡DORADA!", t: 0, size: 22, color: "#ffe066" }); snd.power(); emit("dorada"); }
+          else snd.eat();
+          emit("come", 1);
           vibrate(12);
           burst(fx, fy, BITE_COLORS, 14, 130);
           if (selectedChar().special && eaten % specialEvery(selectedChar()) === 0) pendingSpecial = true;
@@ -1663,6 +1755,8 @@
     for (let i = 0; i < cols.length; i++) if (cols[i].x > -COL_W - 20) cols[nc++] = cols[i];
     cols.length = nc;
   }
+
+  function worldSpeed() { return speed * (powerOn("lenta") ? 0.62 : 1); }
 
   function hitRect(cx, cy, r, x, y, w, h) {
     const nx = clamp(cx, x, x + w), ny = clamp(cy, y, y + h);
@@ -2456,6 +2550,7 @@
   // ---------- Objetos especiales y comidas de Rim ----------
   function drawFood(kind, x, y, rot, size, glow, girl) {
     if (kind === "empanada" || !kind) { drawEmpanada(x, y, rot, size, glow); return; }
+    if (kind === "dorada") { drawGolden(x, y, rot, size || 1); return; }
     if (kind === "novia") { drawGirlPickup(girl || previewGirl, x, y, size, glow); return; }
     const special = !!SPECIALS[kind];
     ctx.save();
@@ -4724,6 +4819,8 @@
     text("x " + eaten, LW / 2 - 18, 128, 19, "#fff");
     ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(LW / 2 + 9, 118, 1.5, 18);
     text(clockText(hourFor(eaten)), LW / 2 + 42, 128, 19, "#ffe7a3");
+    // racha de empanadillas seguidas, a la derecha del cartel
+    if (combo >= 5) text("RACHA " + combo, LW / 2 + 116, 128, 16, "#ffe066", "#3b2414", 4);
   }
 
   const MEDALS = [
@@ -4918,10 +5015,56 @@
     const u = ui();
     if (state === STATE.PLAY) drawPauseButton(u.pause);
     if (state === STATE.START && fontReady) roundIcon(u.gear, iconGear);
-    if ((state === STATE.START && fontReady) || state === STATE.OVER) roundIcon(u.rank, iconTrophy);
+    if ((state === STATE.START && fontReady) || state === STATE.OVER) {
+      roundIcon(u.rank, iconTrophy);
+      // misiones y logros, con un aviso rojo si hay algo que cobrar
+      roundIcon(u.misiones, iconMissions);
+      const pend = window.ElsPanetsProgreso ? window.ElsPanetsProgreso.pending() : 0;
+      if (pend) {
+        ctx.fillStyle = "#d63a32"; ctx.beginPath(); ctx.arc(u.misiones.x + 16, u.misiones.y - 15, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+        text(String(pend), u.misiones.x + 16, u.misiones.y - 14, 13, "#fff");
+      }
+    }
+  }
+  // icono de misiones: hoja con dos casillas marcadas
+  function iconMissions() {
+    ctx.fillStyle = "#fffaf0"; ctx.strokeStyle = OL; ctx.lineWidth = 2;
+    roundRect(-9, -11, 18, 22, 3); ctx.fill(); ctx.stroke();
+    ctx.lineWidth = 2; ctx.lineCap = "round";
+    for (const y of [-5, 1, 7]) {
+      ctx.strokeStyle = "#cdbb9c"; ctx.beginPath(); ctx.moveTo(-1, y); ctx.lineTo(6, y); ctx.stroke();
+    }
+    ctx.strokeStyle = "#2fa64a"; ctx.lineWidth = 2.2;
+    for (const y of [-5, 1]) { ctx.beginPath(); ctx.moveTo(-7, y); ctx.lineTo(-5.2, y + 1.8); ctx.lineTo(-2.6, y - 2); ctx.stroke(); }
+    ctx.strokeStyle = "#cdbb9c"; ctx.lineWidth = 1.5; ctx.strokeRect(-7, 5, 4, 4);
   }
 
   // ---------- Dibujo de los poderes ----------
+  // empanadilla dorada: la normal teñida de oro (se pinta una vez y se guarda) y un halo quieto
+  let goldCv = null;
+  function drawGolden(x, y, rot, size) {
+    if (!goldCv) {
+      goldCv = document.createElement("canvas"); goldCv.width = goldCv.height = 96;
+      const keep = ctx; ctx = goldCv.getContext("2d");
+      try {
+        ctx.scale(2, 2); drawEmpanada(24, 24, 0, 1, false);
+        ctx.globalCompositeOperation = "source-atop";
+        const g = ctx.createLinearGradient(0, 4, 0, 44);
+        g.addColorStop(0, "rgba(255,240,150,0.75)"); g.addColorStop(0.5, "rgba(245,196,0,0.6)"); g.addColorStop(1, "rgba(184,120,0,0.65)");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, 48, 48);
+      } finally { ctx = keep; }
+    }
+    ctx.save();
+    ctx.translate(x, y);
+    const h = ctx.createRadialGradient(0, 0, 6, 0, 0, 30 * size);
+    h.addColorStop(0, "rgba(255,225,90,0.55)"); h.addColorStop(1, "rgba(255,225,90,0)");
+    ctx.fillStyle = h; ctx.beginPath(); ctx.arc(0, 0, 30 * size, 0, Math.PI * 2); ctx.fill();
+    ctx.rotate(rot || 0);
+    ctx.drawImage(goldCv, -26 * size, -26 * size, 52 * size, 52 * size);
+    ctx.restore();
+  }
+
   function drawPower(k, x, y, s, glow) {
     const P = POWERS[k];
     ctx.save();
@@ -4933,7 +5076,7 @@
       ctx.fillStyle = h;
       ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
     }
-    const base = { iman: "#fff3e6", escudo: "#e3f6ff", doble: "#ffd23f", mini: "#d6f5da" }[k];
+    const base = { iman: "#fff3e6", escudo: "#e3f6ff", doble: "#ffd23f", mini: "#d6f5da", paraguas: "#efe3ff", lenta: "#e3f0ff", corazon: "#ffe3ea", lluvia: "#fff1d6" }[k];
     const g = ctx.createRadialGradient(-5, -6, 2, 0, 0, 17);
     g.addColorStop(0, "#ffffff"); g.addColorStop(0.5, base); g.addColorStop(1, darken(base, 0.18));
     ctx.fillStyle = g; ctx.strokeStyle = OL; ctx.lineWidth = 2.5;
@@ -4956,6 +5099,22 @@
       ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5.5, -5); ctx.quadraticCurveTo(5.5, 3, 0, 7); ctx.closePath(); ctx.fill();
     } else if (k === "doble") {
       text("x2", 0, 1, 15, "#fff", "#8a5a06", 4);
+    } else if (k === "paraguas") {
+      ctx.fillStyle = "#9b5de5"; ctx.strokeStyle = OL; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-10, 0); ctx.quadraticCurveTo(-10, -11, 0, -11); ctx.quadraticCurveTo(10, -11, 10, 0);
+      ctx.quadraticCurveTo(7, -3, 3.3, 0); ctx.quadraticCurveTo(0, -3, -3.3, 0); ctx.quadraticCurveTo(-7, -3, -10, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.lineCap = "round"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, -1); ctx.lineTo(0, 8); ctx.quadraticCurveTo(0, 11, -3, 10); ctx.stroke();
+    } else if (k === "lenta") {
+      ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#2a6fb5"; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(0, 1, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(0, 1); ctx.lineTo(0, -5); ctx.moveTo(0, 1); ctx.lineTo(4, 3); ctx.stroke();
+      ctx.fillStyle = "#2a6fb5"; ctx.fillRect(-2.5, -11, 5, 3);
+    } else if (k === "corazon") {
+      drawHeart(0, 1, 7.5, "#ff4d6d");
+    } else if (k === "lluvia") {
+      for (const [ex, ey] of [[-6, -4], [6, -4], [0, 5]]) drawEmpanada(ex, ey, 0, 0.3, false);
     } else {
       // mini: cuatro flechas hacia el centro
       ctx.fillStyle = "#2fa64a"; ctx.strokeStyle = OL; ctx.lineWidth = 1.5;
@@ -4985,20 +5144,22 @@
   }
 
   // poderes activos debajo del contador, con un anillo que se vacía
-  const HUD_POWERS = ["escudo", "iman", "doble", "mini"];
+  const HUD_POWERS = ["escudo", "corazon", "iman", "doble", "mini", "paraguas", "lenta", "lluvia"];
+  const hudOn = (k) => (k === "escudo" ? shield : k === "corazon" ? lives > 0 : powerOn(k));
   function drawPowerHud() {
     let n = 0, i = 0;
-    for (const k of HUD_POWERS) if (k === "escudo" ? shield : powerOn(k)) n++;
+    for (const k of HUD_POWERS) if (hudOn(k)) n++;
     if (!n) return;
     for (const k of HUD_POWERS) {
-      if (!(k === "escudo" ? shield : powerOn(k))) continue;
-      const f = k === "escudo" ? 1 : powerT[k] / POWERS[k].time;
+      if (!hudOn(k)) continue;
+      const f = k === "escudo" || k === "corazon" ? 1 : powerT[k] / powerTime(k);
       const x = LW / 2 + (i++ - (n - 1) / 2) * 40, y = 164;
       ctx.fillStyle = "rgba(40,24,12,0.45)";
       ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.lineCap = "round";
       ctx.beginPath(); ctx.arc(x, y, 17, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke();
       drawPower(k, x, y, 0.8, false);
+      if (k === "corazon" && lives > 1) text("x" + lives, x + 15, y + 14, 13, "#fff", "#3b2414", 3);
     }
   }
 
@@ -5026,6 +5187,7 @@
     pc.drawImage(canvas, sx * k, sy * k, side * k, side * k, 0, 0, photoCv.width, photoCv.height);
     photoStamp = clockText(skyHour);
     photoT = 0;
+    try { emit("foto", { img: photoCv.toDataURL("image/jpeg", 0.78), hora: photoStamp, lugar: PLACES[placeTo].name }); } catch (e) {}
     camFlash = 1.15; // un poco más de 1: el blanco total dura un instante
   }
 
@@ -5195,6 +5357,15 @@
   if (LOCAL && QS.has("prueba")) {
     window.elsPanetsPrueba = {
       simular: simulate,
+      // la próxima empanadilla que venga, dorada
+      dorada: () => { const c = cols.find((c) => c.food && !c.eaten && !isPower(c.kind) && c.x > player.x); if (c) c.kind = "dorada"; return !!c; },
+      // dibuja una comida o un poder aparte y devuelve la imagen (para mirarla)
+      pintar: (kind, power) => {
+        const cv = document.createElement("canvas"); cv.width = cv.height = 160;
+        const keep = ctx; ctx = cv.getContext("2d");
+        try { ctx.scale(2, 2); if (power) drawPower(kind, 40, 40, 1.6, true); else drawFood(kind, 40, 40, 0, 1.6, true); } finally { ctx = keep; }
+        return cv.toDataURL();
+      },
       curva: (s) => ({ velocidad: Math.round(speedAt(s)), hueco: Math.round(gapAt(s)), respiro: restAt(s) }),
       cuadro: (ms) => frame(ms / 1000),            // un cuadro entero, para medir tiempos
       interno: (code) => eval(code),               // acceso a lo de dentro, para las mediciones
@@ -5327,9 +5498,24 @@
     hucha: () => hucha, owned: () => owned, wear: () => wear, setWear, rollBox, randomPrize,
     boxOdds, boxComplete, boxSureIn,
     dailyState, claimDaily, drawPrizeTo, foodImg,
+    // misiones, logros, tienda de mejoras (17/11/2026)
+    on: (ev, f) => (listeners[ev] = listeners[ev] || []).push(f),
+    addHucha: (n) => { if (n > 0) addHucha(n); },
+    best: () => best,
+    POWERS, UPGRADABLE, UPGRADE_COSTS, START_COSTS,
+    upgrades: () => upgrades, buyUpgrade, buyStartPower, startPower: () => store.get(START_KEY, ""),
+    drawPowerTo: (cv, k) => {
+      const keep = ctx; ctx = cv.getContext("2d");
+      try { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); const z = cv.width / 40; ctx.scale(z, z); drawPower(k, 20, 20, 1, false); }
+      finally { ctx = keep; }
+    },
+    unlockedChars: () => CHARACTERS.filter((c, i) => !c.custom && charUnlocked(i)).length,
+    totalChars: () => CHARACTERS.filter((c) => !c.custom).length,
+    hasCustom: () => customState() === "aprobado",
+    charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 29,
+    VERSION: 30,
     settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,
