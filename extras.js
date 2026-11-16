@@ -405,6 +405,8 @@
       <p>Tu récord, tu hucha, tus premios, tu personaje y tus ajustes.</p>
       <h4>Lo que se guarda en internet</h4>
       <p><b>Para el ranking:</b> el nombre que escribes, tu récord, las empanadillas de esa partida y la bandera de tu personaje. Lo puede ver todo el mundo.</p>
+      <p><b>Para el reto del día:</b> ese nombre, tu mejor marca del día, su bandera y el recorrido que hiciste (para que otros vuelen junto a tu fantasma).</p>
+      <p><b>Si retas a un amigo:</b> tu nombre, tu puntuación y el recorrido de esa partida, para quien tenga el código.</p>
       <p><b>Para saber cuánto se juega:</b> ese nombre, tu personaje, su bandera y los minutos que el juego está abierto (el total y los de cada día de los últimos 30 días). Solo lo ve el administrador del juego.</p>
       <p><b>Una llave secreta al azar,</b> para que nadie pueda cambiar tu récord ni tu nombre. No dice quién eres.</p>
       <p>Se guarda en Firebase, un servicio de Google.</p>

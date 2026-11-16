@@ -236,6 +236,9 @@ async function deleteMyData() {
     if (id) {
       b.set(doc(db, LLAVES, id), { clave: secretKey(), ts: serverTimestamp(), borrar: true });
       b.delete(doc(db, RANKING, id));
+      // y la marca y el fantasma del reto del día, si se jugó
+      const mineDay = (JSON.parse(ls.get("elsPanetsRetoMio") || "{}") || {}).day;
+      if (mineDay) { b.delete(doc(db, "elsPanetsReto", mineDay, "fichas", id)); b.delete(doc(db, "elsPanetsReto", mineDay, "fantasmas", id)); }
     }
     if (priv) {
       b.delete(doc(db, "elsPanetsJugadores", priv));
