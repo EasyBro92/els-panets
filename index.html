@@ -148,6 +148,47 @@
       <button id="charsClose" class="bigBtn" type="button">¡A jugar!</button>
     </div>
   </div>
+  <!-- 17/11/2026: historia (historia.js) -->
+  <div id="storyOverlay" class="overlay hidden">
+    <div class="nameCard wideCard storyCard">
+      <div class="nameTitle">El viaje de los Panets</div>
+      <div id="stTotal" class="stTotal"></div>
+      <div id="storyTabs" class="tabs stTabs"></div>
+      <div id="storyBody" class="storyBody"></div>
+      <button id="storyClose" class="ghostBtn" type="button">Volver</button>
+    </div>
+  </div>
+  <div id="taleBox" class="overlay taleBox hidden">
+    <div class="nameCard taleCard">
+      <canvas id="taleFriend" width="200" height="208"></canvas>
+      <div id="taleTitle" class="nameTitle"></div>
+      <p id="taleText"></p>
+      <button id="taleOk" class="bigBtn" type="button">¡Vamos!</button>
+    </div>
+  </div>
+  <!-- 17/11/2026: retos (retos.js) -->
+  <div id="retosOverlay" class="overlay hidden">
+    <div class="nameCard wideCard retosCard">
+      <div class="nameTitle">Retos</div>
+      <div id="retosTabs" class="tabs"><button type="button" data-tab="diario" class="on">Del día</button><button type="button" data-tab="amigo">Un amigo</button><button type="button" data-tab="turnos">Por turnos</button></div>
+      <div id="retosBody" class="retosBody"></div>
+      <button id="retosClose" class="ghostBtn" type="button">Volver</button>
+    </div>
+  </div>
+  <div id="rtAccept" class="overlay hidden">
+    <div class="nameCard"><div class="nameTitle">¡Te retan!</div><p id="rtAcceptTxt" class="rtInfo"></p>
+      <button id="rtAcceptGo" class="bigBtn" type="button">¡Acepto!</button><button id="rtAcceptNo" class="ghostBtn" type="button">Ahora no</button></div>
+  </div>
+  <div id="rtShare" class="overlay hidden">
+    <div class="nameCard"><div class="nameTitle">Reta a un amigo</div><div id="rtShareCode" class="rtShareCode"></div><p id="rtShareTxt" class="rtInfo"></p>
+      <a id="rtShareWa" class="bigBtn rtWa hidden" target="_blank" rel="noopener">Mandar por WhatsApp</a>
+      <button id="rtShareNative" class="ghostBtn hidden" type="button">Compartir de otra forma</button>
+      <button id="rtShareClose" class="ghostBtn" type="button">Cerrar</button></div>
+  </div>
+  <div id="rtTurn" class="overlay hidden">
+    <div class="nameCard"><div id="rtTurnTitle" class="nameTitle"></div><p id="rtTurnTxt" class="rtInfo"></p><ol id="rtTurnList" class="rtTurnList"></ol>
+      <button id="rtTurnGo" class="bigBtn" type="button"></button><button id="rtTurnEnd" class="ghostBtn hidden" type="button">Terminar</button></div>
+  </div>
   <button id="adminBtn" class="hidden" type="button">ADMIN</button>
   <button id="installBtn" class="hidden" type="button"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> Instalar el juego</button>
   <div id="installOverlay" class="hidden">
@@ -203,5 +244,7 @@
 <script src="extras.js"></script>
 <script src="progreso.js"></script>
 <script src="personajes.js"></script>
+<script src="historia.js"></script>
+<script src="retos.js"></script>
 </body>
 </html>

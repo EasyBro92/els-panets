@@ -653,7 +653,7 @@
   const CHAR_KEY = "elsPanetsCharacter";
   let charIndex = Math.max(0, CHARACTERS.findIndex((c) => c.id === store.get(CHAR_KEY, "gris")));
   let viewIndex = charIndex; // el que se está mirando en el inicio
-  const charUnlocked = (i) => (CHARACTERS[i].custom ? customState() === "aprobado" : best >= CHARACTERS[i].unlock);
+  const charUnlocked = (i) => (CHARACTERS[i].custom ? customState() === "aprobado" : best >= CHARACTERS[i].unlock || friendFree(CHARACTERS[i].id));
   const selectedChar = () => (charUnlocked(charIndex) ? CHARACTERS[charIndex] : CHARACTERS[0]);
   // tu personaje solo sale en la fila cuando ya lo has creado; para crearlo está el botón del gris
   const customShown = () => customState() === "aprobado";
@@ -826,7 +826,23 @@
   const UPG_KEY = "elsPanetsMejoras", UPGRADABLE = ["iman", "doble", "mini", "paraguas", "lenta", "lluvia"];
   const UPGRADE_COSTS = [40, 80, 150, 250, 400];
   let upgrades = readJSON(UPG_KEY);
-  const powerTime = (k) => POWERS[k].time + (upgrades[k] || 0);
+  // Habilidad suave de cada personaje (17/11/2026)
+  const ABILITIES = {
+    gris: "Suerte de principiante: empieza cada partida con una vida extra",
+    blanco: "Sus fotos valen 2 puntos más",
+    deportista: "Deportista: aletea un poco más fuerte",
+    nuria: "El imán le dura 1 segundo más",
+    maria: "Encuentra más empanadillas doradas",
+    polo: "Los puntos x2 le duran 2 segundos más",
+    chaqueta: "Su racha da puntos desde la 4.ª empanadilla",
+    perro: "Olfato: la comida cercana va hacia él",
+    maykel: "El mini le dura 2 segundos más",
+    pamela: "El paraguas le dura 2 segundos más",
+    propio: "Ahorrador: 10 % más de panets en la hucha",
+  };
+  const abil = () => selectedChar().id;
+  const ABIL_TIME = { nuria: ["iman", 1], polo: ["doble", 2], maykel: ["mini", 2], pamela: ["paraguas", 2] };
+  const powerTime = (k) => { const a = ABIL_TIME[abil()]; return POWERS[k].time + (upgrades[k] || 0) + (a && a[0] === k ? a[1] : 0); };
   function buyUpgrade(k) {
     const lv = upgrades[k] || 0;
     if (!UPGRADABLE.includes(k) || lv >= UPGRADE_COSTS.length || hucha < UPGRADE_COSTS[lv]) return false;
@@ -851,7 +867,7 @@
     combo++;
     if (combo > runMaxCombo) runMaxCombo = combo;
     if (combo >= 5 && combo % 5 === 0) floaters.push({ x: Math.max(player.x + 30, 90), y: player.y - 62, txt: "¡RACHA x" + combo + "!", t: 0, size: 20, color: "#ffe066" });
-    return combo >= 5 ? 1 : 0;
+    return combo >= (abil() === "chaqueta" ? 4 : 5) ? 1 : 0;
   }
   const POWER_MIN_SCORE = 5, POWER_GAP_COLS = 6, POWER_CHANCE = 0.22;
   let powerT = {}, shield = false, shieldSafe = 0, sinceLastPower = 0, miniK = 1;
@@ -878,7 +894,19 @@
   try { ghost = JSON.parse(store.get(GHOST_KEY, "null")); } catch (e) { ghost = null; }
   const adminConfig = () => (window.TacoLeaderboard && window.TacoLeaderboard.getConfig && window.TacoLeaderboard.getConfig()) || {};
   function drawGhost() {
-    if (!ghost || !ghost.length || !adminConfig().sombra) return;
+    // el fantasma del rival (reto del día o de un amigo), con su nombre encima
+    if (rival && rival.y && rival.y.length && (state === STATE.PLAY || state === STATE.DYING || state === STATE.PAUSE || state === STATE.COUNT)) {
+      const i = Math.floor(runT * 30), fade = i < rival.y.length ? 1 : Math.max(0, 1 - (i - rival.y.length) / 20);
+      if (fade > 0) {
+        const y = rival.y[Math.min(i, rival.y.length - 1)];
+        ctx.save(); ctx.globalAlpha = 0.35 * fade;
+        drawChar(dressed(CHARACTERS[0]), player.x, y, 0, worldT * 8, PLAYER_SCALE, "");
+        ctx.globalAlpha = 0.8 * fade;
+        text(rival.name || "Rival", player.x, y - 48, 14, "#fff", "#3b2414", 4);
+        ctx.restore();
+      }
+    }
+    if (!ghost || !ghost.length || !adminConfig().sombra || rival) return;
     if (state !== STATE.PLAY && state !== STATE.DYING && state !== STATE.PAUSE && state !== STATE.COUNT) return;
     const i = Math.floor(runT * 30);
     const fade = i < ghost.length ? 1 : Math.max(0, 1 - (i - ghost.length) / 20);
@@ -907,14 +935,127 @@
   const gapAt = (s) => oldRules ? Math.max(152, 178 - Math.floor(s / 10) * 3)
     : 178 - 26 * clamp(s / 130, 0, 1) - 8 * clamp((s - 130) / 270, 0, 1) + 14 * restAt(s);
 
+  // ---------- Historia: «El viaje de los Panets» (17/11/2026) ----------
+  // Una gaviota glotona ha robado las bandejas de la gran fiesta. En cada mundo (un lugar)
+  // hay 8 niveles con recorrido fijo, una meta y 3 estrellas; en el último se recupera la
+  // bandeja de un amigo, que queda desbloqueado aunque no se tenga su récord.
+  const STORY_KEY = "elsPanetsHistoria";
+  let story = readJSON(STORY_KEY);
+  const saveStory = () => store.set(STORY_KEY, JSON.stringify(story));
+  const STORY_INTRO = "Se acerca la gran fiesta de los Panets, pero una gaviota glotona ha robado las bandejas de comida. ¡Hay que recuperarlas antes de que empiece!";
+  const WORLDS = [
+    { place: 0, name: "Caracas", friend: "blanco", dish: "las empanadillas",
+      intro: "La gaviota ha pasado por Caracas y se ha llevado las empanadillas de MJ. ¡A por ella por encima de los tejados!",
+      end: "¡Bandeja recuperada! MJ ya tiene sus empanadillas para la fiesta. La gaviota ha volado hacia el mar…" },
+    { place: 1, name: "La playa", friend: "chaqueta", dish: "el mangú",
+      intro: "En la playa, la gaviota le ha quitado a Isidro su mangú. ¡Que no se lo coma antes de llegar al agua!",
+      end: "¡El mangú está a salvo! Isidro se apunta a la fiesta. La gaviota sube hacia la montaña…" },
+    { place: 2, name: "La montaña", friend: "pamela", dish: "el biberón del bebé",
+      intro: "Entre la nieve, la gaviota se ha llevado el biberón del bebé de Pamela. ¡Hay que devolvérselo ya!",
+      end: "¡Biberón recuperado! El bebé ya está contento y Pamela viene a la fiesta. La gaviota baja al pueblo…" },
+    { place: 3, name: "El pueblo", friend: "maria", dish: "la crema catalana",
+      intro: "En el pueblo blanco, la gaviota ha robado la crema catalana de María. ¡Tras ella por los tejados!",
+      end: "¡Crema catalana a salvo! María se suma a la fiesta. La gaviota vuela hacia Barcelona…" },
+    { place: 4, name: "Barcelona", friend: "nuria", dish: "el pa amb tomàquet",
+      intro: "Última parada: Barcelona. La gaviota tiene el pa amb tomàquet de Núria. ¡Es la bandeja que falta!",
+      end: "¡Todas las bandejas de vuelta! Núria trae el pa amb tomàquet y empieza la gran fiesta de los Panets. ¡Enhorabuena!" },
+  ];
+  const LEVELS_PER_WORLD = 8;
+  const SPECIAL_GOALS = ["dorada", "sinPoderes", "racha", "filas"];
+  function makeLevel(w, n) {
+    const boss = n === LEVELS_PER_WORLD - 1;
+    const len = 12 + n * 2 + w * 2 + (boss ? 6 : 0);
+    return { w, n, boss, len, seed: 7000 + w * 100 + n * 7, place: WORLDS[w].place, base: w * 40 + n * 6,
+      foodGoal: Math.max(4, Math.round(len * 0.45)), special: boss ? "sinPoderes" : SPECIAL_GOALS[n % 4], k: 4 + w + Math.floor(n / 2),
+      passed: 0, spawned: 0, rows: 0, gold: false };
+  }
+  function goalTexts(L) {
+    const sp = { dorada: "Cómete la empanadilla dorada", sinPoderes: "No cojas ningún poder", racha: "Haz una racha de " + L.k + " seguidas", filas: "Completa una fila de tres" }[L.special];
+    return [(L.boss ? "Alcanza a la gaviota" : "Llega a la meta") + " (" + L.len + " columnas)", "Come " + L.foodGoal + " empanadillas", sp];
+  }
+  const levelStars = (w, n) => story[w + "-" + n] || 0;
+  const worldDone = (w) => levelStars(w, LEVELS_PER_WORLD - 1) > 0;
+  const levelOpen = (w, n) => (n === 0 ? w === 0 || worldDone(w - 1) : levelStars(w, n - 1) > 0);
+  const friendFree = (id) => WORLDS.some((W, w) => W.friend === id && worldDone(w));
+  const totalStars = () => Object.values(story).reduce((a, b) => a + (Number(b) || 0), 0);
+  let level = null, levelResult = null;
+  // dificultad dentro de un nivel: según el mundo y el nivel, y sube un poco al avanzar
+  const effScore = () => (level ? Math.min(400, level.base + level.passed * 0.8) : score);
+  function startLevel(w, n) {
+    if (!levelOpen(w, n)) return false;
+    level = makeLevel(w, n); levelResult = null; nextSeed = level.seed;
+    goReady();
+    return true;
+  }
+  function specialDone(L) {
+    return L.special === "dorada" ? L.gold : L.special === "sinPoderes" ? runPowers === 0 : L.special === "racha" ? runMaxCombo >= L.k : L.rows >= 1;
+  }
+  // se acaba el nivel (ganado o no): hucha, estrellas, premio y avisos
+  function finishLevel(win) {
+    const L = level;
+    runEarned = Math.max(0, eaten - START_EATEN);
+    if (runEarned) addHucha(abil() === "propio" ? Math.round(runEarned * 1.1) : runEarned);
+    const foodOk = runEarned >= L.foodGoal, specOk = specialDone(L);
+    const stars = win ? 1 + (foodOk ? 1 : 0) + (specOk ? 1 : 0) : 0;
+    const key = L.w + "-" + L.n, prev = story[key] || 0;
+    let reward = 0;
+    if (stars > prev) { reward = (stars - prev) * 10; story[key] = stars; saveStory(); }
+    const newWorld = win && L.boss && !prev;
+    if (newWorld) reward += 50 + (L.w === WORLDS.length - 1 ? 200 : 0);
+    if (reward) addHucha(reward);
+    levelResult = { L, win, stars, prev, reward, foodOk, specOk, newWorld, goals: goalTexts(L) };
+    emit("fin", { score, comidas: runEarned, poderes: runPowers, lugares: 0, racha: runMaxCombo, segundos: Math.round(runT), char: selectedChar().id, record: false, prev: best });
+    emit("nivel", { w: L.w, n: L.n, win, stars, newWorld });
+  }
+  function winLevel() {
+    snd.record(); vibrate([20, 40, 20]);
+    burst(player.x, player.y - 10, ["#ffd23f", "#ffffff", "#f59e0b"], 30, 200);
+    finishLevel(true);
+    setState(STATE.OVER);
+    pressLockUntil = worldT + 0.9;
+  }
+  function nextLevelOf(L) {
+    if (L.n < LEVELS_PER_WORLD - 1) return [L.w, L.n + 1];
+    if (L.w < WORLDS.length - 1) return [L.w + 1, 0];
+    return null;
+  }
+
+  // ---------- Retos (17/11/2026): del día, de un amigo y por turnos ----------
+  // runMode: null (partida normal), "diario" (todos el mismo recorrido hoy), "reto" (el
+  // recorrido de un amigo contra su fantasma) o "turnos" (varios en el mismo móvil).
+  let runMode = null, rival = null; // rival: { name, score, y: [alturas] }
+  const todayKey = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  const dailySeed = () => { let h = 2166136261; for (const ch of "diario" + todayKey()) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+  function startMode(mode, seed, rv) {
+    if (state !== STATE.START && state !== STATE.OVER) return false;
+    level = null; levelResult = null;
+    runMode = mode; rival = rv || null; nextSeed = seed;
+    goReady();
+    return true;
+  }
+
+  // ---------- Recorridos con semilla (17/11/2026) ----------
+  // Cada partida tiene su número (semilla). La altura de los huecos sale de un azar propio,
+  // así que con el mismo número se vuela por los mismos huecos (reto del día, retos entre
+  // amigos, niveles de la historia). La comida y los poderes tienen otro azar aparte.
+  function seededRng(seed) {
+    let a = seed >>> 0;
+    return () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  let runSeed = 0, nextSeed = null, gapRng = Math.random, itemRng = Math.random;
+
   function resetRun() {
+    runSeed = nextSeed != null ? nextSeed >>> 0 : Math.floor(Math.random() * 2147483647); nextSeed = null;
+    gapRng = seededRng(runSeed); itemRng = seededRng(runSeed ^ 0x5bd1e995);
     cols.length = 0; particles.length = 0; floaters.length = 0; bites.length = 0; trail.length = 0; trailAcc = 0; overMsgs = [];
     nextGapY = null; sinceLastRow = 0;
-    score = START_SCORE; eaten = START_EATEN; speed = speedAt(score); gap = gapAt(score);
+    score = START_SCORE; eaten = START_EATEN;
+    if (level) { level.passed = 0; level.spawned = 0; level.rows = 0; level.gold = false; }
+    speed = speedAt(effScore()); gap = gapAt(effScore());
     pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0; girlfriend = null;
     powerT = {}; shield = false; shieldSafe = 0; sinceLastPower = 0; miniK = 1;
     lives = 0; combo = 0; runMaxCombo = 0; runPowers = 0; runPlaces = 0;
-    placeFrom = placeTo = Math.floor(START_SCORE / PLACE_EVERY) % PLACES.length; placeT = 1; placeBanner = 0;
+    placeFrom = placeTo = level ? level.place : Math.floor(START_SCORE / PLACE_EVERY) % PLACES.length; placeT = 1; placeBanner = 0;
     distToSpawn = 0; lastGapY = groundTop() / 2 - gap / 2;
     newBest = false; medalPlayed = false;
     player.y = LH * 0.42; player.vy = 0; player.rot = 0;
@@ -932,12 +1073,14 @@
 
   // vuelve al inicio (botón INICIO y botón «atrás»)
   function goHome() {
+    level = null; levelResult = null; runMode = null; rival = null;
     resetRun();
     viewIndex = charIndex;
     setState(STATE.START);
   }
   // deja la partida a medias: lo comido va a la hucha y, si era récord, se guarda
   function leaveRun() {
+    if (level) { finishLevel(false); level = null; levelResult = null; goHome(); return; }
     settleRun();
     if (newBest) { const name = store.get(NAME_KEY, null); if (name) publishRecord(name); }
     goHome();
@@ -953,11 +1096,13 @@
     // poder de salida comprado en la tienda
     const sp = store.get(START_KEY, "");
     if (sp && POWERS[sp]) { store.del(START_KEY); collectPower(sp, player.x + 30, player.y); }
+    // el gris: suerte de principiante
+    if (abil() === "gris") lives = Math.max(lives, 1);
     emit("partida", { char: selectedChar().id });
   }
 
   function flap() {
-    player.vy = FLAP_V;
+    player.vy = FLAP_V * (abil() === "deportista" ? 1.06 : 1);
     snd.flap();
     // soplo de aire suave debajo (05/11/2026)
     if (!lowQ && !sim) for (let i = 0; i < 4; i++) particles.push({ x: player.x - 6 + Math.random() * 10, y: player.y + 18, vx: -60 - Math.random() * 50, vy: 40 + Math.random() * 50,
@@ -972,51 +1117,54 @@
     // así que el escalón hacia abajo se acorta para que siempre dé tiempo (aunque se aletee al salir)
     const T = (SPACING - COL_W - 2 * CAP_OUT - 28) / speed + 0.12;
     const down = oldRules ? reach : clamp(FLAP_V * T + 0.5 * GRAVITY * T * T + g - 38, 90, reach);
-    const y = clamp(minY + Math.random() * (maxY - minY), prevY - reach, prevY + down);
+    const y = clamp(minY + gapRng() * (maxY - minY), prevY - reach, prevY + down);
     return clamp(y, minY, maxY);
   }
 
   function spawnColumn(x) {
-    gap = gapAt(score);
+    gap = gapAt(effScore());
+    if (level) level.spawned++;
     const y = nextGapY == null ? pickGapY(lastGapY, gap) : clamp(nextGapY, 70, groundTop() - 70 - gap);
     lastGapY = y;
     nextGapY = pickGapY(y, gap);
     const ch = selectedChar();
-    let food = Math.random() < 0.85, kind = "empanada";
+    let food = itemRng() < 0.85, kind = "empanada";
     if (pendingSpecial && ch.special) { kind = ch.special; food = true; pendingSpecial = false; }
-    else if (ch.kind === "dog") kind = DOG_FOODS[Math.floor(Math.random() * DOG_FOODS.length)];
+    else if (ch.kind === "dog") kind = DOG_FOODS[Math.floor(itemRng() * DOG_FOODS.length)];
     sinceLastPower++;
-    if (!SPECIALS[kind] && score >= POWER_MIN_SCORE && sinceLastPower >= POWER_GAP_COLS && Math.random() < POWER_CHANCE) {
+    if (!SPECIALS[kind] && score >= POWER_MIN_SCORE && sinceLastPower >= POWER_GAP_COLS && itemRng() < POWER_CHANCE) {
       let pick = Object.keys(POWERS).filter((k) => !(k === "escudo" && shield) && !(k === "corazon" && lives >= 2) && !powerOn(k));
       // la vida extra sale menos que los demás
-      if (pick.length > 1 && Math.random() < 0.6) pick = pick.filter((k) => k !== "corazon");
-      if (pick.length) { kind = "p_" + pick[Math.floor(Math.random() * pick.length)]; food = true; sinceLastPower = 0; }
+      if (pick.length > 1 && itemRng() < 0.6) pick = pick.filter((k) => k !== "corazon");
+      if (pick.length) { kind = "p_" + pick[Math.floor(itemRng() * pick.length)]; food = true; sinceLastPower = 0; }
     }
     // 16/11/2026: la comida normal a veces va arriba o abajo del hueco (cuesta más cogerla,
     // pero siempre se llega: queda a 34 del borde y se coge desde 29)
     // lluvia de panets: todas las columnas llevan comida
     if (powerOn("lluvia") && !SPECIALS[kind] && !isPower(kind)) food = true;
     // empanadilla dorada: de vez en cuando, vale 10
-    if (!oldRules && kind === "empanada" && food && score >= 15 && Math.random() < 0.05) kind = "dorada";
+    if (!oldRules && kind === "empanada" && food && score >= 15 && itemRng() < (abil() === "maria" ? 0.08 : 0.05)) kind = "dorada";
+    if (level && level.special === "dorada" && level.spawned === Math.floor(level.len / 2) && !SPECIALS[kind] && !isPower(kind)) { kind = "dorada"; food = true; }
     let fdy = 0;
     const normal = !SPECIALS[kind] && !isPower(kind);
-    if (!oldRules && normal && food && score >= 10 && Math.random() < 0.35) fdy = (Math.random() < 0.5 ? -1 : 1) * (gap / 2 - 34);
-    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6, pull: 0, fdy, place: placeTo, girl: kind === "novia" ? randomGirl() : null });
+    if (!oldRules && normal && food && score >= 10 && itemRng() < 0.35) fdy = (itemRng() < 0.5 ? -1 : 1) * (gap / 2 - 34);
+    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: itemRng() * 6, pull: 0, fdy, place: placeTo, girl: kind === "novia" ? randomGirl() : null });
     // fila de tres empanadillas pequeñas entre esta columna y la siguiente, un poco apartada
     // del camino recto: riesgo a cambio de premio. Solo si los dos huecos están a una altura
     // parecida, para que dé tiempo a ir y volver.
     sinceLastRow++;
     const cyA = y + gap / 2, cyB = nextGapY + gap / 2;
     const rain = powerOn("lluvia");
-    if (!oldRules && (rain || (score >= 20 && sinceLastRow >= 3 && Math.abs(cyB - cyA) <= 80 && Math.random() < 0.45))) {
+    const wantRows = level && level.special === "filas" && sinceLastRow >= 2 && Math.abs(cyB - cyA) <= 80;
+    if (!oldRules && (rain || wantRows || (score >= 20 && sinceLastRow >= 3 && Math.abs(cyB - cyA) <= 80 && itemRng() < 0.45))) {
       sinceLastRow = 0;
       const mx = x + COL_W + (SPACING - COL_W) / 2, mid = (cyA + cyB) / 2;
-      let side = Math.random() < 0.5 ? -1 : 1;
+      let side = itemRng() < 0.5 ? -1 : 1;
       if (mid + side * 40 < 70 || mid + side * 40 > groundTop() - 70) side = -side;
       const row = { n: 0 };
       for (let i = -1; i <= 1; i++) {
         bites.push({ x: mx + i * 36, y: mid + side * (i === 0 ? 40 : 28), row, eaten: false, pull: 0, ph: i * 0.9,
-          kind: ch.kind === "dog" ? DOG_FOODS[Math.floor(Math.random() * DOG_FOODS.length)] : "empanada" });
+          kind: ch.kind === "dog" ? DOG_FOODS[Math.floor(itemRng() * DOG_FOODS.length)] : "empanada" });
       }
     }
   }
@@ -1048,6 +1196,7 @@
     vibrate(8);
     burst(x, y, BITE_COLORS, 7, 110);
     if (++b.row.n === 3) {
+      if (level) level.rows++;
       addScore(2, x, y - 18);
       floaters.push({ x: Math.max(x, 90), y: y - 46, txt: "¡FILA ENTERA!", t: 0, size: 20, color: "#fff" });
       emit("fila");
@@ -1082,7 +1231,7 @@
   function collectSpecial(kind, x, y) {
     const sp = SPECIALS[kind];
     emit("especial", kind);
-    addScore(5, x, y - 20);
+    addScore(kind === "camara" && abil() === "blanco" ? 7 : 5, x, y - 20);
     floaters.push({ x, y: y - 52, txt: sp.label, t: 0, size: 22, color: "#fff" });
     burst(x, y, sp.colors, 22, 170);
     vibrate(kind === "camara" ? [10, 40, 10] : 20);
@@ -1099,7 +1248,7 @@
     if (n > 1 && x != null) floaters.push({ x, y, txt: "+" + n, t: 0 });
     // lugar nuevo cada 40 puntos
     const pi = Math.floor(score / PLACE_EVERY) % PLACES.length;
-    if (pi !== placeTo && state === STATE.PLAY) {
+    if (pi !== placeTo && state === STATE.PLAY && !level) {
       placeFrom = placeT < 1 ? placeFrom : placeTo;
       placeTo = pi; placeT = 0; placeBanner = 2.6;
       snd.place();
@@ -1112,8 +1261,14 @@
   // cierra la cuenta de la partida: lo comido va a la hucha y, si es récord, se guarda
   function settleRun() {
     prevBest = best;
+    if (runMode === "turnos") {
+      runEarned = Math.max(0, eaten - START_EATEN);
+      if (runEarned) addHucha(runEarned);
+      emit("fin", { score, comidas: runEarned, poderes: runPowers, lugares: runPlaces, racha: runMaxCombo, segundos: Math.round(runT), char: selectedChar().id, record: false, prev: best });
+      return;
+    }
     runEarned = Math.max(0, eaten - START_EATEN);
-    if (runEarned) addHucha(runEarned);
+    if (runEarned) addHucha(abil() === "propio" ? Math.round(runEarned * 1.1) : runEarned);
     emit("fin", { score, comidas: runEarned, poderes: runPowers, lugares: runPlaces, racha: runMaxCombo,
       segundos: Math.round(runT), char: selectedChar().id, record: score > best, prev: best });
     if (score > best) {
@@ -1147,8 +1302,14 @@
     flashT = 1;
     burst(player.x, player.y, CRASH_COLORS, 16, 160);
     player.vy = Math.min(player.vy, -120);
+    if (level) { finishLevel(false); overMsgs = []; setState(STATE.DYING); return; }
     settleRun();
-    overMsgs = buildOverMessages();
+    overMsgs = runMode === "turnos" ? [] : buildOverMessages();
+    // reto de un amigo: ¿le has ganado?
+    if (runMode === "reto" && rival) overMsgs.unshift(score > rival.score ? { txt: "¡Le has ganado a " + rival.name + "! (" + rival.score + ")", color: "#7dff9a" }
+      : score === rival.score ? { txt: "¡Empate con " + rival.name + "!", color: "#ffd23f" } : { txt: rival.name + " te gana: " + rival.score + " puntos", color: "#fff" });
+    if (runMode === "diario") overMsgs.unshift({ txt: "Reto del día: " + score + " puntos", color: "#ffd23f" });
+    emit("partidaFin", { mode: runMode, score, seed: runSeed, y: ghostRec.slice(0, GHOST_MAX), char: selectedChar().id, flag: flagOf(selectedChar()), name: store.get(NAME_KEY, "") || "" });
     setState(STATE.DYING);
   }
 
@@ -1163,6 +1324,7 @@
 
   function goOver() {
     setState(STATE.OVER);
+    if (runMode === "turnos") setTimeout(() => emit("turnoFin", { score }), 600);
     pressLockUntil = worldT + 0.7;
     if (newBest) setTimeout(() => snd.record(), 350);
   }
@@ -1488,14 +1650,17 @@
       edit: { x: cx - 75, y: LH * 0.45 + 82 + 103, w: 150, h: 33 },
       caja: { x: cx + 6, y: LH * 0.45 + 82 + 172 + 30 - 18, w: 170, h: 36 },
       // 17/11/2026: inicio nuevo
-      mPers: { x: cx - 184, y: LH * 0.45 + 86, w: 116, h: 80 },
-      mShop: { x: cx - 58, y: LH * 0.45 + 86, w: 116, h: 80 },
-      mMis: { x: cx + 68, y: LH * 0.45 + 86, w: 116, h: 80 },
+      hist: { x: cx - 110, y: LH * 0.45 + 74, w: 220, h: 46 },
+      mPers: { x: cx - 184, y: LH * 0.45 + 134, w: 88, h: 76 },
+      mShop: { x: cx - 90, y: LH * 0.45 + 134, w: 88, h: 76 },
+      mMis: { x: cx + 4, y: LH * 0.45 + 134, w: 88, h: 76 },
+      mRetos: { x: cx + 98, y: LH * 0.45 + 134, w: 88, h: 76 },
       charBox: { x: cx - 70, y: LH * 0.31 - 80, w: 140, h: 120 },
       titleBox: { x: cx - 150, y: LH * 0.12 - 40, w: 300, h: 80 },
       overCard: { x: cx - 160, y: overCardY, w: 320, h: 240 },
       again: { x: cx - 150, y: overCardY + 262, w: 160, h: 58 },
       home: { x: cx + 20, y: overCardY + 262, w: 130, h: 58 },
+      share: { x: cx - 120, y: overCardY + 332, w: 240, h: 42 },
     };
   }
   const inRect = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
@@ -1520,11 +1685,13 @@
 
     switch (state) {
       case STATE.START:
-        if (!p) { if (charUnlocked(viewIndex)) { snd.click(); goReady(); } return; }
+        if (!p) { if (charUnlocked(viewIndex)) { snd.click(); level = null; levelResult = null; runMode = null; rival = null; goReady(); } return; }
+        if (inRect(p, u.hist)) { snd.click(); if (window.ElsPanetsUI && window.ElsPanetsUI.openStory) window.ElsPanetsUI.openStory(); return; }
         // los tres botones grandes del inicio y el personaje (abre la pantalla de personajes)
         if (inRect(p, u.mPers) || inRect(p, u.charBox)) { snd.click(); if (window.ElsPanetsUI && window.ElsPanetsUI.openChars) window.ElsPanetsUI.openChars(); return; }
         if (inRect(p, u.mShop)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openBox(); return; }
         if (inRect(p, u.mMis)) { snd.click(); if (window.ElsPanetsProgreso) window.ElsPanetsProgreso.open(); return; }
+        if (inRect(p, u.mRetos)) { snd.click(); if (window.ElsPanetsUI && window.ElsPanetsUI.openRetos) window.ElsPanetsUI.openRetos(); return; }
         // 5 toques seguidos en el título: entrada del admin
         if (inRect(p, u.titleBox)) {
           titleTaps = worldT - titleTapT < 1.2 ? titleTaps + 1 : 1; titleTapT = worldT;
@@ -1536,7 +1703,7 @@
         if (inCircle(p, u.next)) { viewChar(viewIndex + 1); snd.click(); return; }
         {
         }
-        if (inRect(p, u.play) && charUnlocked(viewIndex)) { snd.click(); goReady(); }
+        if (inRect(p, u.play) && charUnlocked(viewIndex)) { snd.click(); level = null; levelResult = null; runMode = null; rival = null; goReady(); }
         return;
       case STATE.READY:
         // tutorial: cada toque pasa al paso siguiente; al acabar ya no vuelve a salir
@@ -1562,7 +1729,23 @@
         return;
       case STATE.OVER:
         if (worldT < pressLockUntil) return;
-        if (!p || inRect(p, u.again)) { snd.click(); goReady(); return; }
+        if (levelResult) {
+          const R = levelResult, nx = R.win ? nextLevelOf(R.L) : null;
+          if (!p || inRect(p, u.again)) { snd.click(); if (nx) startLevel(nx[0], nx[1]); else startLevel(R.L.w, R.L.n); return; }
+          if (inRect(p, u.home)) { snd.click(); goHome(); if (window.ElsPanetsUI && window.ElsPanetsUI.openStory) window.ElsPanetsUI.openStory(R.L.w); }
+          return;
+        }
+        if (p && runMode !== "turnos" && inRect(p, u.share)) {
+          snd.click();
+          if (window.ElsPanetsUI && window.ElsPanetsUI.shareChallenge) window.ElsPanetsUI.shareChallenge({ score, seed: runSeed, y: ghostRec.slice(0, GHOST_MAX), char: selectedChar().id });
+          return;
+        }
+        if (!p || inRect(p, u.again)) {
+          snd.click();
+          if (runMode === "turnos") return; // en turnos manda la ventana de turnos
+          if (runMode === "diario" || runMode === "reto") nextSeed = runSeed; // el mismo recorrido
+          goReady(); return;
+        }
         if (inRect(p, u.home)) { snd.click(); goHome(); }
         return;
     }
@@ -1728,11 +1911,11 @@
     }
 
     // la velocidad va hacia la que toca por puntos, sin saltos
-    speed += (speedAt(score) - speed) * Math.min(1, dt * 1.5);
+    speed += (speedAt(effScore()) - speed) * Math.min(1, dt * 1.5);
     // cámara lenta: el mundo va más despacio (el personaje no)
     const wsp = worldSpeed();
     distToSpawn += wsp * dt;
-    if (distToSpawn >= SPACING) { distToSpawn -= SPACING; spawnColumn(LW + 20); }
+    if (distToSpawn >= SPACING) { distToSpawn -= SPACING; if (!level || level.spawned < level.len) spawnColumn(LW + 20); }
 
     // filas de tres: se cogen de cerca (o vienen solas con el imán)
     let nb = 0;
@@ -1758,14 +1941,17 @@
       }
       if (!c.passed && c.x + COL_W < hx - hr) {
         c.passed = true; addScore(1); snd.point();
+        // en la historia: ¿última columna? ¡meta!
+        if (level && ++level.passed >= level.len) { winLevel(); return; }
         // se ha dejado la empanadilla: la racha vuelve a empezar
         if (c.food && !c.eaten && !isPower(c.kind) && !SPECIALS[c.kind]) combo = 0;
       }
       if (c.food && !c.eaten) {
         // imán: la comida cercana (no los poderes) viene sola
-        if (powerOn("iman") && !isPower(c.kind)) {
+        // (Rim, con su olfato, atrae la comida que tiene muy cerca aunque no lleve imán)
+        if ((powerOn("iman") || abil() === "perro") && !isPower(c.kind)) {
           const mx = c.x + COL_W / 2, my = c.gapY + c.gap / 2 + c.fdy;
-          if (c.pull > 0 || (mx > hx - 20 && Math.hypot(mx - hx, my - hy) < 200)) c.pull = Math.min(1, c.pull + dt * 2.4);
+          if (c.pull > 0 || (mx > hx - 20 && Math.hypot(mx - hx, my - hy) < (powerOn("iman") ? 200 : 80))) c.pull = Math.min(1, c.pull + dt * 2.4);
         }
         const fp = foodPos(c), fx = fp.x, fy = fp.y;
         if ((hx - fx) ** 2 + (hy - fy) ** 2 < (hr + 15) ** 2) {
@@ -1777,6 +1963,7 @@
           eaten++;
           const gold = c.kind === "dorada", extra = gainCombo();
           addScore((gold ? 10 : 3) + extra, fx, fy - 20);
+          if (gold && level) level.gold = true;
           if (gold) { floaters.push({ x: Math.max(fx, 90), y: fy - 52, txt: "¡DORADA!", t: 0, size: 22, color: "#ffe066" }); snd.power(); emit("dorada"); }
           else snd.eat();
           emit("come", 1);
@@ -4828,11 +5015,14 @@
     ctx.globalAlpha = 1;
     ctx.restore();
 
+    // la historia, debajo de jugar (17/11/2026)
+    button(u.hist, "HISTORIA  ★ " + totalStars() + "/" + WORLDS.length * LEVELS_PER_WORLD * 3, false, 18);
     // tres botones grandes: personajes, tienda y misiones (17/11/2026)
     menuButton(u.mPers, "PERSONAJES", () => drawCharIcon(selectedChar()), 0);
     menuButton(u.mShop, "TIENDA", () => drawGift(0, 0, 1.25), hucha >= BOX_COST && !boxComplete() ? "!" : 0, hucha);
     const pend = window.ElsPanetsProgreso ? window.ElsPanetsProgreso.pending() : 0;
-    menuButton(u.mMis, "MISIONES", () => { ctx.scale(1.25, 1.25); iconMissions(); }, pend ? String(pend) : 0);
+    menuButton(u.mMis, "MISIONES", () => { ctx.scale(1.15, 1.15); iconMissions(); }, pend ? String(pend) : 0);
+    menuButton(u.mRetos, "RETOS", iconVersus, 0);
     // mejor puntuación
     const by = u.mPers.y + u.mPers.h + 36;
     ctx.fillStyle = "rgba(40,24,12,0.55)";
@@ -4855,7 +5045,7 @@
     ctx.fillStyle = g; roundRect(b.x, b.y, b.w, b.h, 18); ctx.fill();
     ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 3; ctx.stroke();
     ctx.save(); ctx.translate(b.x + b.w / 2, b.y + 32); icon(); ctx.restore();
-    text(label, b.x + b.w / 2, b.y + b.h - 13, 15, "#3b2414");
+    text(label, b.x + b.w / 2, b.y + b.h - 13, b.w < 100 ? 12.5 : 15, "#3b2414");
     if (coins != null) {
       ctx.fillStyle = "rgba(40,24,12,0.7)"; roundRect(b.x + b.w - 50, b.y + 6, 44, 18, 9); ctx.fill();
       text(String(coins), b.x + b.w - 28, b.y + 16, 12, "#ffe7a3");
@@ -4865,6 +5055,19 @@
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
       text(badge, b.x + b.w - 6, b.y + 5, 13, "#fff");
     }
+  }
+  // icono de retos: dos espadas cruzadas con «VS»
+  function iconVersus() {
+    ctx.save();
+    for (const sd of [-1, 1]) {
+      ctx.save(); ctx.rotate(sd * 0.75);
+      ctx.fillStyle = "#d9dde3"; ctx.strokeStyle = OL; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-3, -20); ctx.lineTo(0, -25); ctx.lineTo(3, -20); ctx.lineTo(3, 6); ctx.lineTo(-3, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#b45309"; ctx.fillRect(-8, 6, 16, 4); ctx.strokeRect(-8, 6, 16, 4); ctx.fillRect(-2, 10, 4, 9);
+      ctx.restore();
+    }
+    ctx.restore();
+    text("VS", 0, 3, 17, "#ffd23f", "#5a2a06", 5);
   }
   // el personaje elegido en pequeño, para el botón de personajes
   function drawCharIcon(def) {
@@ -5029,7 +5232,74 @@
     ctx.restore();
   }
 
+  // barra del nivel arriba: cuánto falta para la meta
+  function drawLevelHud() {
+    const L = level, x0 = LW / 2 - 90, y0 = 16, w = 180, f = clamp(L.passed / L.len, 0, 1);
+    ctx.fillStyle = "rgba(40,24,12,0.55)"; roundRect(x0 - 6, y0 - 8, w + 12, 26, 13); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(x0, y0, w, 10, 5); ctx.fill();
+    ctx.fillStyle = "#ffd23f"; if (f > 0) { roundRect(x0, y0, Math.max(10, w * f), 10, 5); ctx.fill(); }
+    text((L.w + 1) + "-" + (L.n + 1), x0 - 22, y0 + 6, 14, "#fff", "#3b2414", 3);
+    text("META", x0 + w + 26, y0 + 6, 13, "#fff", "#3b2414", 3);
+    if (L.boss && state === STATE.PLAY) drawGull(LW - 62, lerp(LH * 0.3, LH * 0.42, 0.5 + Math.sin(worldT * 0.9) * 0.5), worldT);
+  }
+  // la gaviota glotona con la bandeja (solo en el último nivel de cada mundo)
+  function drawGull(x, y, t) {
+    ctx.save(); ctx.translate(x, y);
+    const fl = Math.sin(t * 9) * 0.5;
+    ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.lineJoin = "round";
+    ctx.fillStyle = "#cfd6de";
+    ctx.beginPath(); ctx.moveTo(-4, -4); ctx.quadraticCurveTo(-14, -18 - fl * 14, -26, -12 - fl * 16); ctx.quadraticCurveTo(-16, -6, -4, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.ellipse(0, 0, 14, 9, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(10, -7, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#f5a623"; ctx.beginPath(); ctx.moveTo(15, -8); ctx.lineTo(24, -5); ctx.lineTo(15, -4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = OL; ctx.beginPath(); ctx.arc(12, -9, 1.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#cfd6de";
+    ctx.beginPath(); ctx.moveTo(-2, -4); ctx.quadraticCurveTo(4, -20 + fl * 12, -8, -24 + fl * 14); ctx.quadraticCurveTo(-6, -10, -2, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // la bandeja con comida colgando del pico
+    ctx.strokeStyle = "#8a6038"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(20, -5); ctx.lineTo(16, 12); ctx.stroke();
+    ctx.fillStyle = "#c9ced6"; ctx.strokeStyle = OL; ctx.lineWidth = 1.5; roundRect(4, 12, 26, 5, 2); ctx.fill(); ctx.stroke();
+    drawEmpanada(12, 9, 0, 0.3, false); drawEmpanada(22, 9, 0, 0.3, false);
+    ctx.restore();
+  }
+  // fin de un nivel de la historia: estrellas, objetivos y premio
+  function drawLevelOver() {
+    const u = ui(), t = stateT, R = levelResult, L = R.L;
+    const slide = (1 - easeOut(t / 0.45)) * (LH * 0.6);
+    ctx.save(); ctx.translate(0, slide);
+    text(R.win ? (L.boss ? "¡BANDEJA RECUPERADA!" : "¡NIVEL SUPERADO!") : "¡CASI LO TIENES!", LW / 2, u.overCard.y - 42, R.win && L.boss ? 28 : 34, "#ffd23f", "#5a2a06", 9);
+    const c = u.overCard;
+    card(c.x, c.y, c.w, c.h);
+    text(WORLDS[L.w].name.toUpperCase() + " · NIVEL " + (L.n + 1), LW / 2, c.y + 26, 16, "#8a5a2b");
+    for (let i = 0; i < 3; i++) {
+      const on = i < R.stars, a = clamp((t - 0.4 - i * 0.25) / 0.25, 0, 1);
+      ctx.save(); ctx.translate(LW / 2 + (i - 1) * 62, c.y + 70 - (i === 1 ? 8 : 0)); ctx.scale(0.6 + 0.4 * easeOut(on ? a : 1), 0.6 + 0.4 * easeOut(on ? a : 1));
+      drawStar(0, 0, 24, on && a > 0 ? "#ffd23f" : "#d9cdb4");
+      ctx.restore();
+    }
+    const ok = [R.win, R.win && R.foodOk, R.win && R.specOk];
+    R.goals.forEach((g, i) => {
+      const y = c.y + 124 + i * 28;
+      text(ok[i] ? "✓" : "✗", c.x + 26, y, 18, ok[i] ? "#2fa64a" : "#c0392b");
+      text(g, c.x + 44, y, 15, "#3b2414", null, 0, "left");
+    });
+    if (R.reward) text("+" + R.reward + " panets en tu hucha", LW / 2, c.y + c.h - 16, 16, "#b45309");
+    const nx = R.win ? nextLevelOf(L) : null;
+    const ready = worldT >= pressLockUntil;
+    ctx.globalAlpha = ready ? 1 : 0.6;
+    button(u.again, nx ? "SIGUIENTE" : "REPETIR", true);
+    button(u.home, "MAPA", false);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+  function drawStar(x, y, r, color) {
+    ctx.fillStyle = color; ctx.strokeStyle = "#7a5600"; ctx.lineWidth = 2.5; ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const rr = i % 2 ? r * 0.45 : r, a = -Math.PI / 2 + (i * Math.PI) / 5; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+
   function drawOver() {
+    if (levelResult) { drawLevelOver(); return; }
     const u = ui(), t = stateT;
     const slide = (1 - easeOut(t / 0.45)) * (LH * 0.6);
     ctx.save();
@@ -5067,9 +5337,10 @@
     ctx.globalAlpha = ready ? 1 : 0.6;
     button(u.again, "OTRA VEZ", true);
     button(u.home, "INICIO", false);
+    if (runMode !== "turnos") button(u.share, "RETAR A UN AMIGO", false, 18);
     ctx.globalAlpha = 1;
     // «¡casi!» y el ranking de los amigos
-    let my = u.again.y + 90;
+    let my = u.again.y + (runMode !== "turnos" ? 146 : 90);
     ctx.globalAlpha = clamp((t - 1) / 0.4, 0, 1);
     for (const m of overMsgs) {
       ctx.font = "16px " + FONT;
@@ -5158,7 +5429,7 @@
 
     if (state === STATE.START) drawStart();
     else if (state === STATE.READY) drawReady();
-    else if (state === STATE.PLAY || state === STATE.DYING) { drawScoreHud(); drawPowerHud(); drawPlaceBanner(); }
+    else if (state === STATE.PLAY || state === STATE.DYING) { drawScoreHud(); drawPowerHud(); drawPlaceBanner(); if (level) drawLevelHud(); }
     else if (state === STATE.OVER) drawOver();
     else if (state === STATE.PAUSE) { drawScoreHud(); drawPause(); }
     else if (state === STATE.COUNT) { drawScoreHud(); drawPowerHud(); drawCount(); }
@@ -5684,12 +5955,21 @@
     unlockedChars: () => CHARACTERS.filter((c, i) => !c.custom && charUnlocked(i)).length,
     totalChars: () => CHARACTERS.filter((c) => !c.custom).length,
     hasCustom: () => customState() === "aprobado",
+    // retos (17/11/2026)
+    todayKey, dailySeed, startMode, runMode: () => runMode,
+    goHome: () => { if (state === STATE.OVER || state === STATE.START) goHome(); },
+    // historia (17/11/2026)
+    STORY_INTRO, WORLDS, LEVELS_PER_WORLD,
+    story: () => story, levelStars, levelOpen, worldDone, totalStars,
+    levelInfo: (w, n) => { const L = makeLevel(w, n); return { w, n, boss: L.boss, len: L.len, goals: goalTexts(L) }; },
+    startLevel: (w, n) => { if (state !== STATE.START && state !== STATE.OVER) return false; return startLevel(w, n); },
+    charIndexOf: (id) => CHARACTERS.findIndex((c) => c.id === id),
     // pantalla de personajes (17/11/2026)
     charList: () => CHARACTERS.slice(0, shownCount()).map((c, i) => ({
       i, id: c.id, custom: !!c.custom, gris: c.id === "gris", open: charUnlocked(i), unlock: c.unlock || 0,
       name: c.custom ? (c.name || "TU PERSONAJE") : (c.name || "EL GRIS"),
       story: c.custom ? "Tu personaje, hecho por ti." : c.story || "El de siempre: gris y sin prisas.",
-      power: c.power || "", special: c.special || null, flag: flagName(flagOf(c)),
+      power: c.power || "", special: c.special || null, flag: flagName(flagOf(c)), ability: ABILITIES[c.id] || "",
       outfits: c.custom || c.id === "gris" ? [] : c.outfits.map((o, k) => ({ name: o.name, open: outfitUnlocked(k), pts: OUTFIT_PTS[k] })),
       outfit: outfitIndex(c),
     })),
@@ -5718,7 +5998,7 @@
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 31,
+    VERSION: 33,
     settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,

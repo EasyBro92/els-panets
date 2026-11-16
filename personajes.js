@@ -24,7 +24,7 @@
     const cur = EP.current() === c.i;
     let html = `<div class="chTop"><canvas id="chBig" width="240" height="250"></canvas><div class="chInfo"><b>${esc(nice(c.name))}</b>
       <p>${esc(c.story)}</p>${c.power ? `<p class="chPow">${c.special ? '<canvas width="80" height="80" id="chSp"></canvas>' : ""}${esc(c.power)}</p>` : ""}
-      <small>Bandera: ${esc(c.flag)}</small></div></div>`;
+      ${c.ability ? `<p class="chAb">★ ${esc(c.ability)}</p>` : ""}<small>Bandera: ${esc(c.flag)}</small></div></div>`;
     if (!c.open) html += `<p class="chLock">🔒 Llega a <b>${c.unlock}</b> puntos para desbloquearlo</p>`;
     else if (c.outfits.length) {
       html += `<div class="chOutHead">Ropa · ${esc(c.outfits[c.outfit].name)}</div><div class="chOuts">` + c.outfits.map((o, k) => `<button type="button" class="chOut${k === c.outfit ? " on" : ""}${o.open ? "" : " locked"}" data-out="${k}">

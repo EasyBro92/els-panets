@@ -4,6 +4,8 @@ game.js
 extras.js
 progreso.js
 personajes.js
+historia.js
+retos.js
 firebase-leaderboard.js
 manifest.json
 sw.js

@@ -288,8 +288,68 @@ async function adminSetConfig(patch) {
   return loadConfig(true);
 }
 
+// ---------- Reto del día (17/11/2026) ----------
+// Una ficha por jugador y día con su mejor marca, y aparte su fantasma (alturas, 30 por
+// segundo). Se escribe con la misma llave secreta que el ranking.
+const DAILY = "elsPanetsReto";
+const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+async function submitDaily(day, name, score, flag, ys) {
+  if (!online() || !isDay(day) || !name) return "sin-red";
+  const key = "elsPanetsRetoMio", mine = JSON.parse(ls.get(key) || "{}");
+  if (mine.day === day && mine.score >= score) return "igual";
+  try {
+    const id = myId(), b = writeBatch(db);
+    b.set(doc(db, LLAVES, id), { clave: secretKey(), ts: serverTimestamp() });
+    const data = { name: String(name).slice(0, 12), score: Math.max(0, Math.min(9999, Math.round(score))), ts: serverTimestamp() };
+    if (flag) data.flag = String(flag).slice(0, 6);
+    b.set(doc(db, DAILY, day, "fichas", id), data);
+    b.set(doc(db, DAILY, day, "fantasmas", id), { y: (ys || []).slice(0, 9000).map((v) => Math.round(v) | 0), ts: serverTimestamp() });
+    await withTimeout(b.commit(), 15000);
+    ls.set(key, JSON.stringify({ day, score: data.score }));
+    dailyMem = null;
+    return "ok";
+  } catch (e) { return e && e.code === "permission-denied" ? "rechazado" : "sin-red"; }
+}
+let dailyMem = null;
+async function dailyTop(day) {
+  if (!isDay(day)) return [];
+  if (dailyMem && dailyMem.day === day && Date.now() - dailyMem.at < 120000) return dailyMem.rows;
+  const snap = await withTimeout(getDocs(query(collection(db, DAILY, day, "fichas"), orderBy("score", "desc"), limit(20))));
+  const rows = snap.docs.map((d) => { const x = d.data(); return { id: d.id, name: String(x.name || ""), score: Number(x.score) || 0, flag: x.flag ? String(x.flag) : "" }; });
+  dailyMem = { day, at: Date.now(), rows };
+  return rows;
+}
+async function dailyGhost(day, id) {
+  const s = await withTimeout(getDoc(doc(db, DAILY, day, "fantasmas", id)));
+  return s.exists() ? s.data().y || [] : [];
+}
+// ---------- Retar a un amigo ----------
+// Un código de 5 letras guarda el recorrido (semilla), la marca y el fantasma.
+const RETOS = "elsPanetsRetos", CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+async function createChallenge(name, score, seed, ys, ch) {
+  if (!online()) throw new Error("sin-red");
+  for (let tries = 0; tries < 4; tries++) {
+    const code = Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
+    try {
+      await withTimeout(setDoc(doc(db, RETOS, code), {
+        name: String(name || "Alguien").slice(0, 12), score: Math.max(0, Math.min(9999, Math.round(score))), seed: seed >>> 0,
+        y: (ys || []).slice(0, 9000).map((v) => Math.round(v) | 0), char: String(ch || "").slice(0, 20), ts: serverTimestamp(),
+      }), 15000);
+      return code;
+    } catch (e) { if (!(e && e.code === "permission-denied")) throw e; }
+  }
+  throw new Error("sin-codigo");
+}
+async function getChallenge(code) {
+  code = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (code.length !== 5) return null;
+  const s = await withTimeout(getDoc(doc(db, RETOS, code)));
+  return s.exists() ? Object.assign({ code }, s.data()) : null;
+}
+
 window.TacoLeaderboard = {
   submitScore, ranking, cachedRanking, myId,
+  submitDaily, dailyTop, dailyGhost, createChallenge, getChallenge,
   getConfig: () => config, loadConfig,
   deleteMyData,
   isAdmin, adminLogin, adminLogout, adminList, adminSetConfig,

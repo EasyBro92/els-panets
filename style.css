@@ -511,3 +511,51 @@ img.lbFlag { width: 30px; height: 12px; border-radius: 2px; flex-shrink: 0; marg
 .chOut small { color: #8a5a2b; font-size: 10px; }
 .chEdit { margin-top: 8px; }
 .chNote { color: #2fa64a; font-size: 13px; margin: 6px 0 0; text-align: center; }
+.chAb { color: #2f6fb5; font-size: 13px !important; }
+
+/* 17/11/2026: historia */
+.storyCard { padding: 12px 12px 14px; max-height: 98vh; }
+.stTotal { color: #b45309; font-size: 16px; margin-bottom: 2px; }
+.stTabs button { font-size: 18px; padding: 6px 2px; }
+.stTabs button.off { opacity: 0.5; }
+.storyBody { max-height: 66vh; overflow-y: auto; text-align: left; color: #3b2414; }
+.stWorld { display: flex; gap: 10px; align-items: center; background: #f3e6cf; border-radius: 14px; padding: 8px; margin: 6px 0; }
+.stWorld canvas { width: 70px; height: 73px; flex-shrink: 0; background: radial-gradient(#d9f0fa, #8fcbe8); border-radius: 14px; border: 2px solid #3b2414; }
+.stWorld b { font-weight: normal; font-size: 18px; color: #f08a24; -webkit-text-stroke: 0.5px #5a2a06; }
+.stWorld p { margin: 2px 0 0; font-size: 13px; line-height: 1.25; }
+.stLevels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
+.stLv { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border: 3px solid #e2d2b4; border-radius: 14px; background: #fff8ec; font: 20px "Lilita One", sans-serif; color: #3b2414; cursor: pointer; line-height: 1.1; }
+.stLv b { font-weight: normal; }
+.stLv small { color: #f5a300; font-size: 13px; letter-spacing: 1px; }
+.stLv.on { border-color: #3b2414; background: #ffe9a8; }
+.stLv.boss { background: #efe3ff; }
+.stLv.boss.on { background: #ffe9a8; }
+.stLv.off { opacity: 0.45; cursor: default; }
+.stPick { background: #fff3d1; border: 2px solid #e2c27a; border-radius: 14px; padding: 8px 10px; }
+.stPick b { font-weight: normal; font-size: 17px; }
+.stPick ul { list-style: none; padding: 0; margin: 4px 0; font-size: 14px; }
+.stPick li { margin: 3px 0; color: #8a5a2b; }
+.stPick li.ok { color: #b45309; }
+.stPick .bigBtn { margin-top: 4px; }
+.stHint { color: #8a5a2b; font-size: 14px; text-align: center; }
+.taleBox { z-index: 7; }
+.taleCard { text-align: center; }
+.taleCard canvas { width: 100px; height: 104px; background: radial-gradient(#d9f0fa, #8fcbe8); border-radius: 16px; border: 3px solid #3b2414; }
+.taleCard p { color: #3b2414; font-size: 16px; line-height: 1.3; }
+
+/* 17/11/2026: retos */
+.retosCard { padding: 12px 12px 14px; max-height: 98vh; }
+.retosBody { max-height: 62vh; overflow-y: auto; text-align: left; color: #3b2414; margin: 6px 0; }
+.rtInfo { font-size: 14px; line-height: 1.3; color: #3b2414; margin: 6px 2px; }
+.rtTop ol, .rtTurnList { list-style: none; padding: 0; margin: 6px 0; }
+.rtTop li, .rtTurnList li { display: flex; align-items: center; gap: 6px; background: #f3e6cf; border-radius: 10px; padding: 6px 8px; margin-bottom: 4px; font-size: 15px; }
+.rtTop li.me { background: #ffe9a8; }
+.rtTop li span, .rtTurnList li span { color: #8a5a2b; width: 18px; }
+.rtTop li b, .rtTurnList li b { flex: 1; font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rtTop li i, .rtTurnList li i { font-style: normal; color: #b45309; }
+.rtCode { display: flex; gap: 6px; }
+.rtCode input, .rtNames input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; border: 3px solid #cdbb9c; background: #fff; font: 18px "Lilita One", sans-serif; color: #3b2414; outline: none; user-select: text; text-transform: uppercase; }
+.rtNames input { text-transform: none; width: 100%; margin-bottom: 5px; box-sizing: border-box; }
+.rtCode .bigBtn { width: auto; margin-top: 0; padding: 8px 14px; }
+.rtShareCode { font-size: 40px; letter-spacing: 6px; color: #f08a24; -webkit-text-stroke: 1px #5a2a06; margin: 4px 0; }
+a.rtWa { display: block; text-decoration: none; text-align: center; box-sizing: border-box; background: linear-gradient(#5be07f, #25a244); -webkit-text-stroke: 0.6px #0b5a22; }
