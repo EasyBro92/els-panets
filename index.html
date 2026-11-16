@@ -170,10 +170,15 @@
   <div id="retosOverlay" class="overlay hidden">
     <div class="nameCard wideCard retosCard">
       <div class="nameTitle">Retos</div>
-      <div id="retosTabs" class="tabs"><button type="button" data-tab="diario" class="on">Del día</button><button type="button" data-tab="amigo">Un amigo</button><button type="button" data-tab="turnos">Por turnos</button></div>
+      <div id="retosTabs" class="tabs"><button type="button" data-tab="directo" class="on">En directo</button><button type="button" data-tab="diario">Del día</button><button type="button" data-tab="amigo">Un amigo</button><button type="button" data-tab="turnos">Por turnos</button></div>
       <div id="retosBody" class="retosBody"></div>
       <button id="retosClose" class="ghostBtn" type="button">Volver</button>
     </div>
+  </div>
+  <!-- 17/11/2026: en directo (directo.js) -->
+  <div id="liveOverlay" class="overlay hidden">
+    <div class="nameCard liveCard"><div id="liveTitle" class="nameTitle">En directo</div><div id="liveBody" class="liveBody"></div>
+      <button id="liveLeave" class="ghostBtn" type="button">Salir de la sala</button></div>
   </div>
   <div id="rtAccept" class="overlay hidden">
     <div class="nameCard"><div class="nameTitle">¡Te retan!</div><p id="rtAcceptTxt" class="rtInfo"></p>
@@ -246,5 +251,7 @@
 <script src="personajes.js"></script>
 <script src="historia.js"></script>
 <script src="retos.js"></script>
+<script src="qrcode.js"></script>
+<script type="module" src="directo.js"></script>
 </body>
 </html>

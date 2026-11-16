@@ -1,4 +1,4 @@
-const CACHE = "els-panets-v34";
+const CACHE = "els-panets-v35";
 const FILES = [
   "./",
   "./index.html",
@@ -6,6 +6,8 @@ const FILES = [
   "./personajes.js",
   "./historia.js",
   "./retos.js",
+  "./directo.js",
+  "./qrcode.js",
   "./style.css",
   "./game.js",
   "./extras.js",

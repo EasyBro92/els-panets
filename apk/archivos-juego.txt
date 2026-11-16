@@ -6,6 +6,8 @@ progreso.js
 personajes.js
 historia.js
 retos.js
+directo.js
+qrcode.js
 firebase-leaderboard.js
 manifest.json
 sw.js

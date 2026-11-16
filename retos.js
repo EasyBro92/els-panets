@@ -9,18 +9,19 @@
   const lb = () => window.TacoLeaderboard;
   const ov = $("retosOverlay"), tabs = $("retosTabs"), body = $("retosBody");
   const myName = () => (EP.settings ? EP.settings().nombre : "") || "";
-  let tab = "diario";
+  let tab = "directo", preset = "";
 
   // ---------- ventana ----------
   function render() {
     for (const b of tabs.querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === tab);
-    if (tab === "diario") renderDaily();
+    if (tab === "directo") { if (UI.renderLiveTab) UI.renderLiveTab(body, preset); preset = ""; }
+    else if (tab === "diario") renderDaily();
     else if (tab === "amigo") renderFriend();
     else renderTurns();
   }
   tabs.addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (b) { tab = b.dataset.tab; render(); } });
   $("retosClose").addEventListener("click", () => ov.classList.add("hidden"));
-  function open(t) { if (t) tab = t; render(); ov.classList.remove("hidden"); }
+  function open(t, code) { if (t) tab = t; preset = code || ""; render(); ov.classList.remove("hidden"); }
 
   // ---------- reto del día ----------
   function renderDaily() {
@@ -84,7 +85,8 @@
     let code;
     try { code = await lb().createChallenge(myName() || "Alguien", info.score, info.seed, info.y, info.char); }
     catch (e) { txt.textContent = "No se pudo crear el reto. Revisa la conexión."; return; }
-    const url = location.origin + location.pathname.replace(/index\.html$/, "") + "?reto=" + code;
+    // en la app el juego va por https://els.panets/, que no existe fuera: el enlace es el de la web
+    const url = (location.hostname === "els.panets" ? "https://easybro92.github.io/els-panets/" : location.origin + location.pathname.replace(/index\.html$/, "")) + "?reto=" + code;
     const msg = "¡Te reto en Els Panets! He hecho " + info.score + " puntos. ¿Me ganas? Código: " + code + " · " + url;
     $("rtShareCode").textContent = code;
     txt.textContent = "Pásale este código a tu amigo. En Retos → Retar a un amigo lo escribe y vuela contra tu fantasma.";

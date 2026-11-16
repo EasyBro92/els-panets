@@ -559,3 +559,29 @@ img.lbFlag { width: 30px; height: 12px; border-radius: 2px; flex-shrink: 0; marg
 .rtCode .bigBtn { width: auto; margin-top: 0; padding: 8px 14px; }
 .rtShareCode { font-size: 40px; letter-spacing: 6px; color: #f08a24; -webkit-text-stroke: 1px #5a2a06; margin: 4px 0; }
 a.rtWa { display: block; text-decoration: none; text-align: center; box-sizing: border-box; background: linear-gradient(#5be07f, #25a244); -webkit-text-stroke: 0.6px #0b5a22; }
+
+/* 17/11/2026: en directo (directo.js) */
+#retosTabs button { font-size: 14px; padding: 7px 2px; }
+.liveCard { padding: 12px 14px 14px; max-height: 98vh; overflow-y: auto; }
+.liveBody { text-align: center; }
+.lvPlayers { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px; }
+.lvRow { display: flex; align-items: center; gap: 10px; padding: 4px 10px; border-radius: 14px; background: #fff; border: 2px solid #e2d2b4; color: #3b2414; font-size: 17px; text-align: left; min-height: 52px; }
+.lvRow.me { border-color: #ffd23f; }
+.lvRow b { flex: 1; font-weight: normal; }
+.lvChar { width: 48px; height: 48px; flex: none; }
+.lvOk { font-style: normal; color: #25a244; font-size: 15px; }
+.lvWait { color: #8a5a2b; justify-content: center; }
+.lvDot { width: 10px; height: 10px; border-radius: 50%; background: #ffd23f; border: 2px solid #8a5a2b; flex: none; }
+.lvCode { font-size: 34px; margin: 0; }
+.lvShare { display: flex; gap: 6px; }
+.lvShare .ghostBtn { flex: 1; margin-top: 6px; }
+.lvQRBox { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: #8a5a2b; text-align: left; }
+.lvQRBox.hidden { display: none; }
+#lvQR { width: 110px; height: 110px; flex: none; border-radius: 8px; border: 2px solid #e2d2b4; image-rendering: pixelated; }
+.lvHint { text-align: center; }
+.lvBig { font-size: 30px; color: #f08a24; -webkit-text-stroke: 1px #5a2a06; margin: 6px 0 2px; }
+.lvBig.win { color: #25a244; -webkit-text-stroke: 1px #0b5a22; }
+.lvScores { margin: 6px 0; }
+.lvName { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 12px; border: 3px solid #cdbb9c; background: #fff; font: 18px "Lilita One", sans-serif; color: #3b2414; outline: none; user-select: text; margin-bottom: 4px; }
+.lvToast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 60; max-width: 86vw; padding: 8px 16px; border-radius: 16px; background: rgba(40, 24, 12, 0.88); color: #fff; font: 16px "Lilita One", sans-serif; text-align: center; opacity: 0; transition: opacity 0.4s ease; pointer-events: none; }
+.lvToast.on { opacity: 1; }

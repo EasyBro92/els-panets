@@ -893,7 +893,87 @@
   let ghost = null, ghostRec = [], runT = 0;
   try { ghost = JSON.parse(store.get(GHOST_KEY, "null")); } catch (e) { ghost = null; }
   const adminConfig = () => (window.TacoLeaderboard && window.TacoLeaderboard.getConfig && window.TacoLeaderboard.getConfig()) || {};
+  // ---------- Partida en directo (17/11/2026) ----------
+  // El rival juega a la vez en su móvil: llegan sus alturas (30 por segundo, en tandas)
+  // y se dibuja un poco por detrás (LIVE_DELAY) para que se mueva suave aunque la red tiemble.
+  const LIVE_DELAY = 8;
+  let liveAt = 0; // hora (Date.now) en que arranca la partida en directo
+  function liveFeed(d) {
+    if (!rival || !rival.live || !d) return;
+    if (d.y && d.y.length) {
+      const ys = rival.y, i = Math.max(0, d.i | 0);
+      // si se perdió alguna tanda, se rellena en línea recta
+      if (i > ys.length && ys.length) { const a = ys[ys.length - 1], from = ys.length; for (let k = from; k < i; k++) ys[k] = a + (d.y[0] - a) * (k - from + 1) / (i - from + 1); }
+      for (let k = 0; k < d.y.length; k++) if (i + k <= ys.length) ys[i + k] = d.y[k];
+      if (ys.length > rival.n) { rival.n = ys.length; rival.recvAt = Date.now(); }
+    }
+    if (d.s != null) rival.score = d.s;
+    if (d.dead) rival.dead = true;
+    if (d.gone) { rival.gone = true; rival.dead = true; }
+  }
+  function stepLiveRival(dt) {
+    if (!rival || !rival.live || rival.n < 2) return;
+    const last = rival.n - 1, tgt = Math.min(last, last - LIVE_DELAY + (Date.now() - rival.recvAt) * 0.03);
+    if (rival.di == null || Math.abs(tgt - rival.di) > 45) rival.di = Math.max(0, tgt);
+    else rival.di = Math.min(last, rival.di + dt * 30 + (tgt - rival.di) * Math.min(1, dt * 3));
+    if (rival.dead && rival.di >= last - 0.01) rival.fade = Math.max(0, rival.fade - dt * 1.2);
+  }
+  function liveRivalY() {
+    if (!rival || !rival.live || rival.n < 2 || rival.di == null) return null;
+    const i0 = Math.floor(rival.di), fr = rival.di - i0, ys = rival.y;
+    return ys[i0] + ((ys[Math.min(i0 + 1, rival.n - 1)] - ys[i0]) || 0) * fr;
+  }
+  function drawLiveRival() {
+    if (state !== STATE.PLAY && state !== STATE.DYING) return;
+    if (rival.fade <= 0) return;
+    const y = liveRivalY();
+    if (y == null) return;
+    const def = CHARACTERS[rival.ci] && !CHARACTERS[rival.ci].custom ? CHARACTERS[rival.ci] : CHARACTERS[0];
+    ctx.save(); ctx.globalAlpha = 0.5 * rival.fade;
+    drawChar(dressed(def), player.x, y, 0, worldT * 8, PLAYER_SCALE, "");
+    ctx.globalAlpha = 0.9 * rival.fade;
+    text(rival.name || "Rival", player.x, y - 48, 14, "#fff", "#3b2414", 4);
+    ctx.restore();
+  }
+  // marcador del rival, debajo del contador de empanadillas
+  function drawLiveHud() {
+    const ahead = rival.score > score, t = (rival.gone ? rival.name + " se ha ido" : rival.name + ": " + rival.score + (rival.dead ? " (ha caído)" : ""));
+    ctx.font = "16px " + FONT;
+    const w = Math.min(LW - 40, ctx.measureText(t).width + 30);
+    ctx.fillStyle = "rgba(40,24,12,0.5)";
+    roundRect(LW / 2 - w / 2, 150, w, 26, 13); ctx.fill();
+    text(t, LW / 2, 168, 16, ahead && !rival.dead ? "#ffd23f" : "#fff");
+  }
+  function drawLiveReady() {
+    drawScoreHud();
+    text("¡EN DIRECTO!", LW / 2, LH * 0.22, 44, "#ffd23f", "#5a2a06", 10);
+    text("contra " + ((rival && rival.name) || "tu amigo"), LW / 2, LH * 0.22 + 42, 22, "#fff", "#3b2414", 5);
+    const left = (liveAt - Date.now()) / 1000;
+    if (left > 0) {
+      const n = Math.ceil(left), f = 1 - (left - (n - 1));
+      ctx.save();
+      ctx.globalAlpha = Math.min(clamp(f / 0.2, 0, 1), clamp((1 - f) / 0.3, 0, 1));
+      ctx.translate(LW / 2, LH * 0.46);
+      const sc = 1.08 - 0.08 * easeOut(f); ctx.scale(sc, sc);
+      text(String(Math.min(9, n)), 0, 0, 96, "#fff", "#2a1c14", 12);
+      ctx.restore();
+    }
+    text("Salís los dos a la vez", LW / 2, LH * 0.46 + 78, 20, "#fff", "#2a1c14", 5);
+  }
+  function startLive(seed, rv, at) {
+    if (state !== STATE.START && state !== STATE.OVER && state !== STATE.READY) return false;
+    level = null; levelResult = null;
+    runMode = "directo"; nextSeed = seed >>> 0; liveAt = at;
+    rival = Object.assign({ live: true, name: "Rival", ci: 0, y: [], n: 0, recvAt: 0, di: null, score: 0, dead: false, gone: false, fade: 1 }, rv || {});
+    resetRun();
+    loadRanking();
+    tutStep = -1;
+    setState(STATE.READY);
+    return true;
+  }
+
   function drawGhost() {
+    if (rival && rival.live) { drawLiveRival(); return; }
     // el fantasma del rival (reto del día o de un amigo), con su nombre encima
     if (rival && rival.y && rival.y.length && (state === STATE.PLAY || state === STATE.DYING || state === STATE.PAUSE || state === STATE.COUNT)) {
       const i = Math.floor(runT * 30), fade = i < rival.y.length ? 1 : Math.max(0, 1 - (i - rival.y.length) / 20);
@@ -1073,7 +1153,7 @@
 
   // vuelve al inicio (botón INICIO y botón «atrás»)
   function goHome() {
-    level = null; levelResult = null; runMode = null; rival = null;
+    level = null; levelResult = null; runMode = null; rival = null; liveAt = 0;
     resetRun();
     viewIndex = charIndex;
     setState(STATE.START);
@@ -1086,6 +1166,7 @@
     goHome();
   }
   function pauseGame() {
+    if (runMode === "directo") return;
     if (state === STATE.PLAY || state === STATE.COUNT) setState(STATE.PAUSE);
   }
 
@@ -1304,7 +1385,7 @@
     player.vy = Math.min(player.vy, -120);
     if (level) { finishLevel(false); overMsgs = []; setState(STATE.DYING); return; }
     settleRun();
-    overMsgs = runMode === "turnos" ? [] : buildOverMessages();
+    overMsgs = runMode === "turnos" || runMode === "directo" ? [] : buildOverMessages();
     // reto de un amigo: ¿le has ganado?
     if (runMode === "reto" && rival) overMsgs.unshift(score > rival.score ? { txt: "¡Le has ganado a " + rival.name + "! (" + rival.score + ")", color: "#7dff9a" }
       : score === rival.score ? { txt: "¡Empate con " + rival.name + "!", color: "#ffd23f" } : { txt: rival.name + " te gana: " + rival.score + " puntos", color: "#fff" });
@@ -1714,10 +1795,11 @@
           if (++tutStep > 2) { tutStep = -1; store.set(TUTORIAL_KEY, "1"); }
           return;
         }
+        if (runMode === "directo") return;
         if (stateT > 0.15) beginPlay();
         return;
       case STATE.PLAY:
-        if (p && inCircle(p, u.pause)) { snd.click(); pauseGame(); return; }
+        if (p && runMode !== "directo" && inCircle(p, u.pause)) { snd.click(); pauseGame(); return; }
         flap();
         return;
       case STATE.PAUSE:
@@ -1735,6 +1817,7 @@
           if (inRect(p, u.home)) { snd.click(); goHome(); if (window.ElsPanetsUI && window.ElsPanetsUI.openStory) window.ElsPanetsUI.openStory(R.L.w); }
           return;
         }
+        if (runMode === "directo") { if (window.ElsPanetsUI && window.ElsPanetsUI.openLive) window.ElsPanetsUI.openLive(); return; }
         if (p && runMode !== "turnos" && inRect(p, u.share)) {
           snd.click();
           if (window.ElsPanetsUI && window.ElsPanetsUI.shareChallenge) window.ElsPanetsUI.shareChallenge({ score, seed: runSeed, y: ghostRec.slice(0, GHOST_MAX), char: selectedChar().id });
@@ -1842,6 +1925,7 @@
         player.flap += dt * 9;
         break;
       case STATE.READY:
+        if (runMode === "directo" && liveAt && Date.now() >= liveAt) { beginPlay(); break; }
         player.x = lerp(player.x, 108, Math.min(1, dt * 5));
         player.y = LH * 0.42 + Math.sin(worldT * 3) * 7;
         player.rot = 0;
@@ -1863,6 +1947,7 @@
         break;
     }
 
+    stepLiveRival(dt);
     // (las listas se limpian en su sitio, sin crear otras nuevas en cada paso)
     let k = 0;
     for (let i = 0; i < particles.length; i++) {
@@ -1890,7 +1975,7 @@
     player.y += player.vy * dt;
     // la sombra: se apunta la altura 30 veces por segundo
     runT += dt;
-    while (ghostRec.length < Math.min(GHOST_MAX, runT * 30)) ghostRec.push(Math.round(player.y));
+    while (ghostRec.length < Math.min(runMode === "directo" ? 20000 : GHOST_MAX, runT * 30)) ghostRec.push(Math.round(player.y));
     const targetRot = clamp(player.vy / 560, -0.42, 1.25);
     player.rot += (targetRot - player.rot) * Math.min(1, dt * 12);
     player.flap += dt * (player.vy < 0 ? 18 : 7);
@@ -5337,7 +5422,7 @@
     ctx.globalAlpha = ready ? 1 : 0.6;
     button(u.again, "OTRA VEZ", true);
     button(u.home, "INICIO", false);
-    if (runMode !== "turnos") button(u.share, "RETAR A UN AMIGO", false, 18);
+    if (runMode !== "turnos" && runMode !== "directo") button(u.share, "RETAR A UN AMIGO", false, 18);
     ctx.globalAlpha = 1;
     // «¡casi!» y el ranking de los amigos
     let my = u.again.y + (runMode !== "turnos" ? 146 : 90);
@@ -5428,8 +5513,8 @@
     ctx.globalAlpha = 1;
 
     if (state === STATE.START) drawStart();
-    else if (state === STATE.READY) drawReady();
-    else if (state === STATE.PLAY || state === STATE.DYING) { drawScoreHud(); drawPowerHud(); drawPlaceBanner(); if (level) drawLevelHud(); }
+    else if (state === STATE.READY) { if (runMode === "directo") drawLiveReady(); else drawReady(); }
+    else if (state === STATE.PLAY || state === STATE.DYING) { drawScoreHud(); drawPowerHud(); drawPlaceBanner(); if (level) drawLevelHud(); if (rival && rival.live) drawLiveHud(); }
     else if (state === STATE.OVER) drawOver();
     else if (state === STATE.PAUSE) { drawScoreHud(); drawPause(); }
     else if (state === STATE.COUNT) { drawScoreHud(); drawPowerHud(); drawCount(); }
@@ -5446,7 +5531,7 @@
       ctx.fillRect(0, 0, LW, LH);
     }
     const u = ui();
-    if (state === STATE.PLAY) drawPauseButton(u.pause);
+    if (state === STATE.PLAY && runMode !== "directo") drawPauseButton(u.pause);
     if (state === STATE.START && fontReady) roundIcon(u.gear, iconGear);
     if ((state === STATE.START && fontReady) || state === STATE.OVER) {
       roundIcon(u.rank, iconTrophy);
@@ -5957,6 +6042,10 @@
     hasCustom: () => customState() === "aprobado",
     // retos (17/11/2026)
     todayKey, dailySeed, startMode, runMode: () => runMode,
+    // en directo (17/11/2026)
+    startLive, liveFeed,
+    liveState: () => ({ mode: runMode, playing: state === STATE.PLAY, n: ghostRec.length, y: ghostRec.slice(Math.max(0, ghostRec.length - 12)), s: score, state, rv: liveRivalY() }),
+    liveLeave: () => { if (runMode !== "directo") return; if (state === STATE.PLAY || state === STATE.COUNT || state === STATE.PAUSE) leaveRun(); else goHome(); },
     goHome: () => { if (state === STATE.OVER || state === STATE.START) goHome(); },
     // historia (17/11/2026)
     STORY_INTRO, WORLDS, LEVELS_PER_WORLD,
@@ -5998,7 +6087,7 @@
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 34,
+    VERSION: 35,
     settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,
