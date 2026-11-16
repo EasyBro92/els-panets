@@ -1,9 +1,36 @@
-// Els Panets — variante de MR Taco President: el presidente vuela por Caracas
-// comiendo empanadillas venezolanas. Rehecho entero el 31/10/2026:
+// Els Panets: los amigos vuelan por Caracas comiendo empanadillas venezolanas
+// (nació como variante de MR Taco President). Rehecho entero el 31/10/2026:
 // dibujo a la resolución real de la pantalla, escenario por capas, columnas
 // coloniales, personaje nuevo, menús nuevos, «prepárate», medallas, música.
 (function () {
   "use strict";
+
+  // Listas fijas de números que usan los dibujos: se crean una vez, no en cada cuadro (16/11/2026).
+  const NUMS_1 = [-1, 1];
+  const NUMS_2 = [14, 26, 40, 52];
+  const NUMS_3 = [12, 25, 41, 54];
+  const NUMS_4 = [0, 1];
+  const NUMS_5 = [[-6, -1], [-6, 1], [0, 0], [6, -1], [6, 1]];
+  const NUMS_6 = [[-8, -3, 1.6], [-3, -9, 1.2], [4, -5, 1.5], [9, -1, 1.1], [-11, 3, 1.1], [2, 1, 1.3], [7, -10, 1]];
+  const NUMS_7 = [[-1.6, 5], [1.6, 5], [0, 7.6], [-1.6, 3], [1.6, 3], [0, 9.8]];
+  const NUMS_8 = [-0.7, -0.35, 0, 0.35, 0.7];
+  const NUMS_9 = [[-7, -1, 2.4], [3, -3, 2], [6, 4, 2.6], [-3, 5, 1.8], [10, 0, 1.6]];
+  const NUMS_10 = [[-5, 2], [1, 0], [5, -1], [-1, 6]];
+  const NUMS_11 = [[-8, -4], [5, -2], [9, -5], [-2, -1]];
+  const NUMS_12 = [[-5, -4], [2, -6], [6, -1], [-2, 1]];
+  const NUMS_13 = [[-8, 7, 2.5], [3, 3, 3], [10, 8, 2], [-1, 9.5, 1.6], [9, -1, 1.5]];
+  const NUMS_14 = [-3, 3];
+  const NUMS_15 = [[-4, -5], [5, -4], [0, 4]];
+  const NUMS_16 = [-5, 3];
+  const NUMS_17 = [-2, 1.5];
+  const NUMS_18 = [0, 4.5];
+  const NUMS_19 = [[-8, 3], [-6, 4.2], [-9, 5], [-5.5, 2.5], [6.5, 3], [8.5, 4.2], [6, 5], [9.5, 2.8], [0.5, 3.5], [2.5, 3]];
+  const NUMS_20 = [-1.5, 4.5];
+  const NUMS_21 = [[-5, -0.25], [3, 0.15]];
+  const NUMS_22 = [[6, 1], [11, 1.5], [9, 5], [13, -0.5]];
+  const NUMS_23 = [-13, -7, -1];
+  const NUMS_24 = [0.35, 0.6, 0.8];
+  const NUMS_25 = [-7, -1, 5];
 
   // ---------- Pantalla ----------
   // Ancho lógico fijo (400) y alto según la forma de la pantalla, para llenar
@@ -16,15 +43,47 @@
   let ctx = mainCtx; // se cambia un momento para pintar la zona nueva aparte
   const FONT = "'Lilita One', 'Arial Black', 'Segoe UI', sans-serif";
 
+  // Las ayudas de prueba (?puntos, ?comidas, ?hora, ?hoja, ?prueba) solo valen en el ordenador.
+  const LOCAL = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+  const QS = new URLSearchParams(LOCAL ? location.search : "");
+
+  // ---------- Guardado (con red de seguridad) ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { if (sim) return; try { localStorage.setItem(k, String(v)); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
+  let sim = false; // medición de la dificultad: sin sonido ni guardado
+  // 16/11/2026: las claves antiguas (tacoSuitFlap…, compartidas con MR Taco President)
+  // se copian una vez a las propias (elsPanets…). Las antiguas se dejan como estaban.
+  if (store.get("elsPanetsMigrado", null) === null) {
+    for (const k of ["Music", "Best", "PlayerName", "RecordHolder", "Skin", "PlayerId"]) {
+      const old = store.get("tacoSuitFlap" + k, null);
+      if (old !== null && store.get("elsPanets" + k, null) === null) store.set("elsPanets" + k, old);
+    }
+    store.set("elsPanetsMigrado", "1");
+  }
+  const BEST_KEY = "elsPanetsBest";
+  const NAME_KEY = "elsPanetsPlayerName";
+  const HOLDER_KEY = "elsPanetsRecordHolder";
+  const SKIN_KEY = "elsPanetsSkin";
+  // Ajustes (16/11/2026)
+  const MUSIC_KEY = "elsPanetsMusica", SFX_KEY = "elsPanetsEfectos", VIBRA_KEY = "elsPanetsVibracion";
+  const FLASH_KEY = "elsPanetsDestellos", QUALITY_KEY = "elsPanetsCalidad", TUTORIAL_KEY = "elsPanetsTutorial";
+  let lowQ = store.get(QUALITY_KEY, "alta") === "baja";       // calidad baja: menos resolución y sin adornos
+  let softFlash = store.get(FLASH_KEY, "1") !== "0";          // «Reducir destellos», activado de serie
+
   function resize() {
     const vw = window.innerWidth || LW, vh = window.innerHeight || 700;
-    LH = Math.round(Math.max(640, Math.min(860, (LW * vh) / vw)));
+    // hasta 1000 de alto: los móviles 20:9 y más largos se llenan sin bandas a los lados
+    LH = Math.round(Math.max(640, Math.min(1000, (LW * vh) / vw)));
     const scale = Math.min(vw / LW, vh / LH);
     const cssW = Math.floor(LW * scale), cssH = Math.floor(LH * scale);
     canvas.style.width = cssW + "px";
     canvas.style.height = cssH + "px";
     let dpr = window.devicePixelRatio || 1;
-    const maxPx = 2600000; // tope para equipos modestos
+    if (lowQ) dpr = Math.min(dpr, 1.5);
+    const maxPx = lowQ ? 700000 : 2600000; // tope de puntos del lienzo
     if (cssW * cssH * dpr * dpr > maxPx) dpr = Math.sqrt(maxPx / (cssW * cssH));
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
@@ -41,23 +100,17 @@
 
   const groundTop = () => LH - GROUND_H;
 
-  // ---------- Guardado (con red de seguridad) ----------
-  const store = {
-    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} },
-  };
-  const SOUND_KEY = "tacoSuitFlapMusic";
-  const BEST_KEY = "tacoSuitFlapBest";
-  const NAME_KEY = "tacoSuitFlapPlayerName";
-  const HOLDER_KEY = "tacoSuitFlapRecordHolder";
-  const SKIN_KEY = "tacoSuitFlapSkin";
-
   let best = Number(store.get(BEST_KEY, 0)) || 0;
   let recordHolder = store.get(HOLDER_KEY, null);
+  // quien ya había jugado no necesita el tutorial
+  if (best > 0 && store.get(TUTORIAL_KEY, null) === null) store.set(TUTORIAL_KEY, "1");
 
   // ---------- Sonido (todo sintetizado, sin archivos) ----------
   let actx = null, master = null, sfx = null, musicBus = null, noiseBuf = null;
-  let soundOn = store.get(SOUND_KEY, "1") !== "0";
+  // música y efectos por separado (antes iban juntos: se respeta lo que hubiera)
+  const oldSound = store.get("elsPanetsMusic", "1");
+  let musicOn = store.get(MUSIC_KEY, oldSound) !== "0", sfxOn = store.get(SFX_KEY, oldSound) !== "0";
+  let vibraOn = store.get(VIBRA_KEY, "1") !== "0";
 
   function audio() {
     if (!actx) {
@@ -65,13 +118,13 @@
       if (!AC) return null;
       actx = new AC();
       master = actx.createGain();
-      master.gain.value = soundOn ? 1 : 0;
+      master.gain.value = 1;
       master.connect(actx.destination);
       sfx = actx.createGain();
-      sfx.gain.value = 0.8;
+      sfx.gain.value = sfxOn ? 0.8 : 0;
       sfx.connect(master);
       musicBus = actx.createGain();
-      musicBus.gain.value = 0.12;
+      musicBus.gain.value = musicOn ? 0.12 : 0;
       musicBus.connect(master);
       noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
       const d = noiseBuf.getChannelData(0);
@@ -82,6 +135,7 @@
   }
 
   function tone(freq, dur, type, vol, glide, delay, dest) {
+    if (!sfxOn || sim) return;
     const ac = audio();
     if (!ac) return;
     const t = ac.currentTime + (delay || 0);
@@ -98,6 +152,7 @@
   }
 
   function noise(dur, vol, filter, freq, freqEnd, delay) {
+    if (!sfxOn || sim) return;
     const ac = audio();
     if (!ac) return;
     const t = ac.currentTime + (delay || 0);
@@ -152,10 +207,15 @@
     place() { [784, 988, 1175].forEach((f, i) => tone(f, 0.3, "triangle", 0.1, 0, i * 0.12)); },
   };
 
-  function setSound(on) {
-    soundOn = on;
-    store.set(SOUND_KEY, on ? "1" : "0");
-    if (master) master.gain.setTargetAtTime(on ? 1 : 0, actx.currentTime, 0.04);
+  function setMusic(on) {
+    musicOn = on;
+    store.set(MUSIC_KEY, on ? "1" : "0");
+    if (musicBus) musicBus.gain.setTargetAtTime(on ? 0.12 : 0, actx.currentTime, 0.04);
+  }
+  function setSfx(on) {
+    sfxOn = on;
+    store.set(SFX_KEY, on ? "1" : "0");
+    if (sfx) sfx.gain.setTargetAtTime(on ? 0.8 : 0, actx.currentTime, 0.04);
   }
 
   // Música: aire de joropo (3/4, re mayor) con bajo, cuatro rasgueado y melodía.
@@ -201,11 +261,13 @@
     while (nextStep < actx.currentTime + 0.15) {
       const bar = Math.floor(step / 6) % PROG.length, pos = step % 6;
       const ch = CHORDS[PROG[bar]];
-      if (pos === 0) musicNote(nextStep, ch.bass[0], E * 2.6, "triangle", 0.7);
-      if (pos === 3) musicNote(nextStep, ch.bass[1], E * 2.2, "triangle", 0.5);
-      if (STRUM[pos]) ch.notes.forEach((f, i) => musicNote(nextStep + i * 0.012, f, E * 1.3, "triangle", 0.16));
-      const m = MELODY[step % MELODY.length];
-      if (m) musicNote(nextStep, m, E * 1.6, "square", 0.08);
+      if (musicOn) {
+        if (pos === 0) musicNote(nextStep, ch.bass[0], E * 2.6, "triangle", 0.7);
+        if (pos === 3) musicNote(nextStep, ch.bass[1], E * 2.2, "triangle", 0.5);
+        if (STRUM[pos]) for (let i = 0; i < ch.notes.length; i++) musicNote(nextStep + i * 0.012, ch.notes[i], E * 1.3, "triangle", 0.16);
+        const m = MELODY[step % MELODY.length];
+        if (m) musicNote(nextStep, m, E * 1.6, "square", 0.08);
+      }
       step++;
       nextStep += E;
     }
@@ -218,7 +280,7 @@
     setInterval(musicTick, 50);
   }
 
-  function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+  function vibrate(p) { if (!vibraOn || sim) return; try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 
   // ---------- Utilidades de color y azar ----------
   function hexToRgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -258,8 +320,10 @@
     ctx.closePath();
   }
 
+  const fontMemo = {};
+  const fontOf = (size) => fontMemo[size] || (fontMemo[size] = size + "px " + FONT);
   function text(t, x, y, size, fill, stroke, sw, align) {
-    ctx.font = size + "px " + FONT;
+    ctx.font = fontOf(size);
     ctx.textAlign = align || "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
@@ -401,26 +465,27 @@
   for (const c of CHARACTERS) Object.assign(c, EXTRA[c.id]);
 
   // ---------- Tu propio personaje (03/11/2026) ----------
-  // Lo crea cada jugador y se guarda en su móvil al momento (desde el 13/11/2026 ya no
-  // pasa por el admin). Los que estaban esperando al admin se pueden usar ya.
+  // Lo crea cada jugador y se guarda en su móvil al momento. No sale del móvil.
   const CUSTOM_BASE = { id: "propio", name: "", unlock: 0, kind: "human", custom: true,
     skin: "#c4c4c4", skinD: "#a6a6a6", hair: "#6f6f6f", hairD: "#555555", hairStyle: "swept", part: 0,
     face: { rx: 11.4, ry: 14.6, chin: 0.52 }, eye: "#7c7c7c", nose: 5.2, smile: "neutral",
     brow: { color: "#5e5e5e", w: 1.8, y: 4.3, arch: 0.6 },
     top: "tee", topColor: "#9a9a9a", legs: "#707070", shoes: "#5c5c5c", shoeSole: "#4a4a4a",
     outfits: [{ name: "El tuyo", look: {} }] };
-  const CUSTOM_KEY = "elsPanetsPropio", DAY_MS = 24 * 3600 * 1000;
+  const CUSTOM_KEY = "elsPanetsPropio";
   const customDef = Object.assign({}, CUSTOM_BASE);
   CHARACTERS.push(customDef);
-  let customChar = null; // { estado, name, look, decidido }
+  let customChar = null; // { estado, name, look }
   try { customChar = JSON.parse(store.get(CUSTOM_KEY, "null")); } catch (e) { customChar = null; }
   // libre (aún no lo ha hecho) o aprobado (ya lo tiene guardado)
   function customState() {
     if (!customChar || !customChar.look || customChar.estado === "denegado") return "libre";
     return "aprobado";
   }
+  const lookCache = new Map(); // personajes ya vestidos, para no crearlos en cada cuadro
   function applyCustom(data) {
     customChar = data || null;
+    lookCache.clear();
     store.set(CUSTOM_KEY, JSON.stringify(customChar));
     for (const k of Object.keys(customDef)) delete customDef[k];
     Object.assign(customDef, CUSTOM_BASE);
@@ -429,34 +494,31 @@
     customDef.name = ok ? String(customChar.name || "").toUpperCase() : "";
   }
   applyCustom(customChar);
-  let customFetchedAt = 0;
-  function refreshCustom(force) {
-    const lb = window.TacoLeaderboard;
-    if (!lb || !lb.myCharacter || (!force && Date.now() - customFetchedAt < 20000)) return;
-    customFetchedAt = Date.now();
-    // el personaje ya no se baja de Firebase: vive en el móvil; solo se miran los ajustes del admin
-    if (lb.loadConfig) lb.loadConfig();
-  }
-  window.addEventListener("tacoLeaderboardReady", () => refreshCustom(true));
-  setTimeout(() => refreshCustom(true), 1500);
 
   const OUTFIT_PTS = [0, 150, 300, 450]; // el triple que antes (03/11/2026)
   const outfitKey = (id) => "elsPanetsRopa_" + id;
   const outfitUnlocked = (i) => best >= OUTFIT_PTS[i];
+  const outfitMem = {}; // la ropa elegida de cada uno, leída una sola vez
   function outfitIndex(def) {
-    const i = Number(store.get(outfitKey(def.id), 0)) || 0;
+    if (!(def.id in outfitMem)) outfitMem[def.id] = Number(store.get(outfitKey(def.id), 0)) || 0;
+    const i = outfitMem[def.id];
     return def.outfits && def.outfits[i] && outfitUnlocked(i) ? i : 0;
   }
-  // el personaje con su ropa puesta (la elegida, o la que se diga)
+  function setOutfit(def, i) { outfitMem[def.id] = i; store.set(outfitKey(def.id), i); }
+  // el personaje con su ropa puesta (la elegida, o la que se diga). No modificar lo que devuelve.
   function dressed(def, i) {
-    const o = def.outfits && def.outfits[i == null ? outfitIndex(def) : i];
-    return o ? Object.assign({}, def, o.look) : def;
+    const idx = i == null ? outfitIndex(def) : i, o = def.outfits && def.outfits[idx];
+    if (!o) return def;
+    const k = def.id + ":" + idx;
+    let d = lookCache.get(k);
+    if (!d) { d = Object.assign({}, def, o.look); lookCache.set(k, d); }
+    return d;
   }
   // ---------- Hucha, premio diario, caja sorpresa y lo que llevas puesto (12/11/2026) ----------
   // Las empanadillas que comes van a la hucha aunque pierdas. Con la hucha se abren cajas
   // (estelas y gorros para todos los personajes). Cada día hay premio y la racha lo sube.
-  const HUCHA_KEY = "elsPanetsHucha", OWN_KEY = "elsPanetsCosas", WEAR_KEY = "elsPanetsPuesto", DAILY_KEY = "elsPanetsDiario";
-  const BOX_COST = 50, DUP_BACK = 20, DAILY = [10, 15, 20, 25, 30, 40, 50];
+  const HUCHA_KEY = "elsPanetsHucha", OWN_KEY = "elsPanetsCosas", WEAR_KEY = "elsPanetsPuesto", DAILY_KEY = "elsPanetsDiario", PITY_KEY = "elsPanetsCajas";
+  const BOX_COST = 50, PITY_EVERY = 10, DAILY = [10, 15, 20, 25, 30, 40, 50];
   const readJSON = (k) => { try { return JSON.parse(store.get(k, "{}")) || {}; } catch (e) { return {}; } };
   let hucha = Number(store.get(HUCHA_KEY, 0)) || 0;
   let owned = readJSON(OWN_KEY), wear = readJSON(WEAR_KEY);
@@ -480,13 +542,34 @@
     for (let i = 0; i < 3; i++) { if (r < RARITY[i].w) return i; r -= RARITY[i].w; }
     return 0;
   }
+  // un premio cualquiera, solo para lo que pasa de largo en la ruleta
   function randomPrize() { const rar = pickRarity(), pool = PRIZES.filter((p) => p.rar === rar); return pool[Math.floor(Math.random() * pool.length)]; }
+  // 16/11/2026: la caja no da repetidos hasta completar la colección, y cada 10 cajas
+  // sin premio raro o épico, el siguiente lo es seguro. La exclusiva no sale en la caja.
+  let pity = Number(store.get(PITY_KEY, 0)) || 0; // cajas abiertas desde el último raro o épico
+  const leftOf = (rar) => PRIZES.filter((p) => p.rar === rar && !owned[p.id]);
+  const boxComplete = () => !PRIZES.some((p) => p.rar < 3 && !owned[p.id]);
+  // cuántas cajas faltan para el premio seguro (0: ya no quedan raros ni épicos)
+  const boxSureIn = () => (leftOf(1).length || leftOf(2).length ? Math.max(1, PITY_EVERY - pity) : 0);
+  // las probabilidades de verdad de la próxima caja: solo cuenta lo que falta por conseguir
+  function boxOdds() {
+    const sure = boxSureIn() === 1;
+    const rows = [0, 1, 2].map((rar) => { const left = leftOf(rar).length; return { rar, left, w: left && !(sure && rar === 0) ? RARITY[rar].w : 0, pct: 0 }; });
+    const tot = rows.reduce((s, r) => s + r.w, 0);
+    for (const r of rows) r.pct = tot ? (r.w * 100) / tot : 0;
+    return rows;
+  }
   function rollBox() {
-    if (hucha < BOX_COST) return null;
+    if (hucha < BOX_COST || boxComplete()) return null;
+    const odds = boxOdds().filter((o) => o.pct > 0);
+    let r = Math.random() * 100, rar = odds[0].rar;
+    for (const o of odds) { rar = o.rar; if (r < o.pct) break; r -= o.pct; }
+    const pool = leftOf(rar), p = pool[Math.floor(Math.random() * pool.length)];
     addHucha(-BOX_COST);
-    const p = randomPrize(), dup = !!owned[p.id];
-    if (dup) addHucha(DUP_BACK); else { owned[p.id] = 1; saveOwned(); setWear(p.kind, p.id); }
-    return { id: p.id, dup };
+    owned[p.id] = 1; saveOwned(); setWear(p.kind, p.id);
+    pity = rar >= 1 ? 0 : pity + 1;
+    store.set(PITY_KEY, pity);
+    return { id: p.id };
   }
   const dayStr = (d) => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   function dailyState() {
@@ -507,7 +590,11 @@
   // el personaje con su ropa y, encima, el gorro de la caja si lleva uno
   function worn(def) {
     const d = dressed(def), g = wear.gorro && owned[wear.gorro] ? wear.gorro.slice(2) : null;
-    return g ? Object.assign({}, d, { hat: HAT(g, HAT_COLORS[g] || "#e63946") }) : d;
+    if (!g) return d;
+    const k = def.id + ":" + outfitIndex(def) + ":" + g;
+    let w = lookCache.get(k);
+    if (!w) { w = Object.assign({}, d, { hat: HAT(g, HAT_COLORS[g] || "#e63946") }); lookCache.set(k, w); }
+    return w;
   }
 
   const CHAR_KEY = "elsPanetsCharacter";
@@ -515,9 +602,8 @@
   let viewIndex = charIndex; // el que se está mirando en el inicio
   const charUnlocked = (i) => (CHARACTERS[i].custom ? customState() === "aprobado" : best >= CHARACTERS[i].unlock);
   const selectedChar = () => (charUnlocked(charIndex) ? CHARACTERS[charIndex] : CHARACTERS[0]);
-  // tu personaje solo sale en la fila cuando ya lo has enviado (en revisión o aprobado);
-  // para crearlo está el botón del gris
-  const customShown = () => { const s = customState(); return s === "pendiente" || s === "aprobado"; };
+  // tu personaje solo sale en la fila cuando ya lo has creado; para crearlo está el botón del gris
+  const customShown = () => customState() === "aprobado";
   const shownCount = () => CHARACTERS.length - (customShown() ? 0 : 1);
   function viewChar(i) {
     const n = shownCount();
@@ -540,17 +626,21 @@
     { h: 20.5, top: [70, 50, 110], bottom: [200, 110, 120], mount: [62, 52, 86], city: [90, 70, 110], cloud: [160, 120, 160], night: 0.65 },
     { h: 22, top: [16, 22, 58], bottom: [52, 54, 104], mount: [32, 42, 72], city: [44, 50, 90], cloud: [96, 104, 146], night: 1 },
   ];
-  const START_SKY = Number(new URLSearchParams(location.search).get("hora")) || START_HOUR;
+  const START_SKY = Number(QS.get("hora")) || START_HOUR;
   const hourFor = (n) => START_SKY + (n * MIN_PER_EMPANADA) / 60;
   let skyHour = START_SKY; // la hora que se ve, que va alcanzando a la del reloj sin saltos
+  let palMemo = null, palHour = -99;
   function palette(hour) {
     const h = ((hour % 24) + 24) % 24;
+    // la misma paleta vale mientras la hora casi no cambie (no se crea una en cada cuadro)
+    if (palMemo && Math.abs(h - palHour) < 0.004) return palMemo;
+    palHour = h;
     let i = SKY_HOURS.length - 1;
     while (i > 0 && SKY_HOURS[i].h > h) i--;
     const a = SKY_HOURS[i], b = SKY_HOURS[(i + 1) % SKY_HOURS.length];
     const span = ((b.h - a.h) + 24) % 24 || 24;
     const g = smooth(clamp((((h - a.h) + 24) % 24) / span, 0, 1));
-    return {
+    return palMemo = {
       top: lerpArr(a.top, b.top, g), bottom: lerpArr(a.bottom, b.bottom, g),
       mount: lerpArr(a.mount, b.mount, g), city: lerpArr(a.city, b.city, g),
       cloud: lerpArr(a.cloud, b.cloud, g), night: lerp(a.night, b.night, g), hour: h,
@@ -595,23 +685,28 @@
   const clouds = Array.from({ length: 5 }, (_, i) => ({ x: i * 110 + rnd() * 60, y: 60 + rnd() * 220, s: 0.7 + rnd() * 0.6, v: 6 + rnd() * 10 }));
 
   // ---------- Estado de la partida ----------
-  const STATE = { START: 0, READY: 1, PLAY: 2, DYING: 3, OVER: 4, NAME: 5, PAUSE: 6 };
+  // COUNT: la cuenta «3, 2, 1» al volver de la pausa
+  const STATE = { START: 0, READY: 1, PLAY: 2, DYING: 3, OVER: 4, NAME: 5, PAUSE: 6, COUNT: 7 };
+  const COUNT_STEP = 0.8;
   let state = STATE.START;
   let stateT = 0; // tiempo en el estado actual
 
   const GRAVITY = 1500, FLAP_V = -430, COL_W = 66, CAP_H = 22, CAP_OUT = 6, SPACING = 236;
   const PLAYER_SCALE = 1.2;
   const player = { x: LW / 2, y: 300, vy: 0, rot: 0, flap: 0, eatT: 0, hitR: 14 };
-  // Para probar: ?puntos=30 empieza con 30 puntos; ?hora=19 empieza el día a las 19:00
-  const START_SCORE = Number(new URLSearchParams(location.search).get("puntos")) || 0;
+  // Para probar (solo en el ordenador): ?puntos=30 empieza con 30 puntos; ?hora=19 empieza el día a las 19:00
+  const START_SCORE = Number(QS.get("puntos")) || 0;
   let cols = [], particles = [], floaters = [];
+  let bites = [];          // empanadillas pequeñas de las filas de tres
+  let nextGapY = null;     // la altura del hueco siguiente, decidida con una columna de adelanto
+  let sinceLastRow = 0, tutStep = -1;
   let score = 0, eaten = 0, speed = 150, gap = 178, distToSpawn = 0, lastGapY = 0;
   let scroll = 0;          // distancia recorrida (para el fondo)
   let worldT = 0;          // reloj general
   let scorePop = 0, flashT = 0, newBest = false, medalPlayed = false;
   let pressLockUntil = 0;
-  // Para probar: ?comidas=24 empieza con 24 empanadillas (a una del objeto especial)
-  const START_EATEN = Number(new URLSearchParams(location.search).get("comidas")) || 0;
+  // Para probar (solo en el ordenador): ?comidas=24 empieza con 24 empanadillas (a una del objeto especial)
+  const START_EATEN = Number(QS.get("comidas")) || 0;
   const SPECIAL_EVERY = 15;
   const SPECIALS = {
     vino: { label: "¡VINO!", colors: ["#7b1e3a", "#c2185b", "#ffd166"] },
@@ -693,7 +788,7 @@
   const adminConfig = () => (window.TacoLeaderboard && window.TacoLeaderboard.getConfig && window.TacoLeaderboard.getConfig()) || {};
   function drawGhost() {
     if (!ghost || !ghost.length || !adminConfig().sombra) return;
-    if (state !== STATE.PLAY && state !== STATE.DYING && state !== STATE.PAUSE) return;
+    if (state !== STATE.PLAY && state !== STATE.DYING && state !== STATE.PAUSE && state !== STATE.COUNT) return;
     const i = Math.floor(runT * 30);
     const fade = i < ghost.length ? 1 : Math.max(0, 1 - (i - ghost.length) / 20);
     if (fade <= 0) return;
@@ -704,11 +799,27 @@
     ctx.restore();
   }
 
-  function setState(s) { state = s; stateT = 0; document.body.classList.toggle("enJuego", s !== STATE.START); }
+  function setState(s) { state = s; stateT = 0; document.body.classList.toggle("enJuego", s !== STATE.START); syncGuard(); }
+
+  // ---------- Dificultad (16/11/2026) ----------
+  // Sube poco a poco hasta los 400 puntos (antes se paraba en 100). Al llegar a cada
+  // lugar nuevo (cada 40 puntos, desde los 80) hay un tramo de respiro: el hueco se
+  // abre y se va algo más despacio durante unos puntos.
+  function restAt(s) {
+    if (s < 80) return 0;
+    const p = s % PLACE_EVERY;
+    return p < 8 ? 1 : p < 14 ? 1 - (p - 8) / 6 : 0;
+  }
+  let oldRules = false; // solo para medir: las reglas de antes (v28), para comparar
+  const speedAt = (s) => oldRules ? 150 + Math.min(60, Math.floor(s / 10) * 6)
+    : 150 + 60 * clamp(s / 130, 0, 1) + 35 * clamp((s - 130) / 270, 0, 1) - 14 * restAt(s);
+  const gapAt = (s) => oldRules ? Math.max(152, 178 - Math.floor(s / 10) * 3)
+    : 178 - 26 * clamp(s / 130, 0, 1) - 8 * clamp((s - 130) / 270, 0, 1) + 14 * restAt(s);
 
   function resetRun() {
-    cols = []; particles = []; floaters = []; trail = []; trailAcc = 0; overMsgs = [];
-    score = START_SCORE; eaten = START_EATEN; speed = 150; gap = 178;
+    cols.length = 0; particles.length = 0; floaters.length = 0; bites.length = 0; trail.length = 0; trailAcc = 0; overMsgs = [];
+    nextGapY = null; sinceLastRow = 0;
+    score = START_SCORE; eaten = START_EATEN; speed = speedAt(score); gap = gapAt(score);
     pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0; girlfriend = null;
     powerT = {}; shield = false; shieldSafe = 0; sinceLastPower = 0; miniK = 1;
     placeFrom = placeTo = Math.floor(START_SCORE / PLACE_EVERY) % PLACES.length; placeT = 1; placeBanner = 0;
@@ -722,7 +833,25 @@
   function goReady() {
     resetRun();
     loadRanking();
+    // la primera vez, el tutorial de 3 pasos
+    tutStep = store.get(TUTORIAL_KEY, null) === null ? 0 : -1;
     setState(STATE.READY);
+  }
+
+  // vuelve al inicio (botón INICIO y botón «atrás»)
+  function goHome() {
+    resetRun();
+    viewIndex = charIndex;
+    setState(STATE.START);
+  }
+  // deja la partida a medias: lo comido va a la hucha y, si era récord, se guarda
+  function leaveRun() {
+    settleRun();
+    if (newBest) { const name = store.get(NAME_KEY, null); if (name) publishRecord(name); }
+    goHome();
+  }
+  function pauseGame() {
+    if (state === STATE.PLAY || state === STATE.COUNT) setState(STATE.PAUSE);
   }
 
   function beginPlay() {
@@ -735,16 +864,27 @@
     player.vy = FLAP_V;
     snd.flap();
     // soplo de aire suave debajo (05/11/2026)
-    for (let i = 0; i < 4; i++) particles.push({ x: player.x - 6 + Math.random() * 10, y: player.y + 18, vx: -60 - Math.random() * 50, vy: 40 + Math.random() * 50,
+    if (!lowQ && !sim) for (let i = 0; i < 4; i++) particles.push({ x: player.x - 6 + Math.random() * 10, y: player.y + 18, vx: -60 - Math.random() * 50, vy: 40 + Math.random() * 50,
       life: 0.35 + Math.random() * 0.2, max: 0.55, color: "rgba(255,255,255,0.75)", r: 2.5 + Math.random() * 2.5 });
   }
 
+  // altura de un hueco: al azar, pero sin alejarse del anterior más de lo que da tiempo a volar
+  function pickGapY(prevY, g) {
+    const minY = 70, maxY = groundTop() - 70 - g;
+    const reach = oldRules ? 210 : lerp(210, 170, clamp((speed - 210) / 35, 0, 1));
+    // hacia abajo solo se puede caer: a más velocidad, menos tiempo para bajar al hueco siguiente,
+    // así que el escalón hacia abajo se acorta para que siempre dé tiempo (aunque se aletee al salir)
+    const T = (SPACING - COL_W - 2 * CAP_OUT - 28) / speed + 0.12;
+    const down = oldRules ? reach : clamp(FLAP_V * T + 0.5 * GRAVITY * T * T + g - 38, 90, reach);
+    const y = clamp(minY + Math.random() * (maxY - minY), prevY - reach, prevY + down);
+    return clamp(y, minY, maxY);
+  }
+
   function spawnColumn(x) {
-    const minY = 70, maxY = groundTop() - 70 - gap;
-    let y = minY + Math.random() * (maxY - minY);
-    y = clamp(y, lastGapY - 210, lastGapY + 210);
-    y = clamp(y, minY, maxY);
+    gap = gapAt(score);
+    const y = nextGapY == null ? pickGapY(lastGapY, gap) : clamp(nextGapY, 70, groundTop() - 70 - gap);
     lastGapY = y;
+    nextGapY = pickGapY(y, gap);
     const ch = selectedChar();
     let food = Math.random() < 0.85, kind = "empanada";
     if (pendingSpecial && ch.special) { kind = ch.special; food = true; pendingSpecial = false; }
@@ -754,16 +894,62 @@
       const pick = Object.keys(POWERS).filter((k) => !(k === "escudo" && shield) && !powerOn(k));
       if (pick.length) { kind = "p_" + pick[Math.floor(Math.random() * pick.length)]; food = true; sinceLastPower = 0; }
     }
-    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6, pull: 0, girl: kind === "novia" ? randomGirl() : null });
+    // 16/11/2026: la comida normal a veces va arriba o abajo del hueco (cuesta más cogerla,
+    // pero siempre se llega: queda a 34 del borde y se coge desde 29)
+    let fdy = 0;
+    const normal = !SPECIALS[kind] && !isPower(kind);
+    if (!oldRules && normal && food && score >= 10 && Math.random() < 0.35) fdy = (Math.random() < 0.5 ? -1 : 1) * (gap / 2 - 34);
+    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6, pull: 0, fdy, girl: kind === "novia" ? randomGirl() : null });
+    // fila de tres empanadillas pequeñas entre esta columna y la siguiente, un poco apartada
+    // del camino recto: riesgo a cambio de premio. Solo si los dos huecos están a una altura
+    // parecida, para que dé tiempo a ir y volver.
+    sinceLastRow++;
+    const cyA = y + gap / 2, cyB = nextGapY + gap / 2;
+    if (!oldRules && score >= 20 && sinceLastRow >= 3 && Math.abs(cyB - cyA) <= 80 && Math.random() < 0.45) {
+      sinceLastRow = 0;
+      const mx = x + COL_W + (SPACING - COL_W) / 2, mid = (cyA + cyB) / 2;
+      let side = Math.random() < 0.5 ? -1 : 1;
+      if (mid + side * 40 < 70 || mid + side * 40 > groundTop() - 70) side = -side;
+      const row = { n: 0 };
+      for (let i = -1; i <= 1; i++) {
+        bites.push({ x: mx + i * 36, y: mid + side * (i === 0 ? 40 : 28), row, eaten: false, pull: 0, ph: i * 0.9,
+          kind: ch.kind === "dog" ? DOG_FOODS[Math.floor(Math.random() * DOG_FOODS.length)] : "empanada" });
+      }
+    }
   }
 
-  // dónde está la comida de una columna (con el imán, va hacia el personaje)
+  // dónde está la comida de una columna (con el imán, va hacia el personaje).
+  // Devuelve siempre el mismo objeto: hay que usarlo antes de volver a llamar.
+  const FP = { x: 0, y: 0 };
   function foodPos(c) {
-    const bx = c.x + COL_W / 2, by = c.gapY + c.gap / 2 + Math.sin(c.bob) * 5;
-    if (!c.pull) return { x: bx, y: by };
+    const bx = c.x + COL_W / 2, by = c.gapY + c.gap / 2 + c.fdy + Math.sin(c.bob) * 5;
+    if (!c.pull) { FP.x = bx; FP.y = by; return FP; }
     const p = smooth(Math.min(1, c.pull));
-    return { x: lerp(bx, player.x + 1, p), y: lerp(by, player.y - 5, p) };
+    FP.x = lerp(bx, player.x + 1, p); FP.y = lerp(by, player.y - 5, p);
+    return FP;
   }
+  function bitePos(b) {
+    if (!b.pull) { FP.x = b.x; FP.y = b.y; return FP; }
+    const p = smooth(Math.min(1, b.pull));
+    FP.x = lerp(b.x, player.x + 1, p); FP.y = lerp(b.y, player.y - 5, p);
+    return FP;
+  }
+  // una empanadilla pequeña vale 1 punto; la fila entera, 2 más
+  function eatBite(b, x, y) {
+    b.eaten = true;
+    player.eatT = 0.3;
+    eaten++;
+    addScore(1);
+    snd.eat();
+    vibrate(8);
+    burst(x, y, BITE_COLORS, 7, 110);
+    if (++b.row.n === 3) {
+      addScore(2, x, y - 18);
+      floaters.push({ x: Math.max(x, 90), y: y - 46, txt: "¡FILA ENTERA!", t: 0, size: 20, color: "#fff" });
+    }
+    if (selectedChar().special && eaten % specialEvery(selectedChar()) === 0) pendingSpecial = true;
+  }
+  const BITE_COLORS = ["#f2a93b", "#c96d16", "#ffe2a0"];
 
   function collectPower(k, x, y) {
     const p = POWERS[k];
@@ -808,21 +994,11 @@
       placeTo = pi; placeT = 0; placeBanner = 2.6;
       snd.place();
     }
-    // más rápido y algo más estrecho cada 10 puntos, con tope
-    const lvl = Math.floor(score / 10);
-    speed = 150 + Math.min(60, lvl * 6);
-    gap = Math.max(152, 178 - lvl * 3);
+    // la velocidad y el hueco los marca la curva de dificultad (speedAt y gapAt)
   }
 
-  function crash() {
-    if (state !== STATE.PLAY) return;
-    if (window.elsPanetsPrueba && window.elsPanetsPrueba.inmortal) return;
-    snd.hit();
-    snd.fall();
-    vibrate([40, 30, 60]);
-    flashT = 1;
-    burst(player.x, player.y, ["#ffffff", "#ffd166", "#ef476f"], 16, 160);
-    player.vy = Math.min(player.vy, -120);
+  // cierra la cuenta de la partida: lo comido va a la hucha y, si es récord, se guarda
+  function settleRun() {
     prevBest = best;
     runEarned = Math.max(0, eaten - START_EATEN);
     if (runEarned) addHucha(runEarned);
@@ -830,9 +1006,24 @@
       best = score;
       newBest = true;
       store.set(BEST_KEY, best);
+      store.set(BEST_FOOD_KEY, eaten);
       ghost = ghostRec.slice();
       store.set(GHOST_KEY, JSON.stringify(ghost));
     }
+  }
+
+  const CRASH_COLORS = ["#ffffff", "#ffd166", "#ef476f"];
+  function crash() {
+    if (state !== STATE.PLAY) return;
+    if (sim) { simDead = true; return; }
+    if (LOCAL && window.elsPanetsPrueba && window.elsPanetsPrueba.inmortal) return;
+    snd.hit();
+    snd.fall();
+    vibrate([40, 30, 60]);
+    flashT = 1;
+    burst(player.x, player.y, CRASH_COLORS, 16, 160);
+    player.vy = Math.min(player.vy, -120);
+    settleRun();
     overMsgs = buildOverMessages();
     setState(STATE.DYING);
   }
@@ -853,12 +1044,12 @@
   }
 
   // ---------- «¡Casi!» y a quién adelantas del ranking (12/11/2026) ----------
-  let rankCache = null, rankAt = 0, prevBest = 0, runEarned = 0, overMsgs = [];
+  let rankCache = null, prevBest = 0, runEarned = 0, overMsgs = [], simDead = false;
+  // los 50 mejores; el módulo de Firebase los guarda 10 minutos, así que casi nunca lee
   function loadRanking() {
     const lb = window.TacoLeaderboard;
-    if (!lb || !lb.fetchTop || Date.now() - rankAt < 60000) return;
-    rankAt = Date.now();
-    lb.fetchTop(100).then((r) => { rankCache = r; }).catch(() => { rankAt = 0; });
+    if (!lb || !lb.ranking) return;
+    lb.ranking().then((r) => { rankCache = r; }).catch(() => {});
   }
   const niceName = (n) => { n = String(n || "").trim(); return n.length <= 2 ? n : n.charAt(0).toUpperCase() + n.slice(1).toLowerCase(); };
   function nextGoal() {
@@ -885,10 +1076,10 @@
     const others = (rankCache || []).filter((r) => r.id !== me && typeof r.score === "number" && r.name);
     if (others.length && score > 0) {
       const passed = newBest ? others.filter((r) => r.score >= prevBest && r.score < score).sort((a, b) => b.score - a.score) : [];
-      if (passed.length) out.push({ txt: "¡Has adelantado a " + passed[0].name + (passed.length > 1 ? " y " + (passed.length - 1) + " más" : "") + "!", color: "#7dff9a" });
+      if (passed.length) out.push({ txt: "¡Has adelantado a " + cleanName(passed[0].name) + (passed.length > 1 ? " y " + (passed.length - 1) + " más" : "") + "!", color: "#7dff9a" });
       else {
         const above = others.filter((r) => r.score >= score).sort((a, b) => a.score - b.score)[0];
-        if (above) out.push({ txt: "Te faltan " + (above.score - score + 1) + " para pasar a " + above.name, color: "#fff" });
+        if (above) out.push({ txt: "Te faltan " + (above.score - score + 1) + " para pasar a " + cleanName(above.name), color: "#fff" });
         else if (newBest) out.push({ txt: "¡Eres el número 1 del ranking!", color: "#7dff9a" });
       }
     }
@@ -908,20 +1099,100 @@
   const nameInput = document.getElementById("nameInput");
   const nameSubmit = document.getElementById("nameSubmit");
 
+  const nameMsg = document.getElementById("nameMsg");
+
+  // ---------- Nombres: filtro sencillo de palabrotas (castellano y catalán) ----------
+  // Se quitan tildes, números que hacen de letra y letras repetidas antes de mirar.
+  // trozos que no pueden salir en ninguna parte del nombre
+  const BAD_PARTS = ["puta", "puto", "mierd", "merda", "cabron", "gilipoll", "joder", "jodid", "follar", "follad", "coño",
+    "hijoput", "maricon", "polla", "zorra", "pendej", "capull", "subnorm", "imbecil", "culo", "sexo", "porno",
+    "cagon", "cagad", "mecago", "cagoen", "malparit", "bagassa", "collons", "cojon", "huevon", "guevon", "gonorrea", "mamaguev",
+    "violad", "violar", "retras", "mongol", "hitler", "fuck", "shit", "bitch", "nigg", "pajer", "chocho",
+    "carallot", "bastard", "idiota", "estupid"];
+  // palabras que solo se quitan si van sueltas (dentro de otras son normales: Penélope, Vergara…)
+  const BAD_WORDS = ["pene", "teta", "tetas", "caca", "nazi", "paja", "pito", "pedo", "ano", "guarra", "guarro", "perra", "figa",
+    "cony", "cabro", "pixa", "verga", "marica", "marico", "facha", "fatxa"];
+  const LEET = { 0: "o", 1: "i", 3: "e", 4: "a", 5: "s", 7: "t", "@": "a", $: "s", "€": "e" };
+  function nameBad(name) {
+    let s = String(name || "").toLowerCase().replace(/ñ/g, "\u0001").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\u0001/g, "ñ");
+    s = s.replace(/[013457@$€]/g, (ch) => LEET[ch]);
+    const words = s.split(/[^a-zñ]+/).filter(Boolean), all = words.join("");
+    // «puuuta» y «pollllla»: las letras repetidas tres veces o más se dejan en una y en dos
+    const forms = [all, all.replace(/(.)\1{2,}/g, "$1"), all.replace(/(.)\1{2,}/g, "$1$1")];
+    for (const f of forms) for (const b of BAD_PARTS) if (f.includes(b)) return true;
+    for (const w of words.concat(all)) if (BAD_WORDS.includes(w)) return true;
+    return false;
+  }
+  // "" si vale; si no, lo que hay que decirle al jugador
+  function nameProblem(name) {
+    const n = String(name || "").trim();
+    if (!n) return "Escribe un nombre";
+    if (n.length > 12) return "Como mucho, 12 letras";
+    if (nameBad(n)) return "Ese nombre no vale. Elige otro, por favor";
+    return "";
+  }
+  // los nombres del ranking que no pasan el filtro se enseñan como «Jugador»
+  const cleanName = (n) => { n = String(n || "").trim().slice(0, 12); return !n || nameBad(n) ? "Jugador" : n; };
+
   function showNameOverlay() {
     nameOverlay.classList.remove("hidden");
     nameInput.value = "";
+    nameMsg.textContent = "";
     setTimeout(() => nameInput.focus(), 50);
   }
+
+  // ---------- Envío del récord (16/11/2026) ----------
+  // El récord se apunta como pendiente y se envía cuando se puede: al momento, al
+  // volver la conexión o en el siguiente arranque. En el ordenador no se envía nada
+  // al ranking de verdad (salvo con ?enviar), y las partidas de prueba nunca se envían.
+  const PENDING_KEY = "elsPanetsPendiente", BEST_FOOD_KEY = "elsPanetsBestComidas", RANK_NEW_KEY = "elsPanetsRankingNuevo";
+  const CAN_SEND = !LOCAL || QS.has("enviar");
+  const TEST_RUN = START_SCORE > 0 || START_EATEN > 0 || QS.has("prueba");
+  let syncing = false;
+  function syncRecord() {
+    const lb = window.TacoLeaderboard, name = store.get(NAME_KEY, null);
+    if (syncing || !CAN_SEND || !lb || !lb.submitScore || !name || best <= 0 || store.get(PENDING_KEY, null) !== "1") return;
+    syncing = true;
+    const sent = best, sentName = name;
+    lb.submitScore(name, best, Number(store.get(BEST_FOOD_KEY, 0)) || 0, flagOf(selectedChar())).then((r) => {
+      syncing = false;
+      if (r === "sin-red") return;                 // se queda pendiente
+      if (best > sent || store.get(NAME_KEY, null) !== sentName) { syncRecord(); return; } // cambió mientras se enviaba
+      store.del(PENDING_KEY);
+    }, () => { syncing = false; });
+  }
+  function queueRecord() {
+    if (TEST_RUN || best <= 0 || !store.get(NAME_KEY, null)) return;
+    store.set(PENDING_KEY, "1");
+    syncRecord();
+  }
+  // al estrenar esta versión, el récord que ya había en el móvil sube al ranking nuevo
+  if (store.get(RANK_NEW_KEY, null) === null) {
+    store.set(RANK_NEW_KEY, "1");
+    if (best > 0 && store.get(NAME_KEY, null)) store.set(PENDING_KEY, "1");
+  }
+  window.addEventListener("online", syncRecord);
+  window.addEventListener("tacoLeaderboardReady", syncRecord);
+  setTimeout(syncRecord, 2500);
 
   function publishRecord(name) {
     recordHolder = name;
     store.set(HOLDER_KEY, name);
-    if (window.TacoLeaderboard) window.TacoLeaderboard.submitScore(name, score, eaten, flagOf(selectedChar()));
+    queueRecord();
+  }
+  // cambiar de nombre (Ajustes): también cambia en el ranking
+  function setPlayerName(name) {
+    name = String(name || "").trim().slice(0, 12);
+    if (nameProblem(name)) return false;
+    store.set(NAME_KEY, name);
+    if (best > 0) publishRecord(name);
+    return true;
   }
 
   function submitName() {
-    const name = nameInput.value.trim().slice(0, 12) || "Jugador";
+    const name = nameInput.value.trim().slice(0, 12);
+    const bad = nameProblem(name);
+    if (bad) { nameMsg.textContent = bad; return; }
     store.set(NAME_KEY, name);
     publishRecord(name);
     nameOverlay.classList.add("hidden");
@@ -1036,8 +1307,10 @@
     if (!cfg.rankingPaises) lbMode = "jugadores";
     lbTabs.classList.toggle("hidden", !cfg.rankingPaises);
     for (const b of lbTabs.querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === lbMode);
+    const me = window.TacoLeaderboard.myId ? window.TacoLeaderboard.myId() : null;
+    const note = '<li class="lbEmpty lbNote">Los 50 mejores. Se actualiza cada 10 minutos.</li>';
     if (lbMode === "paises") {
-      window.TacoLeaderboard.fetchTop(300).then((rows) => {
+      window.TacoLeaderboard.ranking().then((rows) => {
         const by = {};
         for (const r of rows || []) {
           if (!flagName(r.flag)) continue;
@@ -1049,27 +1322,35 @@
         lbList.innerHTML = list.map((c, i) => {
           const cls = i < 3 ? ` class="top${i + 1}"` : "";
           return `<li${cls}><span class="lbRank">${i + 1}</span>${flagImg(c.f)}<span class="lbName">${flagName(c.f)} <small>(${c.n})</small></span><span class="lbScore">${c.pts}</span></li>`;
-        }).join("") + '<li class="lbEmpty">Suma de los récords de cada país</li>';
+        }).join("") + '<li class="lbEmpty lbNote">Suma de los récords de cada país entre los 50 mejores.</li>';
       }).catch(() => { lbList.innerHTML = '<li class="lbEmpty">No se pudo cargar el ranking</li>'; });
       return;
     }
-    window.TacoLeaderboard.fetchTop(10).then((rows) => {
-      if (!rows || !rows.length) { lbList.innerHTML = '<li class="lbEmpty">Aún no hay puntuaciones</li>'; return; }
+    window.TacoLeaderboard.ranking().then((rows) => {
+      rankCache = rows;
+      if (!rows || !rows.length) { lbList.innerHTML = '<li class="lbEmpty">Aún no hay puntuaciones. ¡Sé el primero!</li>'; return; }
       lbList.innerHTML = rows.map((r, i) => {
-        const name = String(r.name || "Jugador").replace(/[<>&"']/g, "");
-        const cls = i < 3 ? ` class="top${i + 1}"` : "";
+        const name = cleanName(r.name).replace(/[<>&"']/g, "");
+        const cls = [i < 3 ? "top" + (i + 1) : "", r.id === me ? "lbMe" : ""].join(" ").trim();
         const fl = cfg.banderaRanking ? flagImg(r.flag) : "";
-        return `<li${cls}><span class="lbRank">${i + 1}</span>${fl}<span class="lbName">${name}</span><span class="lbScore">${Number(r.score) || 0}</span></li>`;
-      }).join("");
+        return `<li${cls ? ` class="${cls}"` : ""}><span class="lbRank">${i + 1}</span>${fl}<span class="lbName">${name}${r.id === me ? " <small>(tú)</small>" : ""}</span><span class="lbScore">${Number(r.score) || 0}</span></li>`;
+      }).join("") + note;
     }).catch(() => { lbList.innerHTML = '<li class="lbEmpty">No se pudo cargar el ranking</li>'; });
   }
 
   // ---------- Botones (posiciones según el alto de la pantalla) ----------
+  // Se calculan una vez y se guardan: solo cambian con el alto de la pantalla o el número de personajes.
+  let uiMemo = null, uiLH = 0, uiCount = 0;
   function ui() {
+    if (uiMemo && uiLH === LH && uiCount === shownCount()) return uiMemo;
+    uiLH = LH; uiCount = shownCount();
     const cx = LW / 2;
     const overCardY = LH * 0.27;
-    return {
-      sound: { x: 36, y: 40, r: 22 },
+    return uiMemo = {
+      gear: { x: 36, y: 40, r: 22 },
+      pause: { x: 30, y: 34, r: 16 },
+      resume: { x: cx - 110, y: LH * 0.4 + 44, w: 220, h: 60 },
+      pauseHome: { x: cx - 80, y: LH * 0.4 + 126, w: 160, h: 48 },
       rank: { x: LW - 36, y: 40, r: 22 },
       charY: LH * 0.31,
       prev: { x: cx - 118, y: LH * 0.31, r: 22 },
@@ -1102,7 +1383,8 @@
     if (window.ElsPanetsUI && window.ElsPanetsUI.isOpen()) return;
     startMusic();
     const u = ui();
-    if (p && state !== STATE.PLAY && state !== STATE.DYING && inCircle(p, u.sound)) { setSound(!soundOn); snd.click(); return; }
+    // la rueda de ajustes: en el inicio y en la pausa
+    if (p && (state === STATE.START || state === STATE.PAUSE) && inCircle(p, u.gear)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openSettings(); return; }
     if (p && (state === STATE.START || state === STATE.OVER) && inCircle(p, u.rank)) { snd.click(); showLeaderboard(); return; }
 
     switch (state) {
@@ -1117,14 +1399,15 @@
         }
         if (CHARACTERS[viewIndex].id === "gris" && inRect(p, u.create)) {
           const cst = customState();
-          if (cst === "libre") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); }
-          else if (cst !== "denegado") { snd.click(); viewChar(CHARACTERS.indexOf(customDef)); }
+          snd.click();
+          if (cst === "libre") { if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); }
+          else viewChar(CHARACTERS.indexOf(customDef));
           return;
         }
         if (CHARACTERS[viewIndex].custom) {
           const cst = customState();
           if (inRect(p, u.play) && cst === "libre") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); return; }
-          if (inRect(p, u.edit) && (cst === "pendiente" || cst === "aprobado")) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(customChar); return; }
+          if (inRect(p, u.edit) && cst === "aprobado") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(customChar); return; }
         }
         if (inCircle(p, u.prev)) { viewChar(viewIndex - 1); snd.click(); return; }
         if (inCircle(p, u.next)) { viewChar(viewIndex + 1); snd.click(); return; }
@@ -1133,29 +1416,83 @@
         }
         for (const o of CHARACTERS[viewIndex].custom || CHARACTERS[viewIndex].id === "gris" ? [] : u.outfits) {
           if (inCircle(p, { x: o.x, y: o.y, r: o.r - 3 })) {
-            if (charUnlocked(viewIndex) && outfitUnlocked(o.i)) { store.set(outfitKey(CHARACTERS[viewIndex].id), o.i); snd.click(); }
+            if (charUnlocked(viewIndex) && outfitUnlocked(o.i)) { setOutfit(CHARACTERS[viewIndex], o.i); snd.click(); }
             return;
           }
         }
         if (inRect(p, u.play) && charUnlocked(viewIndex)) { snd.click(); goReady(); }
         return;
       case STATE.READY:
+        // tutorial: cada toque pasa al paso siguiente; al acabar ya no vuelve a salir
+        if (tutStep >= 0) {
+          if (stateT < 0.5) return;
+          snd.click();
+          stateT = 0;
+          if (++tutStep > 2) { tutStep = -1; store.set(TUTORIAL_KEY, "1"); }
+          return;
+        }
         if (stateT > 0.15) beginPlay();
         return;
       case STATE.PLAY:
+        if (p && inCircle(p, u.pause)) { snd.click(); pauseGame(); return; }
         flap();
         return;
       case STATE.PAUSE:
-        setState(STATE.PLAY);
-        flap();
+        if (stateT < 0.25) return;
+        snd.click();
+        if (p && inRect(p, u.pauseHome)) { leaveRun(); return; }
+        // al seguir no se vuela de golpe: primero la cuenta «3, 2, 1»
+        setState(STATE.COUNT);
         return;
       case STATE.OVER:
         if (worldT < pressLockUntil) return;
         if (!p || inRect(p, u.again)) { snd.click(); goReady(); return; }
-        if (inRect(p, u.home)) { snd.click(); resetRun(); viewIndex = charIndex; setState(STATE.START); }
+        if (inRect(p, u.home)) { snd.click(); goHome(); }
         return;
     }
   }
+
+  // ---------- Botón «atrás» de Android (16/11/2026) ----------
+  // La app hace «atrás» en el historial si puede, y si no, se cierra. Mientras hay
+  // partida o una ventana abierta se guarda una entrada de más en el historial: al
+  // pulsar «atrás» se gasta esa entrada y aquí se decide qué toca (cerrar la ventana,
+  // pausar o volver al inicio). En el inicio no hay entrada de más: «atrás» sale.
+  let guard = false, dropGuard = false;
+  const overlayEls = document.querySelectorAll("#nameOverlay, #leaderboardOverlay, #installOverlay, .overlay");
+  function overlayOpen() {
+    for (let i = 0; i < overlayEls.length; i++) if (!overlayEls[i].classList.contains("hidden")) return true;
+    return false;
+  }
+  function syncGuard() {
+    if (dropGuard || sim) return;
+    const need = state !== STATE.START || overlayOpen();
+    try {
+      if (need && !guard) { history.pushState({ elsPanets: 1 }, ""); guard = true; }
+      else if (!need && guard) {
+        dropGuard = true; history.back();
+        setTimeout(() => { if (dropGuard) { dropGuard = false; guard = false; } }, 1500);
+      }
+    } catch (e) {}
+  }
+  function closeOverlays() {
+    if (!nameOverlay.classList.contains("hidden")) { nameOverlay.classList.add("hidden"); if (state === STATE.NAME) goOver(); return; }
+    document.getElementById("leaderboardOverlay").classList.add("hidden");
+    document.getElementById("installOverlay").classList.add("hidden");
+    if (window.ElsPanetsUI && window.ElsPanetsUI.closeAll) window.ElsPanetsUI.closeAll();
+  }
+  function backPressed() {
+    if (overlayOpen()) { closeOverlays(); return; }
+    if (state === STATE.PLAY || state === STATE.COUNT) pauseGame();
+    else if (state === STATE.PAUSE) leaveRun();
+    else if (state === STATE.READY || state === STATE.OVER) goHome();
+  }
+  window.addEventListener("popstate", () => {
+    guard = false;
+    if (dropGuard) { dropGuard = false; return; }
+    backPressed();
+    syncGuard();
+  });
+  setInterval(syncGuard, 300);
 
   canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); press(eventPoint(e)); });
   window.addEventListener("keydown", (e) => {
@@ -1165,13 +1502,20 @@
       snd.click();
       return;
     }
+    // Escape o P: pausa (en el ordenador)
+    if (e.code === "Escape" || e.code === "KeyP") {
+      if (e.repeat) return;
+      if (state === STATE.PLAY) pauseGame();
+      else if (state === STATE.PAUSE) setState(STATE.COUNT);
+      return;
+    }
     if (e.code !== "Space" && e.code !== "ArrowUp" && e.code !== "Enter") return;
     e.preventDefault();
     if (e.repeat) return;
     press(null);
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden && state === STATE.PLAY) setState(STATE.PAUSE);
+    if (document.hidden) pauseGame();
     if (actx) { if (document.hidden) actx.suspend(); else actx.resume(); }
   });
 
@@ -1182,7 +1526,7 @@
     worldT += dt;
     stateT += dt;
     scorePop = Math.max(0, scorePop - dt * 4);
-    flashT = Math.max(0, flashT - dt * 3.5);
+    flashT = Math.max(0, flashT - dt * (softFlash ? 2.2 : 3.5));
     player.eatT = Math.max(0, player.eatT - dt);
     placeT = Math.min(1, placeT + dt / PLACE_SECS);
     placeBanner = Math.max(0, placeBanner - dt);
@@ -1214,19 +1558,30 @@
         if (player.y > groundTop() - 22) { player.y = groundTop() - 22; if (stateT > 0.45) finishDying(); }
         else if (stateT > 1.6) finishDying();
         break;
+      case STATE.COUNT:
+        // acabada la cuenta se sigue; si iba cayendo, la caída empieza de cero
+        if (stateT >= COUNT_STEP * 3) { setState(STATE.PLAY); player.vy = Math.min(player.vy, 0); }
+        break;
     }
 
-    for (const pt of particles) { pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += 520 * dt; pt.life -= dt; }
+    // (las listas se limpian en su sitio, sin crear otras nuevas en cada paso)
+    let k = 0;
+    for (let i = 0; i < particles.length; i++) {
+      const pt = particles[i];
+      pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += 520 * dt; pt.life -= dt;
+      if (pt.life > 0) particles[k++] = pt;
+    }
+    particles.length = k;
     // estela: un punto cada poco, que se va con el escenario
     if (state === STATE.PLAY) {
-      for (const p of trail) p.x -= speed * dt;
+      for (let i = 0; i < trail.length; i++) trail[i].x -= speed * dt;
       trailAcc += dt;
       if (trailAcc >= 0.055) { trailAcc = 0; trail.push({ x: player.x - 12, y: player.y - 2, t: worldT }); }
       while (trail.length && worldT - trail[0].t > TRAIL_LIFE) trail.shift();
     }
-    particles = particles.filter((pt) => pt.life > 0);
-    for (const f of floaters) f.t += dt;
-    floaters = floaters.filter((f) => f.t < 0.9);
+    k = 0;
+    for (let i = 0; i < floaters.length; i++) { const f = floaters[i]; f.t += dt; if (f.t < 0.9) floaters[k++] = f; }
+    floaters.length = k;
   }
 
   function stepPlay(dt) {
@@ -1254,10 +1609,25 @@
       } else { crash(); return; }
     }
 
+    // la velocidad va hacia la que toca por puntos, sin saltos
+    speed += (speedAt(score) - speed) * Math.min(1, dt * 1.5);
     distToSpawn += speed * dt;
     if (distToSpawn >= SPACING) { distToSpawn -= SPACING; spawnColumn(LW + 20); }
 
-    for (const c of cols) {
+    // filas de tres: se cogen de cerca (o vienen solas con el imán)
+    let nb = 0;
+    for (let i = 0; i < bites.length; i++) {
+      const b = bites[i];
+      b.x -= speed * dt;
+      if (powerOn("iman") && (b.pull > 0 || (b.x > hx - 20 && Math.hypot(b.x - hx, b.y - hy) < 200))) b.pull = Math.min(1, b.pull + dt * 2.4);
+      const bp = bitePos(b), bx = bp.x, by = bp.y;
+      if ((hx - bx) ** 2 + (hy - by) ** 2 < (hr + 12) ** 2) eatBite(b, bx, by);
+      if (!b.eaten && b.x > -30) bites[nb++] = b;
+    }
+    bites.length = nb;
+
+    for (let ci = 0; ci < cols.length; ci++) {
+      const c = cols[ci];
       c.x -= speed * dt;
       c.bob += dt * 3;
       const top = c.gapY, bot = c.gapY + c.gap;
@@ -1270,8 +1640,8 @@
       if (c.food && !c.eaten) {
         // imán: la comida cercana (no los poderes) viene sola
         if (powerOn("iman") && !isPower(c.kind)) {
-          const b = { x: c.x + COL_W / 2, y: c.gapY + c.gap / 2 };
-          if (c.pull > 0 || (b.x > hx - 20 && Math.hypot(b.x - hx, b.y - hy) < 200)) c.pull = Math.min(1, c.pull + dt * 2.4);
+          const mx = c.x + COL_W / 2, my = c.gapY + c.gap / 2 + c.fdy;
+          if (c.pull > 0 || (mx > hx - 20 && Math.hypot(mx - hx, my - hy) < 200)) c.pull = Math.min(1, c.pull + dt * 2.4);
         }
         const fp = foodPos(c), fx = fp.x, fy = fp.y;
         if ((hx - fx) ** 2 + (hy - fy) ** 2 < (hr + 15) ** 2) {
@@ -1284,12 +1654,14 @@
           addScore(3, fx, fy - 20);
           snd.eat();
           vibrate(12);
-          burst(fx, fy, ["#f2a93b", "#c96d16", "#ffe2a0"], 14, 130);
+          burst(fx, fy, BITE_COLORS, 14, 130);
           if (selectedChar().special && eaten % specialEvery(selectedChar()) === 0) pendingSpecial = true;
         }
       }
     }
-    cols = cols.filter((c) => c.x > -COL_W - 20);
+    let nc = 0;
+    for (let i = 0; i < cols.length; i++) if (cols[i].x > -COL_W - 20) cols[nc++] = cols[i];
+    cols.length = nc;
   }
 
   function hitRect(cx, cy, r, x, y, w, h) {
@@ -1298,15 +1670,20 @@
   }
 
   // ---------- Dibujo del escenario ----------
+  let skyGrad = null, skyPal = null, skyGT = 0;
   function drawSky(pal) {
-    const g = ctx.createLinearGradient(0, 0, 0, groundTop());
-    g.addColorStop(0, rgb(pal.top));
-    g.addColorStop(1, rgb(pal.bottom));
-    ctx.fillStyle = g;
+    // el degradado del cielo se guarda mientras no cambien la hora ni la pantalla
+    if (skyPal !== pal || skyGT !== groundTop()) {
+      skyPal = pal; skyGT = groundTop();
+      skyGrad = mainCtx.createLinearGradient(0, 0, 0, skyGT);
+      skyGrad.addColorStop(0, rgb(pal.top));
+      skyGrad.addColorStop(1, rgb(pal.bottom));
+    }
+    ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, LW, LH);
 
     // estrellas quietas (sin parpadeo)
-    if (pal.night > 0.05) {
+    if (pal.night > 0.05 && !lowQ) {
       ctx.fillStyle = `rgba(255,255,240,${pal.night * 0.85})`;
       for (const s of stars) { ctx.beginPath(); ctx.arc(s.x, s.y * groundTop(), s.r, 0, Math.PI * 2); ctx.fill(); }
     }
@@ -1318,11 +1695,13 @@
       const low = 1 - Math.sin(k * Math.PI);
       const sr = lerp(26, 36, low);
       const col = lerpArr([255, 238, 150], [255, 140, 70], clamp(low * 1.3, 0, 1));
-      const halo = ctx.createRadialGradient(p.x, p.y, sr * 0.5, p.x, p.y, sr * 3);
-      halo.addColorStop(0, rgb(col, 0.45 * (1 - pal.night)));
-      halo.addColorStop(1, rgb(col, 0));
-      ctx.fillStyle = halo;
-      ctx.fillRect(p.x - sr * 3, p.y - sr * 3, sr * 6, sr * 6);
+      if (!lowQ) {
+        const halo = ctx.createRadialGradient(p.x, p.y, sr * 0.5, p.x, p.y, sr * 3);
+        halo.addColorStop(0, rgb(col, 0.45 * (1 - pal.night)));
+        halo.addColorStop(1, rgb(col, 0));
+        ctx.fillStyle = halo;
+        ctx.fillRect(p.x - sr * 3, p.y - sr * 3, sr * 6, sr * 6);
+      }
       ctx.fillStyle = rgb(col, clamp(1 - pal.night * 1.2, 0, 1));
       ctx.beginPath(); ctx.arc(p.x, p.y, sr, 0, Math.PI * 2); ctx.fill();
     }
@@ -1517,24 +1896,43 @@
   function changingPlace() {
     return state !== STATE.START && placeT < 1 && placeFrom !== placeTo;
   }
-  // pinta lo viejo, y encima lo nuevo solo a la derecha del borde
-  function drawWiped(drawOld, drawNew) {
-    if (!changingPlace()) { drawNew(); return; }
-    drawOld();
-    const e = LW + PLACE_BAND / 2 - smooth(placeT) * (LW + PLACE_BAND);
-    offCtx.clearRect(0, 0, LW, LH);
-    ctx = offCtx;
-    try { drawNew(); } finally { ctx = mainCtx; }
+  // 16/11/2026: el cambio se hace en una sola pasada. La zona nueva (paisaje y suelo) se
+  // pinta una vez aparte y solo en el trozo que ya se ve; después se copia en dos partes:
+  // el paisaje antes de las columnas y el suelo después. Lo viejo solo se pinta donde aún
+  // se ve. Antes se pintaba todo dos veces, y aparte otras dos.
+  let wipeOn = false, wipeX0 = 0, wipeX1 = 0;
+  function prepareWipe(pal) {
+    wipeOn = changingPlace();
+    if (!wipeOn) return;
+    const e = LW + PLACE_BAND / 2 - smooth(placeT) * (LW + PLACE_BAND); // centro del borde suave
+    wipeX0 = Math.max(0, Math.floor(e - PLACE_BAND / 2));  // desde aquí hacia la derecha hay zona nueva
+    wipeX1 = Math.min(LW, Math.ceil(e + PLACE_BAND / 2));  // hasta aquí queda algo de la vieja
+    if (wipeX0 >= LW) { wipeOn = false; wipeX1 = LW; return; }
     offCtx.save();
+    offCtx.beginPath(); offCtx.rect(wipeX0, 0, LW - wipeX0, LH); offCtx.clip();
+    offCtx.clearRect(wipeX0, 0, LW - wipeX0, LH);
+    ctx = offCtx;
+    try { drawPlace(placeTo, pal); drawGroundOf(pal, PLACES[placeTo]); } finally { ctx = mainCtx; }
+    offCtx.restore();
+    // el borde suave: solo se difumina la franja; a su derecha la zona nueva queda entera
+    offCtx.save();
+    offCtx.beginPath(); offCtx.rect(wipeX0, 0, wipeX1 - wipeX0, LH); offCtx.clip();
     offCtx.globalCompositeOperation = "destination-in";
     const g = offCtx.createLinearGradient(e - PLACE_BAND / 2, 0, e + PLACE_BAND / 2, 0);
     g.addColorStop(0, "rgba(0,0,0,0)");
     g.addColorStop(1, "rgba(0,0,0,1)");
     offCtx.fillStyle = g;
-    offCtx.fillRect(0, 0, LW, LH);
+    offCtx.fillRect(wipeX0, 0, wipeX1 - wipeX0, LH);
     offCtx.restore();
-    ctx.drawImage(offCv, 0, 0, LW, LH);
   }
+  // copia la zona nueva: el paisaje (top) o el suelo, punto por punto, sin estirar
+  function copyWipe(top) {
+    const k = canvas.width / LW, sx = Math.floor(wipeX0 * k), sy = Math.round(groundTop() * k);
+    const y = top ? 0 : sy, h = top ? sy : canvas.height - sy, w = canvas.width - sx;
+    if (w > 0 && h > 0) ctx.drawImage(offCv, sx, y, w, h, sx / k, y / k, w / k, h / k);
+  }
+  // lo viejo, solo en la parte de la pantalla donde todavía se ve
+  function clipOld() { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, wipeX1, LH); ctx.clip(); }
   function drawPlace(i, pal) {
     if (i === 1) { drawSea(pal); drawBeach(pal); }
     else if (i === 2) { drawAlps(pal); drawForest(pal); drawCabins(pal); }
@@ -1542,15 +1940,21 @@
     else { drawMountains(pal); drawCity(pal); drawHouses(pal); }
   }
   function drawScenery(pal) {
-    if (state === STATE.START) { drawPlace(0, pal); drawLife(0, pal); return; }
-    drawWiped(() => drawPlace(placeFrom, pal), () => drawPlace(placeTo, pal));
-    drawLife(placeTo, pal);
+    if (state === STATE.START) { drawPlace(0, pal); if (!lowQ) drawLife(0, pal); return; }
+    if (!wipeOn) drawPlace(placeTo, pal);
+    else {
+      clipOld(); drawPlace(placeFrom, pal); ctx.restore();
+      copyWipe(true);
+    }
+    // en calidad baja no hay adornos (pájaros, globo, nieve, mariposas)
+    if (!lowQ) drawLife(placeTo, pal);
   }
 
   // ---------- Vida en los mapas (05/11/2026) ----------
   // Todo se mueve despacio y sin parpadear: pájaros, y cada sitio lo suyo.
   const SNOW = Array.from({ length: 36 }, () => ({ x: Math.random() * LW, y: Math.random(), r: 1.2 + Math.random() * 1.8, v: 18 + Math.random() * 16, p: Math.random() * 6 }));
   const BUTTERFLIES = [{ c: "#ffd23f", p: 0 }, { c: "#ff8fb8", p: 2.1 }, { c: "#8fd3ff", p: 4.3 }];
+  const FLOCK = [[0, 0, 1], [18, 9, 0.85], [30, -6, 0.8], [44, 12, 0.7]];
   function drawBird(x, y, s, ph) {
     const w = Math.sin(ph) * 4;
     ctx.beginPath(); ctx.moveTo(x - 7 * s, y - w * s); ctx.quadraticCurveTo(x - 3 * s, y - 3 * s, x, y); ctx.quadraticCurveTo(x + 3 * s, y - 3 * s, x + 7 * s, y - w * s); ctx.stroke();
@@ -1562,7 +1966,7 @@
       ctx.globalAlpha = day * 0.8;
       ctx.strokeStyle = i === 1 ? "#ffffff" : "#3a3a48"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
       const span = LW + 700, bx = LW + 60 - ((t * 34) % span), by = 110 + Math.sin(t * 0.4) * 14;
-      for (const [dx, dy, s] of [[0, 0, 1], [18, 9, 0.85], [30, -6, 0.8], [44, 12, 0.7]]) drawBird(bx + dx, by + dy, s, t * 7 + dx);
+      for (const b of FLOCK) drawBird(bx + b[0], by + b[1], b[2], t * 7 + b[0]);
       ctx.lineCap = "butt"; ctx.globalAlpha = 1;
     }
     if (i === 0 && day > 0.05) {
@@ -1594,7 +1998,7 @@
         const x = LW * 0.5 + Math.sin(t * 0.35 + b.p) * LW * 0.42, y = gt - 110 + Math.sin(t * 0.9 + b.p * 2) * 18;
         const w = 0.35 + Math.abs(Math.sin(t * 9 + b.p)) * 0.65;
         ctx.fillStyle = b.c; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 0.8;
-        for (const sd of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x + sd * 3.5 * w, y, 4 * w, 3.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+        for (const sd of NUMS_1) { ctx.beginPath(); ctx.ellipse(x + sd * 3.5 * w, y, 4 * w, 3.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
         ctx.fillStyle = "#3b2414"; ctx.fillRect(x - 0.6, y - 3, 1.2, 6);
       }
     }
@@ -1782,7 +2186,9 @@
 
   function drawGround(pal) {
     if (state === STATE.START) { drawGroundOf(pal, PLACES[0]); return; }
-    drawWiped(() => drawGroundOf(pal, PLACES[placeFrom]), () => drawGroundOf(pal, PLACES[placeTo]));
+    if (!wipeOn) { drawGroundOf(pal, PLACES[placeTo]); return; }
+    clipOld(); drawGroundOf(pal, PLACES[placeFrom]); ctx.restore();
+    copyWipe(false);
   }
   function drawGroundOf(pal, G) {
     const y = groundTop(), n = pal.night;
@@ -1835,7 +2241,7 @@
     ctx.strokeStyle = "rgba(120,90,55,0.35)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    for (const fx of [14, 26, 40, 52]) { ctx.moveTo(x + fx, bot + CAP_H + 10); ctx.lineTo(x + fx, gt); }
+    for (const fx of NUMS_2) { ctx.moveTo(x + fx, bot + CAP_H + 10); ctx.lineTo(x + fx, gt); }
     ctx.stroke();
     drawCapital(x, bot, false);
     // de noche se oscurecen con el resto
@@ -1858,7 +2264,7 @@
     // corteza: vetas onduladas y algún nudo
     ctx.strokeStyle = "rgba(50,28,10,0.45)"; ctx.lineWidth = 1.6;
     ctx.beginPath();
-    for (const fx of [12, 25, 41, 54]) {
+    for (const fx of NUMS_3) {
       ctx.moveTo(x + fx, 0);
       for (let y = 0; y < end - 6; y += 12) ctx.lineTo(x + fx + Math.sin(y * 0.09 + fx + seed) * 2.2, y + 12);
     }
@@ -1872,7 +2278,7 @@
     // pinchos pequeños a los lados (no salen más que el capitel de antes)
     ctx.fillStyle = "#efe2c4"; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 1.3;
     for (let y = 18 + (seed * 7) % 20; y < end - 10; y += 30) {
-      for (const side of [0, 1]) {
+      for (const side of NUMS_4) {
         const yy = y + side * 15, bx = side ? x + COL_W : x, d = side ? CAP_OUT : -CAP_OUT;
         ctx.beginPath(); ctx.moveTo(bx, yy - 5); ctx.lineTo(bx + d, yy + 2); ctx.lineTo(bx, yy + 5); ctx.closePath(); ctx.fill(); ctx.stroke();
       }
@@ -1930,7 +2336,7 @@
       dot(mx, my, 1.8, "#2f8a3a");
     } else if (f === "hn") { // Honduras: azul, blanco y azul con cinco estrellas
       band("#00bce4", 0, h / 3); band("#ffffff", h / 3, h / 3); band("#00bce4", (h * 2) / 3, h / 3);
-      for (const [dx, dy] of [[-6, -1], [-6, 1], [0, 0], [6, -1], [6, 1]]) dot(mx + dx, my + dy, 0.9, "#00bce4");
+      for (const [dx, dy] of NUMS_5) dot(mx + dx, my + dy, 0.9, "#00bce4");
     } else { // Venezuela: amarillo, azul con el arco de estrellas, rojo
       band("#f7c600", 0, h / 3); band("#1d4fa3", h / 3, h / 3); band("#d52b1e", (h * 2) / 3, h / 3);
       for (let i = 0; i < 8; i++) {
@@ -2003,7 +2409,7 @@
       const t = Math.PI + (Math.PI * i) / 10, c = Math.cos(t), sn = Math.sin(t);
       ctx.beginPath(); ctx.moveTo(c * (R - 4), cy + sn * (R - 4)); ctx.lineTo(c * (R - 0.5), cy + sn * (R - 0.5)); ctx.stroke();
     }
-    for (const [dx, dy, r] of [[-8, -3, 1.6], [-3, -9, 1.2], [4, -5, 1.5], [9, -1, 1.1], [-11, 3, 1.1], [2, 1, 1.3], [7, -10, 1]]) {
+    for (const [dx, dy, r] of NUMS_6) {
       ctx.fillStyle = "rgba(150,70,10,0.55)";
       ctx.beginPath(); ctx.arc(dx, cy + dy, r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "rgba(255,240,190,0.7)";
@@ -2100,7 +2506,7 @@
         roundRect(-6.5, 1, 13, 12, 2); ctx.fill();
         ctx.strokeStyle = "#7b1e3a"; ctx.lineWidth = 1; ctx.stroke();
         ctx.fillStyle = "#6a1b4d";
-        for (const [gx, gy] of [[-1.6, 5], [1.6, 5], [0, 7.6], [-1.6, 3], [1.6, 3], [0, 9.8]]) {
+        for (const [gx, gy] of NUMS_7) {
           ctx.beginPath(); ctx.arc(gx, gy + 0.5, 1.3, 0, Math.PI * 2); ctx.fill();
         }
         ctx.strokeStyle = OL;
@@ -2122,7 +2528,7 @@
         ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 1; ctx.stroke();
         // agave
         ctx.fillStyle = "#3f8f4a";
-        for (const a of [-0.7, -0.35, 0, 0.35, 0.7]) {
+        for (const a of NUMS_8) {
           ctx.save(); ctx.translate(0, 13.5); ctx.rotate(a);
           ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(0, -7); ctx.lineTo(1, 0); ctx.closePath(); ctx.fill();
           ctx.restore();
@@ -2174,13 +2580,13 @@
         ctx.fillStyle = "rgba(214,58,50,0.85)";
         ctx.beginPath(); ctx.ellipse(-1, 1.5, 13, 8.5, -0.1, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#e85a4a";
-        for (const [tx, ty, r] of [[-7, -1, 2.4], [3, -3, 2], [6, 4, 2.6], [-3, 5, 1.8], [10, 0, 1.6]]) {
+        for (const [tx, ty, r] of NUMS_9) {
           ctx.beginPath(); ctx.arc(tx, ty, r, 0, Math.PI * 2); ctx.fill();
         }
         ctx.strokeStyle = "rgba(240,210,90,0.9)"; ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.moveTo(-10, -2); ctx.quadraticCurveTo(-2, 3, 9, -4); ctx.stroke();
         ctx.fillStyle = "#e9e3d6";
-        for (const [sx, sy] of [[-5, 2], [1, 0], [5, -1], [-1, 6]]) ctx.fillRect(sx, sy, 1.2, 1.2);
+        for (const [sx, sy] of NUMS_10) ctx.fillRect(sx, sy, 1.2, 1.2);
         ctx.strokeStyle = OL; ctx.lineWidth = 2;
         break;
       }
@@ -2196,7 +2602,7 @@
         ctx.fillStyle = cg;
         ctx.beginPath(); ctx.ellipse(0, -3, 16.5, 5.2, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "rgba(90,40,10,0.55)";
-        for (const [bx, by] of [[-8, -4], [5, -2], [9, -5], [-2, -1]]) { ctx.beginPath(); ctx.ellipse(bx, by, 2.2, 0.9, 0, 0, Math.PI * 2); ctx.fill(); }
+        for (const [bx, by] of NUMS_11) { ctx.beginPath(); ctx.ellipse(bx, by, 2.2, 0.9, 0, 0, Math.PI * 2); ctx.fill(); }
         ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-1, -6.5); ctx.stroke();
         // cucharita
@@ -2216,7 +2622,7 @@
         ctx.beginPath(); ctx.moveTo(-14, 7); ctx.quadraticCurveTo(-12, -9, 0, -10); ctx.quadraticCurveTo(12, -9, 14, 7); ctx.closePath();
         ctx.fill(); ctx.stroke();
         ctx.strokeStyle = "#b0397a"; ctx.lineWidth = 1.6;
-        for (const [ox, oy] of [[-5, -4], [2, -6], [6, -1], [-2, 1]]) { ctx.beginPath(); ctx.ellipse(ox, oy, 3, 1.6, 0.3, 0, Math.PI * 2); ctx.stroke(); }
+        for (const [ox, oy] of NUMS_12) { ctx.beginPath(); ctx.ellipse(ox, oy, 3, 1.6, 0.3, 0, Math.PI * 2); ctx.stroke(); }
         ctx.strokeStyle = OL; ctx.lineWidth = 2;
         ctx.save(); ctx.translate(15, -9); ctx.rotate(-0.6);
         ctx.fillStyle = "#f2c94c";
@@ -2277,7 +2683,7 @@
         ctx.beginPath(); ctx.moveTo(-16, 2); ctx.lineTo(16, -8); ctx.lineTo(11, -12); ctx.lineTo(-19, -1); ctx.closePath();
         ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#d9a21b";
-        for (const [hx2, hy2, r] of [[-8, 7, 2.5], [3, 3, 3], [10, 8, 2], [-1, 9.5, 1.6], [9, -1, 1.5]]) {
+        for (const [hx2, hy2, r] of NUMS_13) {
           ctx.beginPath(); ctx.ellipse(hx2, hy2, r, r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
         }
         break;
@@ -2318,7 +2724,7 @@
         ctx.rotate(-0.5);
         ctx.fillStyle = "#f6efe0";
         roundRect(5, -2.2, 10, 4.4, 2); ctx.fill(); ctx.stroke();
-        for (const by of [-3, 3]) { ctx.beginPath(); ctx.arc(16, by, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+        for (const by of NUMS_14) { ctx.beginPath(); ctx.arc(16, by, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
         const g = ctx.createRadialGradient(-6, -4, 2, -4, 0, 14);
         g.addColorStop(0, "#e9a050"); g.addColorStop(1, "#a85a1f");
         ctx.fillStyle = g;
@@ -2334,7 +2740,7 @@
         ctx.beginPath(); ctx.moveTo(-14, -9); ctx.quadraticCurveTo(0, -15, 14, -9); ctx.lineTo(13, -13); ctx.quadraticCurveTo(0, -19, -13, -13); ctx.closePath();
         ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#c0392b";
-        for (const [px2, py2] of [[-4, -5], [5, -4], [0, 4]]) { ctx.beginPath(); ctx.arc(px2, py2, 3, 0, Math.PI * 2); ctx.fill(); }
+        for (const [px2, py2] of NUMS_15) { ctx.beginPath(); ctx.arc(px2, py2, 3, 0, Math.PI * 2); ctx.fill(); }
         break;
       }
       case "hueso": {
@@ -2369,7 +2775,7 @@
     const trousers = skin.type === "golf" ? "#cbb88f" : darken(skin.suit, 0.15);
 
     // piernas
-    for (const lx of [-5, 3]) {
+    for (const lx of NUMS_16) {
       ctx.strokeStyle = OL; ctx.lineWidth = 7.5;
       ctx.beginPath(); ctx.moveTo(lx, 12); ctx.lineTo(lx - 3, 22); ctx.stroke();
       ctx.strokeStyle = trousers; ctx.lineWidth = 4.5;
@@ -2560,7 +2966,7 @@
     }
 
     // piernas (mallas o pantalón), calcetines y zapatillas
-    for (const lx of [-5, 3]) {
+    for (const lx of NUMS_16) {
       ctx.strokeStyle = OL; ctx.lineWidth = 7.5;
       ctx.beginPath(); ctx.moveTo(lx, 12); ctx.lineTo(lx - 3, 22); ctx.stroke();
       ctx.strokeStyle = d.legs; ctx.lineWidth = 4.5;
@@ -2635,7 +3041,7 @@
       ctx.strokeStyle = lum < 50 ? "#45454c" : darken(d.topColor, 0.3); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 4); ctx.stroke();
       ctx.fillStyle = lum < 50 ? "#55555c" : darken(d.topColor, 0.35);
-      for (const by of [-2, 1.5]) { ctx.beginPath(); ctx.arc(0.8, by, 0.8, 0, Math.PI * 2); ctx.fill(); }
+      for (const by of NUMS_17) { ctx.beginPath(); ctx.arc(0.8, by, 0.8, 0, Math.PI * 2); ctx.fill(); }
     } else if (d.top === "thriller") {
       // chaqueta roja de cuero con las uves negras en el pecho y los hombros, cremallera y cuello alto
       ctx.fillStyle = d.topColor;
@@ -2644,7 +3050,7 @@
       ctx.save();
       roundRect(-12, -8, 24, 23, 8); ctx.clip();
       ctx.strokeStyle = "#141414"; ctx.lineWidth = 2;
-      for (const off of [0, 4.5]) {
+      for (const off of NUMS_18) {
         ctx.beginPath(); ctx.moveTo(-12, -6 + off); ctx.lineTo(-1.5, 3 + off); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(12, -6 + off); ctx.lineTo(1.5, 3 + off); ctx.stroke();
       }
@@ -2731,7 +3137,7 @@
     // pecas
     if (d.freckles) {
       ctx.fillStyle = "rgba(170,95,60,0.55)";
-      for (const [fx2, fy2] of [[-8, 3], [-6, 4.2], [-9, 5], [-5.5, 2.5], [6.5, 3], [8.5, 4.2], [6, 5], [9.5, 2.8], [0.5, 3.5], [2.5, 3]]) {
+      for (const [fx2, fy2] of NUMS_19) {
         ctx.beginPath(); ctx.arc(cx + fx2, hy + fy2, 0.45, 0, Math.PI * 2); ctx.fill();
       }
     }
@@ -3311,7 +3717,7 @@
       ctx.beginPath(); ctx.arc(-1.5, ey, 1.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
       ctx.beginPath(); ctx.arc(4.5, ey, 1.6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
     } else {
-      for (const ex of [-1.5, 4.5]) {
+      for (const ex of NUMS_20) {
         ctx.beginPath(); ctx.arc(ex, ey, 1.4, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ex + 0.5, ey - 0.5, 0.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#2a1c14";
@@ -3395,7 +3801,7 @@
     // cabeza
     const hx = 12, hy = -10;
     const earFlop = sw * 0.12;
-    for (const [ex, tilt] of [[-5, -0.25], [3, 0.15]]) {
+    for (const [ex, tilt] of NUMS_21) {
       ctx.save();
       ctx.translate(hx + ex, hy - 6);
       ctx.rotate(tilt + earFlop);
@@ -3455,7 +3861,7 @@
       ctx.beginPath(); ctx.moveTo(2, -2); ctx.quadraticCurveTo(9, 1, 17, -1); ctx.lineTo(9, 10); ctx.closePath();
       ctx.fill(); ctx.strokeStyle = OL; ctx.lineWidth = 1.6; ctx.stroke();
       ctx.fillStyle = "rgba(255,255,255,0.85)";
-      for (const [bx, by] of [[6, 1], [11, 1.5], [9, 5], [13, -0.5]]) { ctx.beginPath(); ctx.arc(bx, by, 0.9, 0, Math.PI * 2); ctx.fill(); }
+      for (const [bx, by] of NUMS_22) { ctx.beginPath(); ctx.arc(bx, by, 0.9, 0, Math.PI * 2); ctx.fill(); }
     }
     if (d.collar) {
       ctx.strokeStyle = OL; ctx.lineWidth = 5;
@@ -3571,7 +3977,7 @@
     if (S.pattern === "panda") { ctx.fillStyle = "#26262c"; ctx.beginPath(); ctx.ellipse(5, -2.5, 7, 5.5, 0.3, 0, Math.PI * 2); ctx.fill(); }
     if (S.stripes) {
       ctx.strokeStyle = "#2a1c14"; ctx.lineWidth = 2;
-      for (const sx of [-13, -7, -1]) { const by = bodyTop(sx); ctx.beginPath(); ctx.moveTo(sx, by + 0.5); ctx.quadraticCurveTo(sx + 2.5, by + 4, sx, by + 8); ctx.stroke(); }
+      for (const sx of NUMS_23) { const by = bodyTop(sx); ctx.beginPath(); ctx.moveTo(sx, by + 0.5); ctx.quadraticCurveTo(sx + 2.5, by + 4, sx, by + 8); ctx.stroke(); }
     }
     // pata y aleta de delante, y ala de delante
     if (S.flippers) flipper(5, 1, 0.5 + sw * 0.7); else leg(9, 8, 1.0 + sw * 0.9, LIMB);
@@ -3608,7 +4014,7 @@
       g.addColorStop(0, "#fff4b0"); g.addColorStop(1, "#e8b830");
       ctx.fillStyle = g; tri(hx - 1, hy - 9, hx + 5, hy - 25, hx + 5, hy - 9.5); ctx.fill(); ink(1.4);
       ctx.strokeStyle = "rgba(160,110,20,0.7)"; ctx.lineWidth = 0.9;
-      for (const k of [0.35, 0.6, 0.8]) { ctx.beginPath(); ctx.moveTo(hx - 1 + 6 * k * 0.9, hy - 9 - 16 * k); ctx.lineTo(hx + 5, hy - 9.5 - 15.5 * k + 1.2); ctx.stroke(); }
+      for (const k of NUMS_24) { ctx.beginPath(); ctx.moveTo(hx - 1 + 6 * k * 0.9, hy - 9 - 16 * k); ctx.lineTo(hx + 5, hy - 9.5 - 15.5 * k + 1.2); ctx.stroke(); }
     }
     if (S.horns) {
       ctx.fillStyle = "#f3ead2";
@@ -3821,7 +4227,7 @@
     } else if (t === "fiesta") {
       ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(fx - rx * 0.62, top + 3); ctx.lineTo(fx + 2, top - 15); ctx.lineTo(fx + rx * 0.62, top + 3); ctx.closePath(); ctx.fill(); ink();
       ctx.save(); ctx.clip(); ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 2.2;
-      for (const k of [-7, -1, 5]) { ctx.beginPath(); ctx.moveTo(fx - rx, top + k + 2); ctx.lineTo(fx + rx, top + k - 4); ctx.stroke(); }
+      for (const k of NUMS_25) { ctx.beginPath(); ctx.moveTo(fx - rx, top + k + 2); ctx.lineTo(fx + rx, top + k - 4); ctx.stroke(); }
       ctx.restore();
       ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(fx + 2, top - 15.5, 2.6, 0, Math.PI * 2); ctx.fill(); ink(1.2);
     } else if (t === "chistera") {
@@ -3831,7 +4237,7 @@
       ctx.fillStyle = "#c0392b"; ctx.fillRect(fx - w + 0.8, top - 2.5, w * 2 - 1.6, 3);
       ctx.fillStyle = lighten(c, 0.15); ctx.beginPath(); ctx.ellipse(fx, top - 14, w, 1.8, 0, 0, Math.PI * 2); ctx.fill(); ink(1.2);
     } else if (t === "vikingo") {
-      for (const sd of [-1, 1]) {
+      for (const sd of NUMS_1) {
         ctx.fillStyle = "#f3ead2"; ctx.beginPath(); ctx.moveTo(fx + sd * rx * 0.75, top + 2); ctx.quadraticCurveTo(fx + sd * (rx + 7), top - 1, fx + sd * (rx + 6), top - 13);
         ctx.quadraticCurveTo(fx + sd * (rx + 2), top - 4, fx + sd * rx * 0.45, top - 1); ctx.closePath(); ctx.fill(); ink(1.4);
       }
@@ -3842,7 +4248,7 @@
       ctx.strokeStyle = "rgba(120,80,0,0.6)"; ctx.lineWidth = 4.2; ctx.beginPath(); ctx.ellipse(fx, top - 6, rx * 0.85, 3, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.strokeStyle = "#ffe066"; ctx.lineWidth = 2.6; ctx.stroke();
     } else if (t === "cuernos") {
-      for (const sd of [-1, 1]) {
+      for (const sd of NUMS_1) {
         const bx = fx + sd * rx * 0.5;
         ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(bx - 2.8, top + 3.5); ctx.quadraticCurveTo(bx + sd * 1.5, top - 2, bx + sd * 4, top - 7.5); ctx.quadraticCurveTo(bx + sd * 3.5, top, bx + 2.8, top + 3.5); ctx.closePath(); ctx.fill(); ink(1.3);
       }
@@ -3941,7 +4347,7 @@
     ctx.fillStyle = "#e63946"; roundRect(-9, -4, 18, 13, 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = "#ff5a67"; roundRect(-10.5, -8, 21, 5, 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = "#ffd23f"; ctx.fillRect(-2, -8, 4, 17); ctx.strokeRect(-2, -8, 4, 17);
-    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sd * 4, -10.5, 4, 2.4, sd * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    for (const sd of NUMS_1) { ctx.beginPath(); ctx.ellipse(sd * 4, -10.5, 4, 2.4, sd * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
     ctx.restore();
   }
 
@@ -4005,17 +4411,22 @@
     ctx.save(); ctx.translate(b.x, b.y); draw(); ctx.restore();
   }
 
-  function iconSound() {
+  // rueda dentada de Ajustes
+  function iconGear() {
     ctx.fillStyle = "#3b4a63";
-    ctx.beginPath(); ctx.moveTo(-9, -4); ctx.lineTo(-4, -4); ctx.lineTo(2, -10); ctx.lineTo(2, 10); ctx.lineTo(-4, 4); ctx.lineTo(-9, 4); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = "#3b4a63"; ctx.lineWidth = 2.4; ctx.lineCap = "round";
-    if (soundOn) {
-      ctx.beginPath(); ctx.arc(3, 0, 6, -0.9, 0.9); ctx.stroke();
-      ctx.beginPath(); ctx.arc(3, 0, 10.5, -0.9, 0.9); ctx.stroke();
-    } else {
-      ctx.strokeStyle = "#d63a32";
-      ctx.beginPath(); ctx.moveTo(6, -5); ctx.lineTo(14, 5); ctx.moveTo(14, -5); ctx.lineTo(6, 5); ctx.stroke();
-    }
+    for (let i = 0; i < 8; i++) { ctx.save(); ctx.rotate((i * Math.PI) / 4); roundRect(-3, -13, 6, 8, 1.5); ctx.fill(); ctx.restore(); }
+    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+  }
+  // botón de pausa: pequeño y medio transparente, arriba a la izquierda (no tapa el marcador)
+  function drawPauseButton(b) {
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(59,36,20,0.7)"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = "#3b4a63";
+    roundRect(b.x - 6, b.y - 7, 4.5, 14, 1.5); ctx.fill();
+    roundRect(b.x + 1.5, b.y - 7, 4.5, 14, 1.5); ctx.fill();
   }
 
   function iconTrophy() {
@@ -4036,12 +4447,21 @@
     ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 3; ctx.stroke();
   }
 
+  // La letra del juego va dentro del juego (fonts/). El inicio espera a que esté lista
+  // para no pintar el título con otra letra y cambiarlo después.
+  let fontReady = !(document.fonts && document.fonts.load), fontAt = 0;
+  if (!fontReady) {
+    const ok = () => { if (!fontReady) { fontReady = true; fontAt = worldT; } };
+    document.fonts.load("64px 'Lilita One'", "ELS PANETS").then(ok, ok);
+    setTimeout(ok, 3000);
+  }
   function title(y) {
     const bob = Math.sin(worldT * 2) * 3;
     ctx.save();
+    ctx.globalAlpha = clamp((worldT - fontAt) / 0.3, 0, 1); // entra con un fundido suave
     ctx.translate(LW / 2, y + bob);
     ctx.rotate(-0.04);
-    ctx.font = "64px " + FONT;
+    ctx.font = fontOf(64);
     ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
     ctx.fillStyle = "rgba(0,0,0,0.25)";
     ctx.fillText("ELS PANETS", 0, 7);
@@ -4071,8 +4491,8 @@
     if (viewIndex >= shownCount()) viewChar(0); // lo denegaron mientras lo mirabas
     const u = ui();
     const def = CHARACTERS[viewIndex], open = charUnlocked(viewIndex);
-    const cst = def.custom ? customState() : null; // tu personaje: libre, pendiente, aprobado o denegado
-    refreshCustom(false);
+    const cst = def.custom ? customState() : null; // tu personaje: libre (sin hacer) o aprobado (hecho)
+    if (!fontReady) return;
     title(LH * 0.12);
     // la historia del personaje que se mira
     const story = def.custom ? (cst === "aprobado" ? "Tu personaje, hecho por ti." : "Hazte tu propio personaje.") : def.story;
@@ -4085,14 +4505,12 @@
     text(story || "¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, story ? 17 : 19, "#fff", "#3b2414", 5);
     if (cst === "libre") text("+", player.x, player.y - 4, 54, "#ffd23f", "#5a2a06", 8);
     else if (!open && !def.custom) drawLock(player.x, player.y - 6, 1.6);
-    roundIcon(u.prev, () => chevron(-1));
-    roundIcon(u.next, () => chevron(1));
+    roundIcon(u.prev, chevLeft);
+    roundIcon(u.next, chevRight);
     const ny = u.charY + 58;
     let label = def.name, labelColor = "#fff";
     if (def.custom) {
       if (cst === "libre") { label = "CREA TU PERSONAJE"; labelColor = "#ffd23f"; }
-      else if (cst === "pendiente") { label = "ESPERANDO AL ADMIN"; labelColor = "#ffd23f"; }
-      else if (cst === "denegado") { label = "DENEGADO"; labelColor = "#ff6b6b"; }
     } else if (!open) { label = "LLEGA A " + def.unlock + " PUNTOS"; labelColor = "#ffd23f"; }
     if (label) {
       ctx.fillStyle = "rgba(40,24,12,0.55)";
@@ -4107,7 +4525,7 @@
     ctx.scale(pulse, pulse);
     ctx.translate(-LW / 2, -(u.play.y + u.play.h / 2));
     ctx.globalAlpha = playOk ? 1 : 0.5;
-    const playTxt = open ? "JUGAR" : cst === "libre" ? "CREAR" : cst === "pendiente" ? "EN REVISIÓN" : cst === "denegado" ? "DENEGADO" : "BLOQUEADO";
+    const playTxt = open ? "JUGAR" : cst === "libre" ? "CREAR" : "BLOQUEADO";
     button(u.play, playTxt, playOk);
     ctx.globalAlpha = 1;
     ctx.restore();
@@ -4138,29 +4556,16 @@
     // tu personaje: en lugar de la ropa, en qué punto está y el botón de cambiarlo
     if (def.custom) {
       const oy = u.outfits[0].y;
-      let msg = "Tú lo diseñas y se guarda en tu móvil";
-      if (cst === "aprobado") msg = "¡Listo! Ya puedes jugar con él";
-      else if (cst === "denegado") {
-        const left = Math.max(0, (customChar.decidido || 0) + DAY_MS - Date.now());
-        msg = "Podrás crear otro en " + Math.floor(left / 3600000) + " h " + Math.floor((left % 3600000) / 60000) + " min";
-      }
-      text(msg, LW / 2, oy - 25, 14, cst === "denegado" ? "#c0392b" : "#8a5a2b");
-      if (cst === "pendiente" || cst === "aprobado") button(u.edit, "CAMBIARLO", true, 18);
+      text(cst === "aprobado" ? "¡Listo! Ya puedes jugar con él" : "Tú lo diseñas y se guarda en tu móvil", LW / 2, oy - 25, 14, "#8a5a2b");
+      if (cst === "aprobado") button(u.edit, "CAMBIARLO", true, 18);
       text("Se guarda solo en este móvil", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
     } else if (def.id === "gris") {
       // el gris no tiene ropa: aquí va, en grande, el botón de crear tu personaje
       const gst = customState();
       let msg = "Tú lo diseñas y se guarda en tu móvil", btn = "CREA TU PERSONAJE";
       if (gst === "aprobado") { msg = "Ya tienes tu personaje"; btn = "TU PERSONAJE"; }
-      else if (gst === "denegado") {
-        const left = Math.max(0, (customChar.decidido || 0) + DAY_MS - Date.now());
-        msg = "Podrás crear otro en " + Math.floor(left / 3600000) + " h " + Math.floor((left % 3600000) / 60000) + " min";
-        btn = "DENEGADO";
-      }
-      text(msg, LW / 2, u.cardY + CARD_H - 14, 14, gst === "denegado" ? "#c0392b" : "#8a5a2b");
-      ctx.globalAlpha = gst === "denegado" ? 0.5 : 1;
-      button(u.create, btn, gst !== "denegado", 17);
-      ctx.globalAlpha = 1;
+      text(msg, LW / 2, u.cardY + CARD_H - 14, 14, "#8a5a2b");
+      button(u.create, btn, true, 17);
     } else {
     // ropa: cuatro conjuntos con el personaje en miniatura
     const selO = outfitIndex(def);
@@ -4203,7 +4608,7 @@
     text("CAJA", cb.x + 64, by + 1, 19, "#fff", "#7c3a0a", 4);
     drawFood("empanada", cb.x + 110, by, 0, 0.5);
     text(String(hucha), cb.x + 143, by + 1, 18, "#fff", "#7c3a0a", 4);
-    if (hucha >= BOX_COST) {
+    if (hucha >= BOX_COST && !boxComplete()) {
       ctx.fillStyle = "#d63a32"; ctx.beginPath(); ctx.arc(cb.x + cb.w - 4, cb.y + 2, 9, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
       text("!", cb.x + cb.w - 4, cb.y + 3, 13, "#fff");
@@ -4220,8 +4625,70 @@
     ctx.strokeStyle = "#3b4a63"; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineJoin = "round";
     ctx.beginPath(); ctx.moveTo(-3 * dir, -8); ctx.lineTo(5 * dir, 0); ctx.lineTo(-3 * dir, 8); ctx.stroke();
   }
+  const chevLeft = () => chevron(-1), chevRight = () => chevron(1);
+
+  // ---------- Tutorial de 3 pasos, la primera vez (16/11/2026) ----------
+  const TUT = [
+    ["TOCA PARA VOLAR", "Cada toque es un aleteo.", "Si no tocas, caes."],
+    ["COME EMPANADILLAS", "Cada una vale 3 puntos", "y va a tu hucha."],
+    ["ESQUIVA LOS TRONCOS", "Pasa por el hueco.", "Si chocas, se acaba la partida."],
+  ];
+  const TUT_COL = { x: 0, gapY: 0, gap: 150, bob: 0, seed: 3 };
+  const TUT_BTN = { x: 0, y: 0, w: 200, h: 46 };
+  function drawTutorial() {
+    const cx = LW / 2, w = 330, h = 356, x = cx - w / 2, y = Math.max(92, LH * 0.47 - h / 2);
+    const T = TUT[tutStep], t = worldT, who = worn(selectedChar());
+    ctx.fillStyle = "rgba(10,14,30,0.45)";
+    ctx.fillRect(0, 0, LW, LH);
+    card(x, y, w, h);
+    text("CÓMO SE JUEGA · " + (tutStep + 1) + " DE 3", cx, y + 22, 15, "#8a5a2b");
+    // el dibujo de cada paso, en un recuadro de cielo
+    const ix = x + 20, iy = y + 40, iw = w - 40, ih = 156;
+    ctx.save();
+    roundRect(ix, iy, iw, ih, 16); ctx.clip();
+    const sky = ctx.createLinearGradient(0, iy, 0, iy + ih);
+    sky.addColorStop(0, "#7cc4ec"); sky.addColorStop(1, "#d9f0f5");
+    ctx.fillStyle = sky; ctx.fillRect(ix, iy, iw, ih);
+    if (tutStep === 0) {
+      // sube con cada toque y baja despacio
+      const ph = (t % 1.5) / 1.5, up = Math.sin(Math.min(1, ph * 1.5) * Math.PI) * 24;
+      drawChar(who, ix + iw * 0.34, iy + ih * 0.66 - up, 0, t * 9, 1.15, "");
+      const fx = ix + iw * 0.72, fy = iy + ih * 0.4, ring = Math.min(1, ph * 2.5);
+      ctx.strokeStyle = `rgba(255,255,255,${0.85 * (1 - ring)})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(fx, fy, 10 + ring * 20, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2.5;
+      roundRect(fx - 6, fy - 4, 12, 30, 6); ctx.fill(); ctx.stroke();
+      roundRect(fx - 13, fy + 14, 26, 24, 10); ctx.fill(); ctx.stroke();
+    } else if (tutStep === 1) {
+      drawChar(who, ix + iw * 0.22, iy + ih * 0.66 + Math.sin(t * 2) * 4, 0, t * 9, 1.1, "");
+      for (let i = 0; i < 3; i++) drawFood(counterFood(), ix + iw * (0.5 + i * 0.17), iy + ih * 0.52 + Math.sin(t * 2 + i) * 3, 0, 0.85, true);
+      text("+3", ix + iw * 0.5, iy + ih * 0.24, 24, "#fff", "#5a2a06", 5);
+    } else {
+      // un tronco y una columna en pequeño, y el camino por el hueco
+      const k = 0.42, gt = groundTop();
+      ctx.save();
+      ctx.translate(ix + iw * 0.62, iy + ih); ctx.scale(k, k); ctx.translate(0, -gt);
+      TUT_COL.gapY = gt - (ih / k) / 2 - TUT_COL.gap / 2;
+      drawColumn(TUT_COL, 0);
+      ctx.restore();
+      ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 3; ctx.lineCap = "round";
+      ctx.setLineDash([2, 9]);
+      ctx.beginPath(); ctx.moveTo(ix + iw * 0.36, iy + ih * 0.5); ctx.lineTo(ix + iw * 0.95, iy + ih * 0.5); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineCap = "butt";
+      drawChar(who, ix + iw * 0.22, iy + ih * 0.58 + Math.sin(t * 2) * 4, 0, t * 9, 1.0, "");
+    }
+    ctx.restore();
+    ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2.5;
+    roundRect(ix, iy, iw, ih, 16); ctx.stroke();
+    text(T[0], cx, y + 222, 25, "#f08a24", "#5a2a06", 5);
+    text(T[1], cx, y + 252, 17, "#3b2414");
+    text(T[2], cx, y + 274, 17, "#3b2414");
+    TUT_BTN.x = cx - 100; TUT_BTN.y = y + h - 62;
+    button(TUT_BTN, tutStep < 2 ? "SIGUIENTE" : "¡A JUGAR!", true, 22);
+  }
 
   function drawReady() {
+    if (tutStep >= 0) { drawTutorial(); return; }
     drawScoreHud();
     text("¡PREPÁRATE!", LW / 2, LH * 0.22, 46, "#ffd23f", "#5a2a06", 10);
     text("Toca la pantalla para volar", LW / 2, LH * 0.22 + 44, 20, "#fff", "#3b2414", 5);
@@ -4359,25 +4826,48 @@
   }
 
   function drawPause() {
+    const u = ui();
     ctx.fillStyle = "rgba(10,14,30,0.55)";
     ctx.fillRect(0, 0, LW, LH);
-    text("PAUSA", LW / 2, LH * 0.4, 56, "#fff", "#2a1c14", 10);
-    text("Toca para seguir", LW / 2, LH * 0.4 + 50, 22, "#fff", "#2a1c14", 5);
+    text("PAUSA", LW / 2, LH * 0.4 - 10, 56, "#fff", "#2a1c14", 10);
+    button(u.resume, "SEGUIR", true);
+    button(u.pauseHome, "INICIO", false, 20);
+    roundIcon(u.gear, iconGear);
+  }
+  // cuenta «3, 2, 1» al volver de la pausa: cada número entra y se va con un fundido
+  function drawCount() {
+    const i = Math.min(2, Math.floor(stateT / COUNT_STEP)), f = (stateT - i * COUNT_STEP) / COUNT_STEP;
+    ctx.fillStyle = "rgba(10,14,30,0.3)";
+    ctx.fillRect(0, 0, LW, LH);
+    ctx.save();
+    ctx.globalAlpha = Math.min(clamp(f / 0.2, 0, 1), clamp((1 - f) / 0.3, 0, 1));
+    ctx.translate(LW / 2, LH * 0.4);
+    const s = 1.08 - 0.08 * easeOut(f);
+    ctx.scale(s, s);
+    text(String(3 - i), 0, 0, 96, "#fff", "#2a1c14", 12);
+    ctx.restore();
+    text("Prepárate…", LW / 2, LH * 0.4 + 74, 22, "#fff", "#2a1c14", 5);
   }
 
   // ---------- Bucle de dibujo ----------
   function render() {
-    const inRun = state === STATE.PLAY || state === STATE.DYING || state === STATE.OVER || state === STATE.NAME || state === STATE.PAUSE;
+    const inRun = state === STATE.PLAY || state === STATE.DYING || state === STATE.OVER || state === STATE.NAME || state === STATE.PAUSE || state === STATE.COUNT;
     const pal = palette(inRun ? skyHour : START_SKY);
+    prepareWipe(pal);
     drawSky(pal);
-    drawClouds(pal);
+    if (!lowQ) drawClouds(pal);
     drawScenery(pal);
-    for (const c of cols) drawColumn(c, pal.night);
-    for (const c of cols) {
+    for (let i = 0; i < cols.length; i++) drawColumn(cols[i], pal.night);
+    for (let i = 0; i < cols.length; i++) {
+      const c = cols[i];
       if (!c.food || c.eaten) continue;
       const fp = foodPos(c);
       if (isPower(c.kind)) drawPower(c.kind.slice(2), fp.x, fp.y, 1, true);
       else drawFood(c.kind, fp.x, fp.y, c.bob, 1, true, c.girl);
+    }
+    for (let i = 0; i < bites.length; i++) {
+      const b = bites[i], bp = bitePos(b);
+      drawFood(b.kind, bp.x, bp.y + Math.sin(worldT * 3 + b.ph) * 3, 0, 0.62, true);
     }
     drawGround(pal);
 
@@ -4412,19 +4902,23 @@
     else if (state === STATE.PLAY || state === STATE.DYING) { drawScoreHud(); drawPowerHud(); drawPlaceBanner(); }
     else if (state === STATE.OVER) drawOver();
     else if (state === STATE.PAUSE) { drawScoreHud(); drawPause(); }
+    else if (state === STATE.COUNT) { drawScoreHud(); drawPowerHud(); drawCount(); }
 
     drawPhoto();
+    // «Reducir destellos» (de serie): un velo claro y suave en lugar del destello blanco
     if (flashT > 0) {
-      ctx.fillStyle = `rgba(255,255,255,${flashT * 0.45})`;
+      ctx.fillStyle = softFlash ? `rgba(255,255,255,${(flashT * flashT * 0.14).toFixed(3)})` : `rgba(255,255,255,${flashT * 0.45})`;
       ctx.fillRect(0, 0, LW, LH);
     }
     if (camFlash > 0) {
-      ctx.fillStyle = `rgba(255,255,255,${Math.min(1, camFlash)})`;
+      const a = Math.min(1, camFlash);
+      ctx.fillStyle = softFlash ? `rgba(255,255,255,${(a * a * 0.2).toFixed(3)})` : `rgba(255,255,255,${a})`;
       ctx.fillRect(0, 0, LW, LH);
     }
     const u = ui();
-    if (state !== STATE.PLAY && state !== STATE.DYING) roundIcon(u.sound, iconSound);
-    if (state === STATE.START || state === STATE.OVER) roundIcon(u.rank, iconTrophy);
+    if (state === STATE.PLAY) drawPauseButton(u.pause);
+    if (state === STATE.START && fontReady) roundIcon(u.gear, iconGear);
+    if ((state === STATE.START && fontReady) || state === STATE.OVER) roundIcon(u.rank, iconTrophy);
   }
 
   // ---------- Dibujo de los poderes ----------
@@ -4491,18 +4985,21 @@
   }
 
   // poderes activos debajo del contador, con un anillo que se vacía
+  const HUD_POWERS = ["escudo", "iman", "doble", "mini"];
   function drawPowerHud() {
-    const act = [];
-    if (shield) act.push(["escudo", 1]);
-    for (const k of ["iman", "doble", "mini"]) if (powerOn(k)) act.push([k, powerT[k] / POWERS[k].time]);
-    act.forEach(([k, f], i) => {
-      const x = LW / 2 + (i - (act.length - 1) / 2) * 40, y = 164;
+    let n = 0, i = 0;
+    for (const k of HUD_POWERS) if (k === "escudo" ? shield : powerOn(k)) n++;
+    if (!n) return;
+    for (const k of HUD_POWERS) {
+      if (!(k === "escudo" ? shield : powerOn(k))) continue;
+      const f = k === "escudo" ? 1 : powerT[k] / POWERS[k].time;
+      const x = LW / 2 + (i++ - (n - 1) / 2) * 40, y = 164;
       ctx.fillStyle = "rgba(40,24,12,0.45)";
       ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.lineCap = "round";
       ctx.beginPath(); ctx.arc(x, y, 17, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke();
       drawPower(k, x, y, 0.8, false);
-    });
+    }
   }
 
   // cartel del lugar nuevo: aparece y se va despacio
@@ -4561,11 +5058,11 @@
   }
 
   // Para revisar los personajes en grande: ?hoja
-  const SHEET = new URLSearchParams(location.search).has("hoja");
+  const SHEET = QS.has("hoja");
   function drawSheet() {
     ctx.fillStyle = "#9fd6ea"; ctx.fillRect(0, 0, LW, LH);
     // ?hoja=banderas: las cinco banderas de las columnas, en grande
-    if (new URLSearchParams(location.search).get("hoja") === "banderas") {
+    if (QS.get("hoja") === "banderas") {
       ["ve", "ec", "cat", "do", "hn"].forEach((f, i) => {
         ctx.save(); ctx.translate(40, 40 + i * 90); ctx.scale(4.5, 4.5);
         drawFlagBand(0, 0, COL_W - 2, FLAG_H, f); ctx.restore();
@@ -4573,7 +5070,7 @@
       return;
     }
     // ?hoja=ropa: los 4 conjuntos de cada uno y, abajo, los objetos y comidas
-    if (new URLSearchParams(location.search).get("hoja") === "ropa") {
+    if (QS.get("hoja") === "ropa") {
       CHARACTERS.forEach((c, r) => {
         for (let i = 0; i < 4; i++) drawChar(dressed(c, i), 60 + i * 92, 50 + r * 72, 0, 1, 1.25, "");
       });
@@ -4583,17 +5080,17 @@
       return;
     }
     // ?hoja=edades: Pamela con su hijo de 0, 1, 2 y 3 años (uno por conjunto)
-    if (new URLSearchParams(location.search).get("hoja") === "edades") {
+    if (QS.get("hoja") === "edades") {
       const p = CHARACTERS.find((c) => c.id === "pamela");
       for (let i = 0; i < 4; i++) {
         const x = 55 + (i % 2) * 190, y = 190 + Math.floor(i / 2) * 300;
-        drawChar(Object.assign(dressed(p, i), { babyAge: i }), x, y, 0, player.flap, 2.0, "");
+        drawChar(Object.assign({}, dressed(p, i), { babyAge: i }), x, y, 0, player.flap, 2.0, "");
         text(i === 0 ? "BEBÉ" : i + (i === 1 ? " AÑO" : " AÑOS"), x + 60, y + 80, 20, "#3b2414");
       }
       return;
     }
     // ?hoja=maykel,pamela: solo esos, en grande
-    const only = (new URLSearchParams(location.search).get("hoja") || "").split(",").filter(Boolean);
+    const only = (QS.get("hoja") || "").split(",").filter(Boolean);
     if (only.length) {
       only.map((id) => CHARACTERS.find((c) => c.id === id)).filter(Boolean).forEach((c, i) => {
         const y = 200 + i * 290;
@@ -4609,9 +5106,101 @@
     });
   }
 
-  // Para probar sin jugar: ?prueba deja tocar la partida desde la consola
-  if (new URLSearchParams(location.search).has("prueba")) {
+  // ---------- Medición de la dificultad (solo en el ordenador, con ?prueba) ----------
+  // Juega partidas enteras con las reglas de verdad y un jugador automático, sin dibujar,
+  // sin sonido y sin guardar nada. modo "seguro": pasa por el hueco sin arriesgar;
+  // "goloso": va a por toda la comida y las filas. ruido: torpeza del jugador, en puntos
+  // de pantalla (0 = perfecto). viejas: con las reglas de la versión anterior, para comparar.
+  function simulate(runs, opts) {
+    opts = opts || {};
+    const max = opts.max || 600, greedy = opts.modo === "goloso", noise = opts.ruido || 0;
+    const keep = { state, hucha, best, placeFrom, placeTo, placeT };
+    const res = { partidas: runs, llegan: 0, puntos: [], segundos: [], comida: [0, 0], apartada: [0, 0], filas: [0, 0], sueltas: [0, 0], muertes: [] };
+    const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
+    sim = true; oldRules = !!opts.viejas;
+    try {
+      for (let r = 0; r < runs; r++) {
+        resetRun(); state = STATE.PLAY; simDead = false;
+        spawnColumn(LW + 60); player.vy = FLAP_V;
+        const seenC = new Set(), seenB = new Set();
+        let t = 0, lastFlap = 0, slip = 0;
+        while (!simDead && score < max && t < 900) {
+          const hx = player.x + 1, hy = player.y - 5, hr = player.hitR * miniK;
+          // la columna que toca pasar y la siguiente
+          let a = null, b = null;
+          for (let i = 0; i < cols.length; i++) {
+            const c = cols[i]; seenC.add(c);
+            if (c.x + COL_W + CAP_OUT > hx - hr) { if (!a) a = c; else if (!b) b = c; }
+          }
+          for (let i = 0; i < bites.length; i++) seenB.add(bites[i]);
+          let ty = groundTop() * 0.5;
+          if (a) {
+            const top = a.gapY, bot = a.gapY + a.gap;
+            ty = bot - 30;                                            // por la parte baja del hueco
+            if (b && b.gapY < a.gapY - 40) ty = top + 82;             // la siguiente está más arriba: por la parte alta
+            if (greedy) {
+              if (a.food && !a.eaten) ty = clamp(a.gapY + a.gap / 2 + a.fdy + 26, top + 80, bot - 26);
+              // una fila antes de la columna: se va a por ella
+              let bite = null;
+              for (let i = 0; i < bites.length; i++) { const q = bites[i]; if (!q.eaten && q.x > hx - 12 && q.x < a.x - CAP_OUT - 8 && (!bite || q.x < bite.x)) bite = q; }
+              if (bite && bite.x - hx < 170) ty = bite.y + 22;
+            }
+            // nunca apuntar a chocar con el suelo
+            ty = Math.min(ty, groundTop() - hr - 16);
+          }
+          let want = hy > ty + 4 + slip;
+          // si la siguiente está más abajo, no aletea de más al salir: se deja caer (como haría una persona)
+          if (a && b && b.gapY > a.gapY + 40 && a.x - CAP_OUT < hx + hr) {
+            const te = Math.max(0, (a.x + COL_W + CAP_OUT + hr - hx) / speed), yExit = hy + player.vy * te + 0.5 * GRAVITY * te * te;
+            if (yExit < a.gapY + a.gap - hr - 4) want = false;
+            // y si va a hacer falta un aleteo, mejor pronto que justo al salir
+            else if (te > 0.27 && te <= 0.36 && hy - 62 - hr > a.gapY + 2) want = true;
+          }
+          const fast = hy > ty + 40 ? -300 : -80;
+          if (want && player.vy > fast && t - lastFlap > 0.09) {
+            player.vy = FLAP_V; lastFlap = t;
+            slip = noise ? gauss() * noise : 0;                       // el siguiente toque llega antes o después de lo ideal
+          }
+          stepPlay(STEP); t += STEP;
+          particles.length = 0; floaters.length = 0;
+        }
+        if (!simDead) res.llegan++;
+        else if (res.muertes.length < 10) { const c = cols.find((q) => q.x + COL_W + CAP_OUT > player.x - 14) || {}; res.muertes.push({ puntos: score, y: Math.round(player.y - 5), vy: Math.round(player.vy), dx: Math.round(c.x - player.x), arriba: Math.round(c.gapY), abajo: Math.round(c.gapY + c.gap), suelo: Math.round(groundTop()) }); }
+        res.puntos.push(score); res.segundos.push(Math.round(t));
+        const hxEnd = player.x;
+        for (const c of seenC) {
+          if (!c.food || isPower(c.kind) || SPECIALS[c.kind] || c.x + COL_W > hxEnd) continue;
+          const k = c.fdy ? res.apartada : res.comida; k[1]++; if (c.eaten) k[0]++;
+        }
+        const rows = new Map();
+        for (const q of seenB) { if (!q.eaten && q.x > hxEnd - 40) continue; res.sueltas[1]++; if (q.eaten) res.sueltas[0]++; rows.set(q.row, q.row.n); }
+        for (const n of rows.values()) { res.filas[1]++; if (n === 3) res.filas[0]++; }
+      }
+    } finally {
+      sim = false; oldRules = false; simDead = false;
+      resetRun();
+      state = keep.state; hucha = keep.hucha; best = keep.best; placeFrom = keep.placeFrom; placeTo = keep.placeTo; placeT = keep.placeT;
+    }
+    const sorted = res.puntos.slice().sort((x, y) => x - y), pct = (a) => (a[1] ? Math.round((a[0] * 100) / a[1]) : 0);
+    return {
+      partidas: runs, llegan: res.llegan, tope: max, muertes: res.muertes,
+      media: Math.round(res.puntos.reduce((s, v) => s + v, 0) / runs), mediana: sorted[Math.floor(runs / 2)], peor: sorted[0],
+      segundosMedia: Math.round(res.segundos.reduce((s, v) => s + v, 0) / runs),
+      comidaCentro: pct(res.comida) + " %", comidaApartada: pct(res.apartada) + " % de " + res.apartada[1],
+      filasEnteras: pct(res.filas) + " % de " + res.filas[1], empanadillasDeFila: pct(res.sueltas) + " %",
+    };
+  }
+
+  // Para probar sin jugar (solo en el ordenador): ?prueba deja tocar la partida desde la consola
+  if (LOCAL && QS.has("prueba")) {
     window.elsPanetsPrueba = {
+      simular: simulate,
+      curva: (s) => ({ velocidad: Math.round(speedAt(s)), hueco: Math.round(gapAt(s)), respiro: restAt(s) }),
+      cuadro: (ms) => frame(ms / 1000),            // un cuadro entero, para medir tiempos
+      interno: (code) => eval(code),               // acceso a lo de dentro, para las mediciones
+      nombre: (n) => nameProblem(n),
+      caja: () => ({ pity, odds: boxOdds(), completa: boxComplete(), seguroEn: boxSureIn() }),
+      pendiente: () => ({ pendiente: store.get(PENDING_KEY, null), enviar: CAN_SEND, prueba: TEST_RUN }),
       especial: (k) => collectSpecial(k, player.x + 40, player.y),
       comer: () => { const c = cols.find((c) => c.food && !c.eaten && c.x > player.x); if (c) { player.y = LH * 0.4; player.vy = -200; c.x = player.x - COL_W / 2; c.gapY = player.y - 5 - c.gap / 2; } },
       estado: () => ({ state, score, eaten, pendingSpecial, photoT, kinds: cols.map((c) => c.kind) }),
@@ -4628,20 +5217,22 @@
 
   let last = 0, acc = 0;
   function loop(t) {
-    const now = t / 1000;
-    let dt = last ? now - last : 0;
+    frame(t / 1000);
+    requestAnimationFrame(loop);
+  }
+  function frame(now) {
+    let dt = last ? Math.max(0, now - last) : 0;
     last = now;
     // mientras sale la foto, el juego va casi parado (como un instante congelado)
     const slow = photoT >= 0 && photoT < 0.55 ? 0.12 : 1;
     if (photoT >= 0) { photoT += Math.min(dt, 0.1); if (photoT > 1.5) photoT = -1; }
-    camFlash = Math.max(0, camFlash - Math.min(dt, 0.1) * 3.2);
+    camFlash = Math.max(0, camFlash - Math.min(dt, 0.1) * (softFlash ? 1.8 : 3.2));
     acc += Math.min(dt, 0.25) * slow;
     let n = 0;
     while (acc >= STEP && n < 40) { update(STEP); acc -= STEP; n++; }
     skyHour += (hourFor(eaten) - skyHour) * Math.min(1, dt * 1.2);
     if (n === 40) acc = 0;
     if (SHEET) drawSheet(); else render();
-    requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 
@@ -4732,15 +5323,31 @@
     // guarda el personaje y, si se pide, lo deja elegido para jugar
     setCustom: (d, pick) => { applyCustom(d); if (pick && customState() === "aprobado") viewChar(CHARACTERS.indexOf(customDef)); },
     // caja, hucha y premio diario (12/11/2026)
-    PRIZES, RARITY, BOX_COST, DUP_BACK, DAILY,
+    PRIZES, RARITY, BOX_COST, PITY_EVERY, DAILY,
     hucha: () => hucha, owned: () => owned, wear: () => wear, setWear, rollBox, randomPrize,
+    boxOdds, boxComplete, boxSureIn,
     dailyState, claimDaily, drawPrizeTo, foodImg,
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
-    refreshCustom: () => refreshCustom(true),
+    // Ajustes (16/11/2026)
+    VERSION: 29,
+    settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
+    setMusic: (on) => { setMusic(on); if (on) startMusic(); },
+    setSfx,
+    setVibra: (on) => { vibraOn = on; store.set(VIBRA_KEY, on ? "1" : "0"); if (on) vibrate(20); },
+    setFlash: (on) => { softFlash = on; store.set(FLASH_KEY, on ? "1" : "0"); },
+    setQuality: (low) => { lowQ = low; store.set(QUALITY_KEY, low ? "baja" : "alta"); resize(); },
+    nameProblem, setPlayerName,
+    // vuelve a enseñar el tutorial: ahora mismo si se está en el inicio, o en la próxima partida
+    replayTutorial: () => { store.del(TUTORIAL_KEY); if (state === STATE.START) goReady(); },
+    // borra todo lo que el juego guarda en este móvil (claves nuevas y antiguas)
+    eraseLocal: () => {
+      try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith("elsPanets") || k.startsWith("tacoSuitFlap"))) keys.push(k); }
+        for (const k of keys) localStorage.removeItem(k);
+      } catch (e) {}
+    },
   };
-
-  // cuando llegue la letra del juego, se redibuja sola en el siguiente cuadro
-  if (document.fonts && document.fonts.load) document.fonts.load("40px 'Lilita One'").catch(() => {});
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

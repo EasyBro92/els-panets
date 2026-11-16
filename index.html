@@ -12,9 +12,8 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" />
+<!-- la letra va dentro del juego (fonts/): se ve bien aunque no haya conexión -->
+<link rel="preload" href="fonts/LilitaOne-latin.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -25,6 +24,7 @@
       <div class="nameTitle">¡Nuevo récord!</div>
       <div class="nameSubtitle">¿Cómo te llamas?</div>
       <input id="nameInput" type="text" maxlength="12" autocomplete="off" placeholder="Tu nombre" />
+      <p id="nameMsg" class="formMsg"></p>
       <button id="nameSubmit">Guardar</button>
     </div>
   </div>
@@ -83,9 +83,11 @@
     <div class="nameCard wideCard boxCard">
       <div class="nameTitle">Caja sorpresa</div>
       <div class="boxHucha"><img id="boxPanet" alt="" /><b id="boxCount">0</b><span>panets en tu hucha</span></div>
-      <div class="boxStrip"><div id="boxReel" class="boxReel"></div><div class="boxMark"></div></div>
+      <div id="boxStrip" class="boxStrip"><div id="boxReel" class="boxReel"></div><div class="boxMark"></div></div>
       <p id="boxMsg" class="boxMsg"></p>
       <button id="boxOpen" class="bigBtn" type="button">Abrir caja</button>
+      <div id="boxOdds" class="boxOdds"></div>
+      <p id="boxSure" class="boxSure"></p>
       <div id="boxTabs" class="tabs"><button type="button" data-tab="estela" class="on">Estelas</button><button type="button" data-tab="gorro">Gorros</button></div>
       <div id="boxItems" class="boxItems"></div>
       <button id="boxClose" class="ghostBtn" type="button">Cerrar</button>
@@ -98,6 +100,31 @@
       <div id="dailyDays" class="dailyDays"></div>
       <p id="dailyMsg" class="boxMsg"></p>
       <button id="dailyTake" class="bigBtn" type="button">¡Cógelo!</button>
+    </div>
+  </div>
+  <!-- 16/11/2026: ajustes -->
+  <div id="settingsOverlay" class="overlay hidden">
+    <div class="nameCard wideCard setCard">
+      <div id="setTitle" class="nameTitle">Ajustes</div>
+      <div id="setMain">
+        <div class="setRow"><span>Música</span><button type="button" data-set="musica"></button></div>
+        <div class="setRow"><span>Efectos de sonido</span><button type="button" data-set="efectos"></button></div>
+        <div id="setVibraRow" class="setRow"><span>Vibración</span><button type="button" data-set="vibracion"></button></div>
+        <div class="setRow"><span>Reducir destellos<small>Sin destellos blancos fuertes</small></span><button type="button" data-set="destellos"></button></div>
+        <div class="setRow"><span>Calidad<small>Baja: más fluido en móviles lentos</small></span><button type="button" data-set="calidad"></button></div>
+        <div class="setRow setNameRow"><span>Tu nombre</span><input id="setName" type="text" maxlength="12" autocomplete="off" placeholder="Tu nombre" /><button id="setNameSave" type="button" class="on">Guardar</button></div>
+        <p id="setNameMsg" class="formMsg"></p>
+        <div class="setGrid">
+          <button type="button" data-page="privacidad">Privacidad</button>
+          <button type="button" data-page="creditos">Créditos</button>
+          <button type="button" id="setTutorial">Repetir tutorial</button>
+          <button type="button" data-page="borrar" class="danger">Borrar mis datos</button>
+        </div>
+        <p id="setVer" class="setVer"></p>
+      </div>
+      <div id="setPage" class="setPage hidden"></div>
+      <button id="setBack" class="ghostBtn hidden" type="button">Volver</button>
+      <button id="setClose" class="bigBtn" type="button">Cerrar</button>
     </div>
   </div>
   <button id="adminBtn" class="hidden" type="button">ADMIN</button>

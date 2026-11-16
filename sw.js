@@ -1,4 +1,4 @@
-const CACHE = "els-panets-v28";
+const CACHE = "els-panets-v29";
 const FILES = [
   "./",
   "./index.html",
@@ -10,6 +10,9 @@ const FILES = [
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./fonts/LilitaOne-latin.woff2",
+  "./fonts/LilitaOne-latin-ext.woff2",
+  "./fonts/TwemojiCountryFlags.woff2",
 ];
 
 self.addEventListener("install", (e) => {

@@ -1,7 +1,7 @@
 {
   "name": "Els Panets",
   "short_name": "Els Panets",
-  "description": "Els Panets: el presidente vuela comiendo empanadillas venezolanas",
+  "description": "Els Panets: vuela, come empanadillas y esquiva los troncos",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -6,3 +6,4 @@ firebase-leaderboard.js
 manifest.json
 sw.js
 icons
+fonts

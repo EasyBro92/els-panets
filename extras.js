@@ -1,11 +1,12 @@
-// Ventanas de Els Panets (03/11/2026): crear tu personaje y el panel del admin.
+// Ventanas de Els Panets: crear tu personaje, panel del admin, caja sorpresa,
+// premio diario y ajustes (16/11/2026).
 // Usa lo que deja game.js en window.ElsPanets y la conexión de window.TacoLeaderboard.
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
   const EP = window.ElsPanets;
   const lb = () => window.TacoLeaderboard;
-  const overlays = ["creatorOverlay", "adminLoginOverlay", "adminOverlay", "boxOverlay", "dailyOverlay"].map($);
+  const overlays = ["creatorOverlay", "adminLoginOverlay", "adminOverlay", "boxOverlay", "dailyOverlay", "settingsOverlay"].map($);
   const show = (el) => el.classList.remove("hidden");
   const hide = (el) => el.classList.add("hidden");
   const esc = (s) => String(s == null ? "" : s).replace(/[<>&"']/g, "");
@@ -112,10 +113,11 @@
   }
   function closeCreator() { hide($("creatorOverlay")); pickEl.classList.add("hidden"); clearInterval(anim); }
   $("creatorCancel").addEventListener("click", closeCreator);
-  // se guarda en el móvil al momento y queda elegido para jugar (13/11/2026: sin el admin)
+  // se guarda en el móvil al momento y queda elegido para jugar
   sendBtn.addEventListener("click", () => {
     const name = nameEl.value.trim().slice(0, 12);
     if (!name) { msgEl.textContent = "Ponle un nombre"; return; }
+    if (EP.nameProblem(name)) { msgEl.textContent = EP.nameProblem(name); return; }
     if (lockedNow) return;
     const look = Object.assign(EP.buildLook(sel), { _sel: Object.assign({}, sel) });
     EP.setCustom({ estado: "aprobado", name, look, decidido: 0 }, true);
@@ -145,7 +147,7 @@
 
   // ---------- Panel del admin ----------
   const body = $("adminBody"), tabs = $("adminTabs");
-  let tab = "tiempo", charTimer = 0;
+  let tab = "tiempo";
   const fmt = (s) => {
     s = Math.round(s || 0);
     if (s < 60) return s + " s";
@@ -170,14 +172,12 @@
   function setTab(t) {
     tab = t;
     for (const b of tabs.querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === t);
-    clearInterval(charTimer);
     if (t === "tiempo") loadTime();
-    else if (t === "personajes") loadChars();
     else loadSettings();
   }
   tabs.addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (b) setTab(b.dataset.tab); });
-  $("adminClose").addEventListener("click", () => { hide($("adminOverlay")); clearInterval(charTimer); });
-  $("adminLogout").addEventListener("click", () => { if (lb()) lb().adminLogout(); hide($("adminOverlay")); clearInterval(charTimer); });
+  $("adminClose").addEventListener("click", () => hide($("adminOverlay")));
+  $("adminLogout").addEventListener("click", () => { if (lb()) lb().adminLogout(); hide($("adminOverlay")); });
   const loading = () => { body.innerHTML = '<div class="aEmpty">Cargando…</div>'; };
   const failed = () => { body.innerHTML = '<div class="aEmpty">No se pudo cargar. Revisa la conexión.</div>'; };
 
@@ -197,40 +197,10 @@
       return `<div class="aRow"><div class="aTop">${EP.flagImg(r.flag)}<span class="aName">${esc(r.name || "Sin nombre")}</span></div>
         <div class="aSub">Última vez: ${ago(r.ultima)}</div>
         <div class="aNums"><div><b>${fmt(d[hoy])}</b><span>hoy</span></div><div><b>${fmt(w)}</b><span>7 días</span></div><div><b>${fmt(r.total)}</b><span>total</span></div></div></div>`;
-    }).join("") + '<div class="aEmpty">Cuenta el tiempo con el juego abierto y a la vista.</div>';
+    }).join("") + '<div class="aEmpty">Cuenta el tiempo con el juego abierto y a la vista. Los días se guardan 30 días.</div>';
   }
 
-  // personajes que esperan aprobación (y los ya decididos)
-  async function loadChars() {
-    loading();
-    let rows;
-    try { rows = await lb().adminList("elsPanetsPersonajes"); } catch (e) { failed(); return; }
-    if (tab !== "personajes") return;
-    const order = { pendiente: 0, aprobado: 1, denegado: 2 };
-    rows = rows.filter((r) => r.estado !== "denegado" || (r.decidido && Date.now() - r.decidido.toMillis() < 24 * 3600 * 1000));
-    rows.sort((a, b) => (order[a.estado] || 0) - (order[b.estado] || 0));
-    if (!rows.length) { body.innerHTML = '<div class="aEmpty">Nadie ha creado personaje todavía.</div>'; return; }
-    const label = { pendiente: "Esperando tu decisión", aprobado: "Aprobado", denegado: "Denegado" };
-    body.innerHTML = rows.map((r, i) => `<div class="aRow aChar">${r.look ? `<canvas width="144" height="150" data-i="${i}"></canvas>` : ""}
-      <div style="flex:1"><div class="aTop"><span class="aName">${esc(r.name || "(borrado)")}</span>${r.look ? EP.flagImg(r.look.flag) : ""}</div>
-      <div class="aSub">${label[r.estado] || r.estado}</div>
-      <div class="aBtns">${r.estado !== "aprobado" && r.look ? `<button class="aYes" data-id="${esc(r.id)}" data-ok="1">Aprobar</button>` : ""}${r.estado !== "denegado" ? `<button class="aNo" data-id="${esc(r.id)}" data-ok="0">Denegar</button>` : ""}</div></div></div>`).join("");
-    const cvs = body.querySelectorAll("canvas[data-i]");
-    const paint = () => cvs.forEach((cv) => EP.drawLookTo(cv, rows[Number(cv.dataset.i)].look, 2.1));
-    paint();
-    charTimer = setInterval(paint, 80);
-  }
   body.addEventListener("click", async (e) => {
-    const b = e.target.closest("button[data-id]");
-    if (b) {
-      const ok = b.dataset.ok === "1";
-      if (!ok && !confirm("¿Denegar este personaje? Se borrará y podrá crear otro en 24 h.")) return;
-      b.disabled = true; b.textContent = "…";
-      try { await lb().adminDecide(b.dataset.id, ok); } catch (err) { alert("No se pudo guardar. Revisa la conexión."); }
-      clearInterval(charTimer);
-      loadChars();
-      return;
-    }
     const t = e.target.closest("button[data-set]");
     if (t) {
       const k = t.dataset.set, cfg = lb().getConfig() || {};
@@ -248,10 +218,10 @@
   ];
   async function loadSettings() {
     loading();
-    const cfg = await lb().loadConfig();
+    const cfg = await lb().loadConfig(true);
     if (tab !== "ajustes") return;
     body.innerHTML = SETTINGS.map(([k, txt]) => `<div class="aRow aToggle"><span>${txt}</span><button type="button" data-set="${k}" class="${cfg[k] ? "on" : ""}">${cfg[k] ? "Activado" : "Apagado"}</button></div>`).join("") +
-      '<div class="aEmpty">Se aplica a todos los jugadores la próxima vez que abran el juego o vuelvan al inicio.</div>';
+      '<div class="aEmpty">Se aplica a todos los jugadores la próxima vez que abran el juego (tarda hasta 10 minutos).</div>';
   }
 
   // botón ADMIN arriba en el inicio, solo en el móvil del admin
@@ -271,10 +241,31 @@
     return `<div class="bTile ${extra || ""}" style="border-color:${r.color}"><canvas width="112" height="112" data-p="${id}"></canvas></div>`;
   }
   function paintPrizes(root) { root.querySelectorAll("canvas[data-p]").forEach((cv) => EP.drawPrizeTo(cv, cv.dataset.p)); }
+  // 16/11/2026: probabilidades a la vista, contador del premio seguro y final de la colección
+  function refreshOdds() {
+    const done = EP.boxComplete();
+    $("boxStrip").classList.toggle("hidden", done);
+    boxOpenBtn.classList.toggle("hidden", done);
+    $("boxOdds").classList.toggle("hidden", done);
+    $("boxSure").classList.toggle("hidden", done);
+    if (done) {
+      boxMsg.innerHTML = "<b>¡Colección completa!</b> Ya tienes todos los premios de la caja. Tus panets se siguen guardando para los premios nuevos que lleguen.";
+      return;
+    }
+    $("boxOdds").innerHTML = "<span>Próxima caja:</span>" + EP.boxOdds().map((o) => {
+      const r = EP.RARITY[o.rar];
+      return `<span class="odd${o.pct ? "" : " off"}" style="border-color:${r.color}">${r.name} <b>${Math.round(o.pct)} %</b></span>`;
+    }).join("");
+    const n = EP.boxSureIn();
+    $("boxSure").textContent = !n ? "Ya tienes todos los premios raros y épicos."
+      : n === 1 ? "¡La próxima caja trae un premio raro o épico seguro!"
+      : "Premio raro o épico seguro en " + n + " cajas como mucho.";
+  }
   function refreshBox() {
     $("boxCount").textContent = EP.hucha();
     boxOpenBtn.textContent = "Abrir caja · " + EP.BOX_COST;
     boxOpenBtn.disabled = spinning || EP.hucha() < EP.BOX_COST;
+    if (!spinning) refreshOdds();
     for (const b of boxTabs.querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === boxTab);
     const own = EP.owned(), wearing = EP.wear()[boxTab] || null;
     const list = EP.PRIZES.filter((p) => p.kind === boxTab);
@@ -292,7 +283,7 @@
     const ids = []; for (let i = 0; i < 8; i++) ids.push(EP.randomPrize().id);
     reel.innerHTML = ids.map((id) => tileHTML(id)).join("");
     paintPrizes(reel);
-    boxMsg.textContent = "Cada caja cuesta " + EP.BOX_COST + " panets. Las empanadillas que comes van a la hucha.";
+    boxMsg.textContent = "Cada caja cuesta " + EP.BOX_COST + " panets y nunca trae un premio repetido. Las empanadillas que comes van a la hucha.";
     $("boxPanet").src = EP.foodImg();
     refreshBox();
     show($("boxOverlay"));
@@ -308,7 +299,7 @@
     reel.style.transition = "none"; reel.style.transform = "translateX(0)";
     reel.innerHTML = ids.map((id, i) => tileHTML(id, i === WIN ? "win" : "")).join("");
     paintPrizes(reel);
-    $("boxCount").textContent = EP.hucha() - (res.dup ? EP.DUP_BACK : 0);
+    $("boxCount").textContent = EP.hucha();
     boxOpenBtn.disabled = true;
     boxMsg.textContent = "Girando…";
     const w = reel.parentElement.clientWidth, jitter = (Math.random() - 0.5) * 40;
@@ -319,9 +310,8 @@
       spinning = false;
       const r = rarityOf(res.id);
       reel.children[WIN] && reel.children[WIN].classList.add("got");
-      boxMsg.innerHTML = res.dup ? "Repetido: " + esc(prizeName(res.id)) + ". Te devolvemos " + EP.DUP_BACK + " panets."
-        : "¡Te ha tocado <b style=\"color:" + r.color + "\">" + esc(prizeName(res.id)) + "</b> (" + r.name + ")! Ya lo llevas puesto.";
-      EP.sfx(res.dup ? "click" : "record");
+      boxMsg.innerHTML = "¡Te ha tocado <b style=\"color:" + r.color + "\">" + esc(prizeName(res.id)) + "</b> (" + r.name + ")! Ya lo llevas puesto.";
+      EP.sfx("record");
       const k = EP.PRIZES.find((p) => p.id === res.id);
       if (k) boxTab = k.kind;
       refreshBox();
@@ -365,8 +355,125 @@
     dailyBtn.textContent = "Cerrar";
   });
 
+  // ---------- Ajustes (16/11/2026) ----------
+  const setMain = $("setMain"), setPage = $("setPage"), setBack = $("setBack"), setTitle = $("setTitle");
+  const setNameEl = $("setName"), setNameMsg = $("setNameMsg");
+  const PAGES = {
+    privacidad: ["Privacidad", `
+      <p>Els Panets <b>no pide</b> tu correo, tu teléfono ni tu ubicación. No tiene anuncios ni compras.</p>
+      <h4>Lo que se guarda en tu móvil</h4>
+      <p>Tu récord, tu hucha, tus premios, tu personaje y tus ajustes.</p>
+      <h4>Lo que se guarda en internet</h4>
+      <p><b>Para el ranking:</b> el nombre que escribes, tu récord, las empanadillas de esa partida y la bandera de tu personaje. Lo puede ver todo el mundo.</p>
+      <p><b>Para saber cuánto se juega:</b> ese nombre, tu personaje, su bandera y los minutos que el juego está abierto (el total y los de cada día de los últimos 30 días). Solo lo ve el administrador del juego.</p>
+      <p><b>Una llave secreta al azar,</b> para que nadie pueda cambiar tu récord ni tu nombre. No dice quién eres.</p>
+      <p>Se guarda en Firebase, un servicio de Google.</p>
+      <h4>Borrarlo</h4>
+      <p>Con «Borrar mis datos», en Ajustes, se borra todo lo de este móvil y lo de internet.</p>`],
+    creditos: ["Créditos", `
+      <h4>Letra</h4>
+      <p>Lilita One, de Juan Montoreano. Licencia SIL Open Font License 1.1 (OFL).</p>
+      <h4>Banderas</h4>
+      <p>Twemoji, © Twitter, Inc. y otros colaboradores. Licencia CC-BY 4.0: creativecommons.org/licenses/by/4.0</p>
+      <h4>Música y sonidos</h4>
+      <p>Hechos para este juego.</p>
+      <h4>Dibujos y programación</h4>
+      <p>Hechos para este juego.</p>`],
+    borrar: ["Borrar mis datos", `
+      <p>Se borrará <b>todo</b>: tu récord, tu nombre en el ranking, tu hucha, tus premios, tu personaje y tus ajustes, en este móvil y en internet.</p>
+      <p><b>No se puede deshacer.</b></p>
+      <p id="eraseMsg" class="formMsg"></p>
+      <button id="eraseYes" class="bigBtn dangerBtn" type="button">Sí, borrar todo</button>`],
+  };
+  function paintSettings() {
+    const s = EP.settings();
+    const vals = { musica: s.musica, efectos: s.efectos, vibracion: s.vibracion, destellos: s.destellos };
+    for (const b of setMain.querySelectorAll("button[data-set]")) {
+      const k = b.dataset.set;
+      if (k === "calidad") { b.textContent = s.calidadBaja ? "Baja" : "Alta"; b.classList.toggle("on", !s.calidadBaja); }
+      else { b.textContent = vals[k] ? "Sí" : "No"; b.classList.toggle("on", !!vals[k]); }
+    }
+    $("setVibraRow").classList.toggle("hidden", !navigator.vibrate);
+    $("setVer").textContent = "Els Panets · versión " + EP.VERSION;
+  }
+  function showSetPage(id) {
+    const main = !id;
+    setMain.classList.toggle("hidden", !main);
+    setPage.classList.toggle("hidden", main);
+    setBack.classList.toggle("hidden", main);
+    setTitle.textContent = main ? "Ajustes" : PAGES[id][0];
+    if (!main) { setPage.innerHTML = PAGES[id][1]; setPage.scrollTop = 0; }
+  }
+  function openSettings() {
+    setNameEl.value = EP.settings().nombre;
+    setNameMsg.textContent = "";
+    setNameMsg.classList.remove("ok");
+    paintSettings();
+    showSetPage(null);
+    show($("settingsOverlay"));
+  }
+  setMain.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    const s = EP.settings(), k = b.dataset.set;
+    if (k === "musica") EP.setMusic(!s.musica);
+    else if (k === "efectos") EP.setSfx(!s.efectos);
+    else if (k === "vibracion") EP.setVibra(!s.vibracion);
+    else if (k === "destellos") EP.setFlash(!s.destellos);
+    else if (k === "calidad") EP.setQuality(!s.calidadBaja);
+    else if (b.dataset.page) { EP.sfx("click"); showSetPage(b.dataset.page); return; }
+    else if (b.id === "setTutorial") { hide($("settingsOverlay")); EP.replayTutorial(); return; }
+    else return;
+    EP.sfx("click");
+    paintSettings();
+  });
+  function saveName() {
+    const name = setNameEl.value.trim();
+    const bad = EP.nameProblem(name);
+    setNameMsg.classList.toggle("ok", !bad);
+    if (bad) { setNameMsg.textContent = bad; return; }
+    EP.setPlayerName(name);
+    setNameEl.blur();
+    setNameMsg.textContent = EP.settings().mejor > 0 ? "Guardado. También cambia en el ranking." : "Guardado.";
+  }
+  $("setNameSave").addEventListener("click", saveName);
+  setNameEl.addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); });
+  setBack.addEventListener("click", () => showSetPage(null));
+  $("setClose").addEventListener("click", () => hide($("settingsOverlay")));
+  // borrar mis datos: primero lo de internet (con la llave de este móvil) y después lo del móvil
+  let erasing = false;
+  setPage.addEventListener("click", async (e) => {
+    if (!e.target.closest("#eraseYes") || erasing) return;
+    const msg = $("eraseMsg"), btn = $("eraseYes");
+    let remote = false;
+    try { remote = !!(localStorage.getItem("elsPanetsLlave") || localStorage.getItem("elsPanetsIdPrivado")); } catch (err) {}
+    erasing = true; btn.disabled = true; msg.textContent = "Borrando…";
+    try {
+      if (remote) {
+        if (!lb() || !lb().deleteMyData) throw new Error("sin-red");
+        await lb().deleteMyData();
+      }
+    } catch (err) {
+      erasing = false; btn.disabled = false;
+      msg.textContent = "No se ha podido borrar lo de internet. Comprueba la conexión y vuelve a intentarlo. No se ha borrado nada.";
+      return;
+    }
+    EP.eraseLocal();
+    msg.textContent = "Borrado.";
+    setTimeout(() => location.reload(), 400);
+  });
+
+  // botón «atrás»: cierra lo que haya abierto
+  function closeAll() {
+    if (!pickEl.classList.contains("hidden")) { pickEl.classList.add("hidden"); return; }
+    if (!$("settingsOverlay").classList.contains("hidden") && setMain.classList.contains("hidden") && !erasing) { showSetPage(null); return; }
+    if (spinning || erasing) return;
+    closeCreator();
+    for (const el of overlays) hide(el);
+  }
+
   window.ElsPanetsUI = {
-    openCreator, openAdmin, openBox, openDaily,
+    openCreator, openAdmin, openBox, openDaily, openSettings, closeAll,
     isOpen: () => overlays.some((el) => !el.classList.contains("hidden")),
   };
 })();

@@ -1,6 +1,7 @@
-// Ranking global (Firestore). Módulo independiente: si falla o no hay red,
-// el juego sigue funcionando normalmente con el récord local únicamente.
-// 03/11/2026: tiempo de pantalla, personaje propio (lo aprueba el admin), ajustes del admin.
+// Conexión con Firestore de Els Panets. Módulo independiente: si falla o no hay
+// red, el juego sigue funcionando con el récord del móvil.
+// 16/11/2026 (v29): ranking propio (elsPanetsRanking) con llave secreta por móvil,
+// ranking guardado 10 minutos, tiempo de pantalla cada 3 minutos y «Borrar mis datos».
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getFirestore,
@@ -8,6 +9,7 @@ import {
   setDoc,
   getDoc,
   deleteDoc,
+  deleteField,
   collection,
   query,
   orderBy,
@@ -37,22 +39,64 @@ const ls = {
   del(k) { try { localStorage.removeItem(k); } catch (e) {} },
 };
 const randomHex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
+const online = () => navigator.onLine !== false;
+// si la red no contesta, no se espera para siempre
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error("sin-red")), ms || 10000))]);
 
-const PLAYER_ID_KEY = "tacoSuitFlapPlayerId";
-
-function getPlayerId() {
-  let id = ls.get(PLAYER_ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID
-      ? crypto.randomUUID()
-      : "p-" + Date.now() + "-" + Math.random().toString(36).slice(2);
-    ls.set(PLAYER_ID_KEY, id);
+// SHA-256 sin esperas (el del navegador no funciona fuera de https)
+const sha256hex = (() => {
+  const K = [], H0 = [], ror = (x, n) => (x >>> n) | (x << (32 - n));
+  const frac = (x) => ((x - Math.floor(x)) * 4294967296) | 0;
+  for (let n = 2, c = 0; c < 64; n++) {
+    let prime = true;
+    for (let i = 2; i * i <= n; i++) if (n % i === 0) { prime = false; break; }
+    if (!prime) continue;
+    if (c < 8) H0[c] = frac(Math.sqrt(n));
+    K[c++] = frac(Math.cbrt(n));
   }
-  return id;
+  return (text) => {
+    const m = new TextEncoder().encode(text), total = ((m.length + 9 + 63) >> 6) << 6;
+    const bytes = new Uint8Array(total), dv = new DataView(bytes.buffer), h = H0.slice(), w = new Int32Array(64);
+    bytes.set(m); bytes[m.length] = 0x80; dv.setUint32(total - 4, m.length * 8);
+    for (let o = 0; o < total; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = dv.getInt32(o + i * 4);
+      for (let i = 16; i < 64; i++) {
+        const x = w[i - 15], y = w[i - 2];
+        w[i] = (w[i - 16] + (ror(x, 7) ^ ror(x, 18) ^ (x >>> 3)) + w[i - 7] + (ror(y, 17) ^ ror(y, 19) ^ (y >>> 10))) | 0;
+      }
+      let a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], k = h[7];
+      for (let i = 0; i < 64; i++) {
+        const t1 = (k + (ror(e, 6) ^ ror(e, 11) ^ ror(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
+        const t2 = ((ror(a, 2) ^ ror(a, 13) ^ ror(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        k = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+      }
+      h[0] = (h[0] + a) | 0; h[1] = (h[1] + b) | 0; h[2] = (h[2] + c) | 0; h[3] = (h[3] + d) | 0;
+      h[4] = (h[4] + e) | 0; h[5] = (h[5] + f) | 0; h[6] = (h[6] + g) | 0; h[7] = (h[7] + k) | 0;
+    }
+    return h.map((x) => (x >>> 0).toString(16).padStart(8, "0")).join("");
+  };
+})();
+
+// ---------- Ranking de Els Panets ----------
+// Cada móvil tiene una llave secreta que no sale de él. Su ficha del ranking se
+// llama como la huella de esa llave, y para escribirla hay que mandar la llave en
+// el mismo lote, a un documento que nadie puede leer. Sin la llave no se puede
+// pisar el récord ni el nombre de otro (lo comprueban las reglas de Firestore).
+const RANKING = "elsPanetsRanking", LLAVES = "elsPanetsLlaves";
+const KEY_KEY = "elsPanetsLlave";
+function secretKey() {
+  let k = ls.get(KEY_KEY);
+  if (!k || k.length < 32) { k = randomHex(24); ls.set(KEY_KEY, k); }
+  return k;
+}
+let idCache = null;
+function myId() {
+  const k = secretKey();
+  if (!idCache || idCache[0] !== k) idCache = [k, sha256hex(k)];
+  return idCache[1];
 }
 
-// Número privado de este móvil (no sale en el ranking): con él se guardan
-// su tiempo de pantalla y su personaje.
+// Número privado de este móvil (no sale en el ranking): con él se guarda su tiempo de pantalla.
 const PRIVATE_KEY = "elsPanetsIdPrivado";
 function privateId() {
   let id = ls.get(PRIVATE_KEY);
@@ -60,80 +104,148 @@ function privateId() {
   return id;
 }
 
-// Cada jugador (por dispositivo) tiene un único documento que se actualiza
-// cuando bate su récord personal, para no disparar miles de escrituras.
+// El ranking se guarda 10 minutos en el móvil para no gastar lecturas.
+const RANK_CACHE = "elsPanetsRankingCache", RANK_TTL = 10 * 60 * 1000, TOP = 50;
+let rankMem = null, rankBusy = null;
+function readRankCache() {
+  if (rankMem) return rankMem;
+  try { const c = JSON.parse(ls.get(RANK_CACHE) || "null"); if (c && Array.isArray(c.rows)) rankMem = c; } catch (e) {}
+  return rankMem;
+}
+function saveRankCache(rows, at) { rankMem = { at, rows }; ls.set(RANK_CACHE, JSON.stringify(rankMem)); }
+// Devuelve los 50 mejores. Sin conexión, lo último guardado.
+function ranking(force) {
+  const c = readRankCache();
+  if (c && !force && Date.now() - c.at < RANK_TTL && Date.now() >= c.at) return Promise.resolve(c.rows);
+  if (rankBusy) return rankBusy;
+  rankBusy = (async () => {
+    try {
+      const snap = await withTimeout(getDocs(query(collection(db, RANKING), orderBy("score", "desc"), limit(TOP))));
+      const rows = snap.docs.map((d) => { const x = d.data(); return { id: d.id, name: String(x.name || ""), score: Number(x.score) || 0, flag: x.flag ? String(x.flag) : "" }; });
+      saveRankCache(rows, Date.now());
+      return rows;
+    } catch (e) {
+      if (c) return c.rows;
+      throw e;
+    } finally { rankBusy = null; }
+  })();
+  return rankBusy;
+}
+const cachedRanking = () => { const c = readRankCache(); return c ? c.rows : null; };
+// tras enviar el récord propio, se apunta en lo guardado sin volver a leer
+function patchRankCache(row) {
+  const c = readRankCache();
+  if (!c) return;
+  const rows = c.rows.filter((r) => r.id !== row.id);
+  rows.push(row);
+  rows.sort((a, b) => b.score - a.score);
+  saveRankCache(rows.slice(0, TOP), c.at);
+}
+
+// Envía el récord (o el nombre nuevo). Devuelve "ok", "rechazado" (no volver a intentarlo) o "sin-red".
 async function submitScore(name, score, tacos, flag) {
+  if (!online()) return "sin-red";
   try {
+    const id = myId(), b = writeBatch(db);
     const data = {
       name: String(name).slice(0, 12),
-      score: Math.max(0, Math.round(score)),
-      tacos: Math.max(0, Math.round(tacos || 0)),
+      score: Math.max(0, Math.min(9999, Math.round(score))),
+      tacos: Math.max(0, Math.min(99999, Math.round(tacos || 0))),
       ts: serverTimestamp(),
     };
-    if (flag) data.flag = String(flag).slice(0, 4);
-    await setDoc(doc(db, "leaderboard", getPlayerId()), data);
+    if (flag) data.flag = String(flag).slice(0, 6);
+    b.set(doc(db, LLAVES, id), { clave: secretKey(), ts: serverTimestamp() });
+    b.set(doc(db, RANKING, id), data);
+    await withTimeout(b.commit());
+    patchRankCache({ id, name: data.name, score: data.score, flag: data.flag || "" });
+    return "ok";
   } catch (e) {
-    console.warn("No se pudo enviar la puntuación al ranking global:", e);
+    if (e && e.code === "permission-denied") return "rechazado";
+    return "sin-red";
   }
 }
 
-async function fetchTop(n) {
-  const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(n || 10));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => Object.assign({ id: d.id }, d.data()));
-}
-
 // ---------- Ajustes que activa el admin ----------
+// Se leen como mucho una vez cada 10 minutos.
+const CONFIG_KEY = "elsPanetsAjustes", CONFIG_AT = "elsPanetsAjustesHora";
 let config = {};
-try { config = JSON.parse(ls.get("elsPanetsAjustes") || "{}"); } catch (e) {}
-async function loadConfig() {
+try { config = JSON.parse(ls.get(CONFIG_KEY) || "{}"); } catch (e) {}
+async function loadConfig(force) {
+  const at = Number(ls.get(CONFIG_AT)) || 0;
+  if (!force && Date.now() - at < RANK_TTL && Date.now() >= at) return config;
   try {
-    const s = await getDoc(doc(db, "elsPanetsConfig", "ajustes"));
+    const s = await withTimeout(getDoc(doc(db, "elsPanetsConfig", "ajustes")));
     config = s.exists() ? s.data() : {};
     delete config.firma;
-    ls.set("elsPanetsAjustes", JSON.stringify(config));
+    ls.set(CONFIG_KEY, JSON.stringify(config));
+    ls.set(CONFIG_AT, String(Date.now()));
   } catch (e) {}
   return config;
 }
 
 // ---------- Tiempo de pantalla ----------
-// Se cuentan los segundos con el juego a la vista y se envían cada minuto.
-const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
-let pendingSecs = 0, sending = false;
-setInterval(() => { if (document.visibilityState === "visible") pendingSecs++; }, 1000);
+// Se cuentan los segundos con el juego a la vista y se envían cada 3 minutos
+// (y al ocultar la app). Los días de hace más de 30 se borran de la ficha.
+const dayOf = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const today = () => dayOf(new Date());
+const DAYS_KEY = "elsPanetsDias", KEEP_DAYS = 30;
+function knownDays() {
+  try { const a = JSON.parse(ls.get(DAYS_KEY) || "null"); if (Array.isArray(a)) return a; } catch (e) {}
+  // primera vez: no se sabe qué días hay ya en la ficha; se dan por escritos los 60 últimos
+  const a = [];
+  for (let i = 60; i >= 1; i--) a.push(dayOf(new Date(Date.now() - i * 864e5)));
+  return a;
+}
+let pendingSecs = 0, sending = false, timeOff = false;
+setInterval(() => { if (!timeOff && document.visibilityState === "visible") pendingSecs++; }, 1000);
 async function flushTime() {
-  if (sending || pendingSecs < 1) return;
+  if (sending || timeOff || pendingSecs < 1 || !online()) return;
   const secs = pendingSecs; pendingSecs = 0; sending = true;
   const info = (window.ElsPanets && window.ElsPanets.playerInfo && window.ElsPanets.playerInfo()) || {};
+  const hoy = today(), limite = dayOf(new Date(Date.now() - KEEP_DAYS * 864e5));
+  const dias = { [hoy]: increment(secs) }, known = knownDays(), keep = [];
+  for (const d of known) { if (d < limite) dias[d] = deleteField(); else if (d !== hoy) keep.push(d); }
+  keep.push(hoy);
   try {
-    await setDoc(doc(db, "elsPanetsJugadores", privateId()), {
+    await withTimeout(setDoc(doc(db, "elsPanetsJugadores", privateId()), {
       name: String(info.name || "Sin nombre").slice(0, 12),
       char: String(info.char || ""),
       flag: String(info.flag || ""),
       total: increment(secs),
-      dias: { [today()]: increment(secs) },
+      dias,
       ultima: serverTimestamp(),
-    }, { merge: true });
+    }, { merge: true }));
+    ls.set(DAYS_KEY, JSON.stringify(keep));
   } catch (e) { pendingSecs += secs; }
   sending = false;
 }
-setInterval(flushTime, 60000);
+setInterval(flushTime, 180000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushTime(); });
 window.addEventListener("pagehide", flushTime);
 
-// ---------- Personaje propio ----------
-async function myCharacter() {
-  const s = await getDoc(doc(db, "elsPanetsPersonajes", privateId()));
-  if (!s.exists()) return null;
-  const d = s.data();
-  return { estado: d.estado, name: d.name || "", look: d.look || null, decidido: d.decidido ? d.decidido.toMillis() : 0 };
+// ---------- Borrar mis datos ----------
+// Borra de internet la ficha del ranking (con la llave), el tiempo de pantalla y,
+// si lo hubo, el personaje antiguo. Lanza un error si no se pudo (sin conexión).
+async function deleteMyData() {
+  if (!online()) throw new Error("sin-red");
+  timeOff = true; pendingSecs = 0;
+  try {
+    const hasKey = !!ls.get(KEY_KEY), priv = ls.get(PRIVATE_KEY);
+    if (!hasKey && !priv) return;
+    const b = writeBatch(db), id = hasKey ? myId() : null;
+    if (id) {
+      b.set(doc(db, LLAVES, id), { clave: secretKey(), ts: serverTimestamp(), borrar: true });
+      b.delete(doc(db, RANKING, id));
+    }
+    if (priv) {
+      b.delete(doc(db, "elsPanetsJugadores", priv));
+      b.delete(doc(db, "elsPanetsPersonajes", priv));
+    }
+    await withTimeout(b.commit());
+    if (id) await withTimeout(deleteDoc(doc(db, LLAVES, id))).catch(() => {});
+    rankMem = null;
+  } catch (e) { timeOff = false; throw e; }
 }
-async function submitCharacter(name, look) {
-  await setDoc(doc(db, "elsPanetsPersonajes", privateId()), {
-    name: String(name).slice(0, 12), look, estado: "pendiente", creado: serverTimestamp(),
-  });
-}
-async function cancelCharacter() { await deleteDoc(doc(db, "elsPanetsPersonajes", privateId())); }
 
 // ---------- Admin ----------
 // El código no se guarda en ningún sitio que se pueda leer: Firebase solo
@@ -171,21 +283,16 @@ async function adminWrite(coll, id, data, opts) {
   b.set(doc(db, coll, id), Object.assign({}, data, { firma: f }), opts || {});
   await b.commit();
 }
-async function adminDecide(id, approve) {
-  // denegado: se borra lo que había hecho; podrá intentarlo de nuevo en 24 h
-  const data = approve ? { estado: "aprobado", decidido: serverTimestamp() } : { estado: "denegado", decidido: serverTimestamp(), name: "", look: null };
-  await adminWrite("elsPanetsPersonajes", id, data, { merge: true });
-}
 async function adminSetConfig(patch) {
   await adminWrite("elsPanetsConfig", "ajustes", patch, { merge: true });
-  return loadConfig();
+  return loadConfig(true);
 }
 
 window.TacoLeaderboard = {
-  submitScore, fetchTop, myId: getPlayerId,
+  submitScore, ranking, cachedRanking, myId,
   getConfig: () => config, loadConfig,
-  myCharacter, submitCharacter, cancelCharacter,
-  isAdmin, adminLogin, adminLogout, adminList, adminDecide, adminSetConfig,
+  deleteMyData,
+  isAdmin, adminLogin, adminLogout, adminList, adminSetConfig,
 };
 loadConfig().then(() => window.dispatchEvent(new Event("elsPanetsConfig")));
 window.dispatchEvent(new Event("tacoLeaderboardReady"));

@@ -142,6 +142,7 @@ public class MainActivity extends Activity {
     if (r.endsWith(".ogg")) return "audio/ogg";
     if (r.endsWith(".wav")) return "audio/wav";
     if (r.endsWith(".wasm")) return "application/wasm";
+    if (r.endsWith(".woff2")) return "font/woff2";
     return "application/octet-stream";
   }
 
