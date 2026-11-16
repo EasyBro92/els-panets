@@ -3,6 +3,7 @@ style.css
 game.js
 extras.js
 progreso.js
+personajes.js
 firebase-leaderboard.js
 manifest.json
 sw.js

@@ -6,7 +6,7 @@
   const $ = (id) => document.getElementById(id);
   const EP = window.ElsPanets;
   const lb = () => window.TacoLeaderboard;
-  const overlays = ["creatorOverlay", "adminLoginOverlay", "adminOverlay", "boxOverlay", "dailyOverlay", "settingsOverlay", "progOverlay"].map($);
+  const overlays = ["creatorOverlay", "adminLoginOverlay", "adminOverlay", "boxOverlay", "dailyOverlay", "settingsOverlay", "progOverlay", "charsOverlay"].map($);
   const show = (el) => el.classList.remove("hidden");
   const hide = (el) => el.classList.add("hidden");
   const esc = (s) => String(s == null ? "" : s).replace(/[<>&"']/g, "");

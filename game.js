@@ -264,20 +264,63 @@
     o.stop(t + dur + 0.03);
   }
 
+  // 17/11/2026: una música por lugar. La ciudad sigue con el joropo; la playa, merengue
+  // suave; la montaña, vals; el pueblo, rumba; Barcelona, rumba catalana. Se cambia al
+  // acabar el compás, sin cortes. En el fin de partida suena más baja.
+  const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const STYLES = [null,
+    { e: 0.12, bar: 8, prog: ["C", "C", "F", "G", "C", "F", "G", "C"], ch: { C: [[36, 43], [60, 64, 67]], G: [[43, 38], [59, 62, 65, 67]], F: [[41, 36], [57, 60, 65]] },
+      bass: { 0: 0, 3: 1, 4: 0, 6: 1 }, strum: [0.13, 0, 0.09, 0.11, 0, 0.09, 0.11, 0.05], wave: "triangle", mvol: 0.09,
+      mel: [72, 0, 76, 0, 79, 77, 76, 0, 74, 0, 72, 0, 76, 0, 0, 0, 77, 0, 81, 0, 79, 77, 76, 0, 74, 0, 79, 0, 77, 76, 74, 0,
+        76, 0, 79, 0, 84, 0, 81, 79, 77, 0, 76, 0, 74, 72, 0, 0, 74, 76, 77, 79, 77, 0, 74, 0, 72, 0, 0, 67, 72, 0, 0, 0] },
+    { e: 0.2, bar: 6, prog: ["G", "G", "D", "D", "C", "G", "D", "G"], ch: { G: [[43], [59, 62, 67]], D: [[38], [57, 62, 66]], C: [[36], [60, 64, 67]] },
+      bass: { 0: 0 }, strum: [0, 0, 0.08, 0, 0.08, 0], wave: "sine", mvol: 0.12,
+      mel: [74, 0, 0, 0, 71, 0, 79, 0, 0, 0, 78, 76, 74, 0, 0, 0, 69, 0, 72, 0, 74, 0, 72, 0, 72, 0, 0, 0, 76, 0, 74, 0, 71, 0, 67, 0,
+        69, 0, 72, 0, 71, 69, 67, 0, 0, 0, 0, 0] },
+    { e: 0.115, bar: 8, prog: ["Am", "G", "F", "E", "Am", "G", "F", "E"], ch: { Am: [[45, 40], [57, 60, 64]], G: [[43, 38], [55, 59, 62]], F: [[41, 36], [53, 57, 60]], E: [[40, 35], [52, 56, 59, 64]] },
+      bass: { 0: 0, 3: 1, 6: 0 }, strum: [0.13, 0, 0.07, 0.11, 0, 0.11, 0.07, 0], wave: "triangle", mvol: 0.09,
+      mel: [76, 0, 77, 76, 74, 0, 72, 0, 74, 0, 72, 71, 72, 0, 0, 0, 72, 0, 74, 72, 71, 0, 69, 0, 71, 0, 68, 0, 64, 0, 0, 0,
+        69, 72, 76, 0, 77, 76, 74, 0, 74, 0, 79, 77, 76, 74, 72, 0, 72, 74, 72, 71, 69, 0, 0, 0, 68, 0, 71, 0, 76, 0, 0, 0] },
+    { e: 0.11, bar: 8, prog: ["D", "Bm", "G", "A", "D", "Bm", "G", "A"], ch: { D: [[38, 45], [62, 66, 69]], Bm: [[47, 42], [59, 62, 66]], G: [[43, 38], [59, 62, 67]], A: [[45, 40], [61, 64, 69]] },
+      bass: { 0: 0, 3: 1, 4: 0, 7: 1 }, strum: [0.12, 0, 0.09, 0.11, 0.05, 0.11, 0.09, 0], wave: "square", mvol: 0.055,
+      mel: [74, 0, 78, 0, 81, 0, 78, 76, 74, 0, 71, 0, 74, 0, 0, 0, 71, 0, 74, 0, 79, 78, 76, 0, 76, 0, 78, 76, 73, 0, 0, 0,
+        78, 0, 81, 0, 86, 0, 83, 81, 78, 0, 76, 0, 74, 0, 71, 0, 74, 76, 78, 79, 78, 0, 76, 0, 73, 0, 76, 0, 74, 0, 0, 0] },
+  ];
+  let musicStyle = 0;
+  const styleBar = (st) => (st ? st.bar : 6);
   function musicTick() {
     if (!actx) return;
+    const want = state === STATE.START || state === STATE.READY ? 0 : placeTo;
+    const mv = state === STATE.OVER || state === STATE.NAME ? 0.55 : 1;
     while (nextStep < actx.currentTime + 0.15) {
-      const bar = Math.floor(step / 6) % PROG.length, pos = step % 6;
-      const ch = CHORDS[PROG[bar]];
-      if (musicOn) {
-        if (pos === 0) musicNote(nextStep, ch.bass[0], E * 2.6, "triangle", 0.7);
-        if (pos === 3) musicNote(nextStep, ch.bass[1], E * 2.2, "triangle", 0.5);
-        if (STRUM[pos]) for (let i = 0; i < ch.notes.length; i++) musicNote(nextStep + i * 0.012, ch.notes[i], E * 1.3, "triangle", 0.16);
-        const m = MELODY[step % MELODY.length];
-        if (m) musicNote(nextStep, m, E * 1.6, "square", 0.08);
+      // el estilo cambia solo al empezar un compás
+      if (want !== musicStyle && step % styleBar(STYLES[musicStyle]) === 0) { musicStyle = want; step = 0; }
+      const st = STYLES[musicStyle];
+      if (!st) {
+        const bar = Math.floor(step / 6) % PROG.length, pos = step % 6;
+        const ch = CHORDS[PROG[bar]];
+        if (musicOn) {
+          if (pos === 0) musicNote(nextStep, ch.bass[0], E * 2.6, "triangle", 0.7 * mv);
+          if (pos === 3) musicNote(nextStep, ch.bass[1], E * 2.2, "triangle", 0.5 * mv);
+          if (STRUM[pos]) for (let i = 0; i < ch.notes.length; i++) musicNote(nextStep + i * 0.012, ch.notes[i], E * 1.3, "triangle", 0.16 * mv);
+          const m = MELODY[step % MELODY.length];
+          if (m) musicNote(nextStep, m, E * 1.6, "square", 0.08 * mv);
+        }
+        step++;
+        nextStep += E;
+      } else {
+        const bar = Math.floor(step / st.bar) % st.prog.length, pos = step % st.bar, ch = st.ch[st.prog[bar]];
+        if (musicOn) {
+          const b = st.bass[pos];
+          if (b != null && ch[0][b] != null) musicNote(nextStep, mtof(ch[0][b]), st.e * 2.2, "triangle", 0.62 * mv);
+          const sv = st.strum[pos];
+          if (sv) for (let i = 0; i < ch[1].length; i++) musicNote(nextStep + i * 0.012, mtof(ch[1][i]), st.e * 1.2, "triangle", sv * 1.15 * mv);
+          const m = st.mel[step % st.mel.length];
+          if (m) musicNote(nextStep, mtof(m), st.e * 1.7, st.wave, st.mvol * mv);
+        }
+        step++;
+        nextStep += st.e;
       }
-      step++;
-      nextStep += E;
     }
   }
 
@@ -821,6 +864,8 @@
     { name: "LA PLAYA", grass: "#e9cf8f", grass2: "#d7b874", tile: "#f3e3b6", line: "#e4cf98", curb: "#d9c391", road: "#3f7fa6" },
     { name: "LA MONTAÑA", grass: "#6cbf5a", grass2: "#4a9a3f", tile: "#b8946a", line: "#a2805a", curb: "#8a7457", road: "#55703f" },
     { name: "EL PUEBLO", grass: "#8fc46a", grass2: "#6aa04d", tile: "#d8cfbf", line: "#bfb4a1", curb: "#c4a483", road: "#8a6f55" },
+    // 17/11/2026: quinto lugar, con su acera de panot
+    { name: "BARCELONA", grass: "#7fb85e", grass2: "#5c9a46", tile: "#cdc8bf", line: "#b3ada2", curb: "#a8a196", road: "#56575d", panot: true },
   ];
   const PLACE_EVERY = 40;
   let placeFrom = 0, placeTo = 0, placeT = 1, placeBanner = 0;
@@ -956,7 +1001,7 @@
     let fdy = 0;
     const normal = !SPECIALS[kind] && !isPower(kind);
     if (!oldRules && normal && food && score >= 10 && Math.random() < 0.35) fdy = (Math.random() < 0.5 ? -1 : 1) * (gap / 2 - 34);
-    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6, pull: 0, fdy, girl: kind === "novia" ? randomGirl() : null });
+    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: Math.random() * 6, pull: 0, fdy, place: placeTo, girl: kind === "novia" ? randomGirl() : null });
     // fila de tres empanadillas pequeñas entre esta columna y la siguiente, un poco apartada
     // del camino recto: riesgo a cambio de premio. Solo si los dos huecos están a una altura
     // parecida, para que dé tiempo a ir y volver.
@@ -1442,6 +1487,11 @@
       outfits: OUTFIT_PTS.map((p, i) => ({ i, x: cx - 75 + i * 50, y: LH * 0.45 + 82 + 118, r: 18 })),
       edit: { x: cx - 75, y: LH * 0.45 + 82 + 103, w: 150, h: 33 },
       caja: { x: cx + 6, y: LH * 0.45 + 82 + 172 + 30 - 18, w: 170, h: 36 },
+      // 17/11/2026: inicio nuevo
+      mPers: { x: cx - 184, y: LH * 0.45 + 86, w: 116, h: 80 },
+      mShop: { x: cx - 58, y: LH * 0.45 + 86, w: 116, h: 80 },
+      mMis: { x: cx + 68, y: LH * 0.45 + 86, w: 116, h: 80 },
+      charBox: { x: cx - 70, y: LH * 0.31 - 80, w: 140, h: 120 },
       titleBox: { x: cx - 150, y: LH * 0.12 - 40, w: 300, h: 80 },
       overCard: { x: cx - 160, y: overCardY, w: 320, h: 240 },
       again: { x: cx - 150, y: overCardY + 262, w: 160, h: 58 },
@@ -1466,40 +1516,25 @@
     // la rueda de ajustes: en el inicio y en la pausa
     if (p && (state === STATE.START || state === STATE.PAUSE) && inCircle(p, u.gear)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openSettings(); return; }
     if (p && (state === STATE.START || state === STATE.OVER) && inCircle(p, u.rank)) { snd.click(); showLeaderboard(); return; }
-    if (p && (state === STATE.START || state === STATE.OVER) && inCircle(p, u.misiones) && window.ElsPanetsProgreso) { snd.click(); window.ElsPanetsProgreso.open(); return; }
+    if (p && state === STATE.OVER && inCircle(p, u.misiones) && window.ElsPanetsProgreso) { snd.click(); window.ElsPanetsProgreso.open(); return; }
 
     switch (state) {
       case STATE.START:
         if (!p) { if (charUnlocked(viewIndex)) { snd.click(); goReady(); } return; }
-        if (inRect(p, u.caja)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openBox(); return; }
+        // los tres botones grandes del inicio y el personaje (abre la pantalla de personajes)
+        if (inRect(p, u.mPers) || inRect(p, u.charBox)) { snd.click(); if (window.ElsPanetsUI && window.ElsPanetsUI.openChars) window.ElsPanetsUI.openChars(); return; }
+        if (inRect(p, u.mShop)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openBox(); return; }
+        if (inRect(p, u.mMis)) { snd.click(); if (window.ElsPanetsProgreso) window.ElsPanetsProgreso.open(); return; }
         // 5 toques seguidos en el título: entrada del admin
         if (inRect(p, u.titleBox)) {
           titleTaps = worldT - titleTapT < 1.2 ? titleTaps + 1 : 1; titleTapT = worldT;
           if (titleTaps >= 5) { titleTaps = 0; if (window.ElsPanetsUI) window.ElsPanetsUI.openAdmin(); }
           return;
         }
-        if (CHARACTERS[viewIndex].id === "gris" && inRect(p, u.create)) {
-          const cst = customState();
-          snd.click();
-          if (cst === "libre") { if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); }
-          else viewChar(CHARACTERS.indexOf(customDef));
-          return;
-        }
-        if (CHARACTERS[viewIndex].custom) {
-          const cst = customState();
-          if (inRect(p, u.play) && cst === "libre") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); return; }
-          if (inRect(p, u.edit) && cst === "aprobado") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(customChar); return; }
-        }
+        if (CHARACTERS[viewIndex].custom && inRect(p, u.play) && customState() === "libre") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); return; }
         if (inCircle(p, u.prev)) { viewChar(viewIndex - 1); snd.click(); return; }
         if (inCircle(p, u.next)) { viewChar(viewIndex + 1); snd.click(); return; }
-        for (const c of u.portraits) {
-          if (inCircle(p, { x: c.x, y: c.y, r: c.r - 3 })) { viewChar(c.i); snd.click(); return; }
-        }
-        for (const o of CHARACTERS[viewIndex].custom || CHARACTERS[viewIndex].id === "gris" ? [] : u.outfits) {
-          if (inCircle(p, { x: o.x, y: o.y, r: o.r - 3 })) {
-            if (charUnlocked(viewIndex) && outfitUnlocked(o.i)) { setOutfit(CHARACTERS[viewIndex], o.i); snd.click(); }
-            return;
-          }
+        {
         }
         if (inRect(p, u.play) && charUnlocked(viewIndex)) { snd.click(); goReady(); }
         return;
@@ -2031,6 +2066,7 @@
     if (i === 1) { drawSea(pal); drawBeach(pal); }
     else if (i === 2) { drawAlps(pal); drawForest(pal); drawCabins(pal); }
     else if (i === 3) { drawMountains(pal); drawVillageFar(pal); drawHouses(pal, true); }
+    else if (i === 4) { drawMountains(pal); drawBcnFar(pal); drawBcnNear(pal); }
     else { drawMountains(pal); drawCity(pal); drawHouses(pal); }
   }
   function drawScenery(pal) {
@@ -2058,7 +2094,7 @@
     // bandada de pájaros que cruza de vez en cuando (de día)
     if (day > 0.05) {
       ctx.globalAlpha = day * 0.8;
-      ctx.strokeStyle = i === 1 ? "#ffffff" : "#3a3a48"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
+      ctx.strokeStyle = i === 1 || i === 4 ? "#ffffff" : "#3a3a48"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
       const span = LW + 700, bx = LW + 60 - ((t * 34) % span), by = 110 + Math.sin(t * 0.4) * 14;
       for (const b of FLOCK) drawBird(bx + b[0], by + b[1], b[2], t * 7 + b[0]);
       ctx.lineCap = "butt"; ctx.globalAlpha = 1;
@@ -2086,6 +2122,15 @@
         const y = (f.y * gt + t * f.v) % gt, x = (((f.x + Math.sin(t * 0.8 + f.p) * 10) % LW) + LW) % LW;
         ctx.beginPath(); ctx.arc(x, y, f.r, 0, Math.PI * 2); ctx.fill();
       }
+    } else if (i === 4) {
+      // Barcelona: el teleférico de Montjuïc cruza muy despacio
+      const y0 = gt - 300, y1 = gt - 230, cxp = ((t * 6) % (LW + 120)) - 60, k = clamp(cxp / LW, 0, 1), cy = lerp(y0, y1, k);
+      ctx.strokeStyle = "rgba(40,40,50,0.55)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, y0 - 6); ctx.lineTo(LW, y1 - 6); ctx.stroke();
+      ctx.fillStyle = nightTint("#d63a32", pal.night); ctx.strokeStyle = "#3b2414";
+      ctx.beginPath(); ctx.moveTo(cxp, cy - 6); ctx.lineTo(cxp, cy); ctx.stroke();
+      roundRect(cxp - 8, cy, 16, 12, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = pal.night > 0.4 ? "#ffd27a" : "#cfe8f5"; ctx.fillRect(cxp - 5, cy + 3, 10, 4);
     } else if (i === 3 && day > 0.05) {
       // pueblo blanco: mariposas por encima de los tejados
       for (const b of BUTTERFLIES) {
@@ -2255,6 +2300,79 @@
   }
 
   // --- Pueblo ---
+  // --- Barcelona (17/11/2026): Collserola detrás, la Sagrada Família, la Torre Glòries
+  // y casas del Eixample con sus balcones de hierro ---
+  const BCN_TILE = 760, BCN_NEAR_TILE = 640;
+  const bcnFar = (() => { const a = []; for (let x = 0; x < BCN_TILE; ) { const w = 26 + Math.floor(rnd() * 26); if ((x < 150 || x > 260) && (x < 500 || x > 580)) a.push({ x, w, h: 40 + Math.floor(rnd() * 50) }); x += w + 4; } return a; })();
+  const SAGRADA = [[-32, 112, 8], [-20, 128, 8], [20, 128, 8], [32, 112, 8], [-8, 146, 9], [8, 146, 9], [0, 176, 11]];
+  const BCN_COLORS = ["#ead7b6", "#d9b98e", "#f0e2cc", "#e2c1a2", "#d8c6a6", "#e9d0b8"];
+  const bcnNear = (() => { const a = []; let x = 0; const ws = [104, 96, 112, 100, 108, 96]; for (let i = 0; i < ws.length; i++) { a.push({ x, w: ws[i], h: 112 + ((i * 37) % 34), color: BCN_COLORS[i], tree: i % 2 === 0 }); x += ws[i] + 6; } return a; })();
+  function drawBcnFar(pal) {
+    const base = groundTop() - 34, off = -((scroll * 0.2) % BCN_TILE), col = rgb(pal.city);
+    for (let rep = 0; rep < 2; rep++) {
+      const x0 = off + rep * BCN_TILE;
+      if (x0 > LW || x0 + BCN_TILE < 0) continue;
+      ctx.fillStyle = col;
+      for (const b of bcnFar) if (x0 + b.x < LW && x0 + b.x + b.w > 0) ctx.fillRect(x0 + b.x, base - b.h, b.w, b.h + 40);
+      // Sagrada Família: el templo y sus torres con la punta redonda
+      const sx = x0 + 205;
+      if (sx > -60 && sx < LW + 60) {
+        ctx.fillRect(sx - 42, base - 66, 84, 106);
+        for (const [dx, h, w] of SAGRADA) {
+          ctx.fillRect(sx + dx - w / 2, base - h, w, h);
+          ctx.beginPath(); ctx.ellipse(sx + dx, base - h, w / 2, w * 1.2, 0, Math.PI, Math.PI * 2); ctx.fill();
+          ctx.fillRect(sx + dx - 1, base - h - w * 1.2 - 6, 2, 7);
+        }
+      }
+      // Torre Glòries: la bala con lucecitas de noche
+      const gx = x0 + 540, gh = 150;
+      if (gx > -30 && gx < LW + 30) {
+        ctx.beginPath(); ctx.moveTo(gx - 17, base + 40); ctx.lineTo(gx - 17, base - gh + 34);
+        ctx.quadraticCurveTo(gx - 17, base - gh, gx, base - gh); ctx.quadraticCurveTo(gx + 17, base - gh, gx + 17, base - gh + 34);
+        ctx.lineTo(gx + 17, base + 40); ctx.closePath(); ctx.fill();
+        if (pal.night > 0.3) {
+          for (let yy = base - gh + 20; yy < base; yy += 8) for (let xx = gx - 12; xx <= gx + 12; xx += 6) {
+            ctx.fillStyle = ((xx + yy) % 3) ? "rgba(255,90,90," + pal.night * 0.55 + ")" : "rgba(90,170,255," + pal.night * 0.6 + ")";
+            ctx.fillRect(xx, yy, 3, 3);
+          }
+        }
+      }
+    }
+  }
+  function drawBcnNear(pal) {
+    const base = groundTop(), off = -((scroll * 0.45) % BCN_NEAR_TILE), n = pal.night;
+    const iron = nightTint("#2a2a2e", n), win = n > 0.5 ? "#ffd27a" : nightTint("#5d4a3a", n);
+    for (let rep = 0; rep < 3; rep++) {
+      for (const b of bcnNear) {
+        const x = off + rep * BCN_NEAR_TILE + b.x;
+        if (x > LW + 30 || x + b.w < -40) continue;
+        ctx.fillStyle = nightTint(b.color, n);
+        ctx.fillRect(x, base - b.h, b.w, b.h);
+        ctx.fillStyle = nightTint(darken(b.color, 0.2), n);
+        ctx.fillRect(x - 3, base - b.h - 6, b.w + 6, 7);
+        // planta baja con arcos de tienda
+        ctx.fillStyle = nightTint("#7a5a3a", n);
+        for (let ax = x + 8; ax < x + b.w - 20; ax += 30) { ctx.beginPath(); ctx.moveTo(ax, base); ctx.lineTo(ax, base - 18); ctx.arc(ax + 9, base - 18, 9, Math.PI, 0); ctx.lineTo(ax + 18, base); ctx.closePath(); ctx.fill(); }
+        // pisos: puertas de balcón con su barandilla de hierro
+        ctx.strokeStyle = iron; ctx.lineWidth = 1.2;
+        for (let fy = base - b.h + 12; fy < base - 40; fy += 24) {
+          for (let wx = x + 9; wx < x + b.w - 14; wx += 18) {
+            ctx.fillStyle = win; ctx.fillRect(wx, fy, 8, 14);
+            ctx.beginPath(); ctx.moveTo(wx - 3, fy + 14); ctx.lineTo(wx + 11, fy + 14); ctx.moveTo(wx - 3, fy + 9); ctx.lineTo(wx + 11, fy + 9);
+            ctx.moveTo(wx - 3, fy + 9); ctx.lineTo(wx - 3, fy + 14); ctx.moveTo(wx + 11, fy + 9); ctx.lineTo(wx + 11, fy + 14); ctx.stroke();
+          }
+        }
+        // plátano de sombra en la acera
+        if (b.tree) {
+          const tx = x - 6;
+          ctx.fillStyle = nightTint("#6b4a2e", n); ctx.fillRect(tx - 2, base - 40, 4, 40);
+          ctx.fillStyle = nightTint("#5c9a46", n);
+          ctx.beginPath(); ctx.arc(tx, base - 48, 16, 0, Math.PI * 2); ctx.arc(tx - 11, base - 40, 11, 0, Math.PI * 2); ctx.arc(tx + 11, base - 41, 12, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+  }
+
   function drawVillageFar(pal) {
     const base = groundTop() - 34, off = -((scroll * 0.2) % VILLAGE_TILE);
     ctx.fillStyle = rgb(pal.city);
@@ -2301,6 +2419,13 @@
     for (let x = off; x < LW + 44; x += 44) { ctx.moveTo(x, y + 11); ctx.lineTo(x, y + 45); }
     ctx.moveTo(0, y + 28); ctx.lineTo(LW, y + 28);
     ctx.stroke();
+    // panot de Barcelona: la flor de cuatro pétalos en cada baldosa (suave, sin contraste)
+    if (G.panot) {
+      ctx.fillStyle = nightTint(G.line, n);
+      for (let x = off + 22; x < LW + 22; x += 44) for (const yy of [y + 19.5, y + 36.5]) {
+        for (const [dx, dy] of [[-4, 0], [4, 0], [0, -3.5], [0, 3.5]]) { ctx.beginPath(); ctx.arc(x + dx, yy + dy, 2.6, 0, Math.PI * 2); ctx.fill(); }
+      }
+    }
     // bordillo y calle
     ctx.fillStyle = nightTint(G.curb, n);
     ctx.fillRect(0, y + 45, LW, 7);
@@ -2326,24 +2451,102 @@
     ctx.strokeStyle = "#5e4630";
     // arriba, un tronco con pinchos que cuelga (05/11/2026); abajo, la columna de siempre
     drawSpikyBranch(c, x, top);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "#5e4630";
-    ctx.fillStyle = columnGradient(x);
-    ctx.fillRect(x, bot + CAP_H, COL_W, gt - bot - CAP_H + 2);
-    ctx.strokeRect(x, bot + CAP_H, COL_W, gt - bot - CAP_H + 2);
-    // estrías
-    ctx.strokeStyle = "rgba(120,90,55,0.35)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (const fx of NUMS_2) { ctx.moveTo(x + fx, bot + CAP_H + 10); ctx.lineTo(x + fx, gt); }
-    ctx.stroke();
-    drawCapital(x, bot, false);
+    drawBottomColumn(c.place || 0, x, bot, gt);
     // de noche se oscurecen con el resto
     if (n > 0.05) {
       ctx.fillStyle = `rgba(20,26,62,${n * 0.5})`;
       ctx.fillRect(x - CAP_OUT - 1, -4, COL_W + CAP_OUT * 2 + 2, top + 2);
       ctx.fillRect(x - CAP_OUT - 1, bot - 1, COL_W + CAP_OUT * 2 + 2, gt - bot + 3);
     }
+  }
+
+  // La columna de abajo cambia con el lugar (17/11/2026). Ocupa siempre lo mismo
+  // (fuste + capitel), así que se choca igual: ciudad colonial, palmera en la playa,
+  // tronco nevado en la montaña, chimenea encalada en el pueblo y trencadís en Barcelona.
+  let trencadis = null;
+  function trencadisCanvas() {
+    if (trencadis) return trencadis;
+    const W = COL_W * 2, H = 1900, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const c = cv.getContext("2d"), cols = ["#e63946", "#f4a261", "#e9c46a", "#2a9d8f", "#3d6fb6", "#ffffff", "#8ab17d", "#e76f51", "#6d597a", "#f1faee"];
+    c.fillStyle = "#e9e1cf"; c.fillRect(0, 0, W, H);
+    for (let y = 0; y < H; y += 18) for (let x = (y / 18) % 2 ? -9 : 0; x < W; x += 18) {
+      c.fillStyle = cols[Math.floor(rnd() * cols.length)];
+      c.beginPath();
+      const p = 3;
+      c.moveTo(x + p + rnd() * 3, y + p + rnd() * 3); c.lineTo(x + 18 - p - rnd() * 3, y + p + rnd() * 4);
+      c.lineTo(x + 18 - p - rnd() * 2, y + 18 - p - rnd() * 3); c.lineTo(x + p + rnd() * 4, y + 18 - p - rnd() * 2);
+      c.closePath(); c.fill();
+    }
+    return (trencadis = cv);
+  }
+  function drawBottomColumn(place, x, bot, gt) {
+    const y0 = bot + CAP_H, h = gt - y0 + 2, w = COL_W + CAP_OUT * 2, cx = x - CAP_OUT;
+    const flag = () => drawFlagBand(x + 1, y0, COL_W - 2, FLAG_H, flagOf(selectedChar()));
+    if (place === 1) {
+      // playa: tronco de palmera con sus anillos y las hojas arriba con dos cocos
+      const g = ctx.createLinearGradient(x, 0, x + COL_W, 0);
+      g.addColorStop(0, "#8a5a32"); g.addColorStop(0.3, "#c48a52"); g.addColorStop(1, "#6e4424");
+      ctx.fillStyle = g; ctx.fillRect(x, y0, COL_W, h); ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2; ctx.strokeRect(x, y0, COL_W, h);
+      ctx.strokeStyle = "rgba(60,35,15,0.45)"; ctx.beginPath();
+      for (let yy = y0 + 22; yy < gt; yy += 16) { ctx.moveTo(x + 2, yy); ctx.quadraticCurveTo(x + COL_W / 2, yy + 5, x + COL_W - 2, yy); }
+      ctx.stroke();
+      ctx.fillStyle = "#4f9a3a"; roundRect(cx, bot, w, CAP_H, 9); ctx.fill(); ctx.strokeStyle = "#2f5e1c"; ctx.stroke();
+      ctx.strokeStyle = "#7cc25a"; ctx.lineWidth = 2; ctx.beginPath();
+      for (let lx = cx + 8; lx < cx + w - 4; lx += 12) { ctx.moveTo(lx, bot + 4); ctx.lineTo(lx - 6, bot + CAP_H - 4); }
+      ctx.stroke();
+      ctx.fillStyle = "#6b4321"; ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 1.5;
+      for (const dx of [-7, 7]) { ctx.beginPath(); ctx.arc(x + COL_W / 2 + dx, bot + CAP_H / 2, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+      flag(); return;
+    }
+    if (place === 2) {
+      // montaña: tronco oscuro con su corteza y un gorro de nieve
+      const g = ctx.createLinearGradient(x, 0, x + COL_W, 0);
+      g.addColorStop(0, "#4a3220"); g.addColorStop(0.35, "#8a6038"); g.addColorStop(1, "#3e2a18");
+      ctx.fillStyle = g; ctx.fillRect(x, y0, COL_W, h); ctx.strokeStyle = "#2a1c10"; ctx.lineWidth = 2; ctx.strokeRect(x, y0, COL_W, h);
+      ctx.strokeStyle = "rgba(30,18,8,0.5)"; ctx.lineWidth = 1.6; ctx.beginPath();
+      for (const fx of [14, 30, 47]) { ctx.moveTo(x + fx, y0 + 14); for (let yy = y0 + 14; yy < gt; yy += 14) ctx.lineTo(x + fx + ((yy / 14) % 2 ? 2 : -2), yy + 14); }
+      ctx.stroke();
+      ctx.fillStyle = "#f7fbff"; roundRect(cx, bot, w, CAP_H, 11); ctx.fill(); ctx.strokeStyle = "#9fb6c8"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "#dbe9f3"; roundRect(cx + 4, bot + CAP_H - 8, w - 8, 5, 2.5); ctx.fill();
+      flag(); return;
+    }
+    if (place === 3) {
+      // pueblo blanco: chimenea encalada con una cenefa de azulejo y su tejadillo
+      const g = ctx.createLinearGradient(x, 0, x + COL_W, 0);
+      g.addColorStop(0, "#ddd6c6"); g.addColorStop(0.3, "#ffffff"); g.addColorStop(1, "#cdc5b3");
+      ctx.fillStyle = g; ctx.fillRect(x, y0, COL_W, h); ctx.strokeStyle = "#a89f8c"; ctx.lineWidth = 2; ctx.strokeRect(x, y0, COL_W, h);
+      ctx.fillStyle = "#2f6fb5"; ctx.fillRect(x + 1, y0 + FLAG_H + 10, COL_W - 2, 10);
+      ctx.fillStyle = "#ffffff"; for (let dx = 6; dx < COL_W; dx += 10) { ctx.beginPath(); ctx.arc(x + dx, y0 + FLAG_H + 15, 2, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = "#c0603d"; roundRect(cx, bot, w, CAP_H, 6); ctx.fill(); ctx.strokeStyle = "#7e3a22"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = "#8e4428"; ctx.lineWidth = 1.4; ctx.beginPath();
+      for (let tx = cx + 6; tx < cx + w; tx += 10) { ctx.moveTo(tx - 5, bot + CAP_H - 3); ctx.arc(tx, bot + CAP_H - 3, 5, Math.PI, 0); }
+      ctx.stroke();
+      flag(); return;
+    }
+    if (place === 4) {
+      // Barcelona: trencadís de Gaudí (el dibujo se hace una vez y se reutiliza)
+      const tc = trencadisCanvas();
+      ctx.drawImage(tc, 0, 0, tc.width, Math.min(tc.height, h * 2), x, y0, COL_W, Math.min(h, tc.height / 2));
+      ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2; ctx.strokeRect(x, y0, COL_W, h);
+      ctx.save(); roundRect(cx, bot, w, CAP_H, 9); ctx.clip();
+      ctx.fillStyle = "#1f5f9e"; ctx.fillRect(cx, bot, w, CAP_H);
+      ctx.globalAlpha = 0.55; ctx.drawImage(tc, 0, 600, tc.width, CAP_H * 2, cx, bot, w, CAP_H); ctx.globalAlpha = 1;
+      ctx.restore();
+      ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2; roundRect(cx, bot, w, CAP_H, 9); ctx.stroke();
+      flag(); return;
+    }
+    // ciudad: la columna colonial de estuco de siempre
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#5e4630";
+    ctx.fillStyle = columnGradient(x);
+    ctx.fillRect(x, y0, COL_W, h);
+    ctx.strokeRect(x, y0, COL_W, h);
+    ctx.strokeStyle = "rgba(120,90,55,0.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (const fx of NUMS_2) { ctx.moveTo(x + fx, y0 + 10); ctx.lineTo(x + fx, gt); }
+    ctx.stroke();
+    drawCapital(x, bot, false);
   }
 
   // Tronco que cuelga, con pinchos a los lados y una corona de pinchos en la punta.
@@ -4625,95 +4828,54 @@
     ctx.globalAlpha = 1;
     ctx.restore();
 
-    // tarjeta de personajes, su ropa y su objeto especial
-    const CARD_H = 172;
-    card(LW / 2 - 186, u.cardY, 372, CARD_H);
-    text("PERSONAJES", LW / 2, u.cardY + 16, 15, "#8a5a2b");
-    for (const c of u.portraits) {
-      const cdef = CHARACTERS[c.i], cOpen = charUnlocked(c.i), viewing = c.i === viewIndex;
-      ctx.fillStyle = viewing ? "#ffd23f" : "#efe4d0";
-      ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 3, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = viewing ? "#b45309" : "#cdbb9c"; ctx.lineWidth = 2.5; ctx.stroke();
-      ctx.save();
-      ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 1, 0, Math.PI * 2); ctx.clip();
-      ctx.globalAlpha = cOpen ? 1 : 0.3;
-      if (cdef.custom && customState() === "libre") { ctx.globalAlpha = 1; text("+", c.x, c.y + 1, 20, "#b45309"); }
-      else if (cdef.kind === "dog") drawDog(c.x - 10, c.y + 8, 0, 1, 0.85, "", dressed(cdef));
-      else if (cdef.kind === "critter") drawCritter(dressed(cdef), c.x - 7, c.y + 6, 0, 1, 0.8, "");
-      else drawChar(dressed(cdef), c.x - 3, c.y + 14, 0, 1, 0.9, "");
-      ctx.restore();
-      if (!cOpen && !cdef.custom) {
-        drawLock(c.x, c.y - 2, 0.75);
-        text(String(cdef.unlock), c.x, c.y + c.r + 11, 12, "#9a8566");
-      }
-    }
-
-    // tu personaje: en lugar de la ropa, en qué punto está y el botón de cambiarlo
-    if (def.custom) {
-      const oy = u.outfits[0].y;
-      text(cst === "aprobado" ? "¡Listo! Ya puedes jugar con él" : "Tú lo diseñas y se guarda en tu móvil", LW / 2, oy - 25, 14, "#8a5a2b");
-      if (cst === "aprobado") button(u.edit, "CAMBIARLO", true, 18);
-      text("Se guarda solo en este móvil", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
-    } else if (def.id === "gris") {
-      // el gris no tiene ropa: aquí va, en grande, el botón de crear tu personaje
-      const gst = customState();
-      let msg = "Tú lo diseñas y se guarda en tu móvil", btn = "CREA TU PERSONAJE";
-      if (gst === "aprobado") { msg = "Ya tienes tu personaje"; btn = "TU PERSONAJE"; }
-      text(msg, LW / 2, u.cardY + CARD_H - 14, 14, "#8a5a2b");
-      button(u.create, btn, true, 17);
-    } else {
-    // ropa: cuatro conjuntos con el personaje en miniatura
-    const selO = outfitIndex(def);
-    text("ROPA · " + def.outfits[selO].name, LW / 2, u.outfits[0].y - 29, 14, "#8a5a2b");
-    for (const o of u.outfits) {
-      const oOpen = open && outfitUnlocked(o.i), sel = open && o.i === selO;
-      ctx.fillStyle = sel ? "#ffd23f" : "#efe4d0";
-      ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 2, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = sel ? "#b45309" : "#cdbb9c"; ctx.lineWidth = sel ? 3 : 2; ctx.stroke();
-      ctx.save();
-      ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.clip();
-      ctx.globalAlpha = oOpen ? 1 : 0.28;
-      const look = dressed(def, o.i);
-      if (def.kind === "dog") drawDog(o.x - 10, o.y + 9, 0, 1, 0.82, "", look);
-      else drawChar(look, o.x - 3, o.y + 15, 0, 1, 0.85, "");
-      ctx.restore();
-      if (open && !outfitUnlocked(o.i)) {
-        drawLock(o.x, o.y - 5, 0.6);
-        text(String(OUTFIT_PTS[o.i]), o.x, o.y + 10, 12, "#7a6548");
-      }
-    }
-    // lo que tiene de especial
-    if (def.power) text(def.power, LW / 2, u.cardY + CARD_H - 16, 14, "#b45309");
-    else text("Ropa nueva a los 150, 300 y 450 puntos", LW / 2, u.cardY + CARD_H - 16, 13, "#9a8566");
-    }
-
+    // tres botones grandes: personajes, tienda y misiones (17/11/2026)
+    menuButton(u.mPers, "PERSONAJES", () => drawCharIcon(selectedChar()), 0);
+    menuButton(u.mShop, "TIENDA", () => drawGift(0, 0, 1.25), hucha >= BOX_COST && !boxComplete() ? "!" : 0, hucha);
+    const pend = window.ElsPanetsProgreso ? window.ElsPanetsProgreso.pending() : 0;
+    menuButton(u.mMis, "MISIONES", () => { ctx.scale(1.25, 1.25); iconMissions(); }, pend ? String(pend) : 0);
     // mejor puntuación
-    const by = u.cardY + CARD_H + 30;
+    const by = u.mPers.y + u.mPers.h + 36;
     ctx.fillStyle = "rgba(40,24,12,0.55)";
-    roundRect(LW / 2 - 176, by - 18, 170, 36, 18); ctx.fill();
-    ctx.save(); ctx.translate(LW / 2 - 152, by + 1); ctx.scale(0.75, 0.75); iconTrophy(); ctx.restore();
-    text("MEJOR: " + best, LW / 2 - 80, by + 1, 19, "#fff");
-    // botón de la caja sorpresa con lo que hay en la hucha
-    const cb = u.caja;
-    ctx.fillStyle = "#b45309"; roundRect(cb.x, cb.y + 4, cb.w, cb.h, 18); ctx.fill();
-    const cg = ctx.createLinearGradient(0, cb.y, 0, cb.y + cb.h);
-    cg.addColorStop(0, "#ffd23f"); cg.addColorStop(1, "#f59e0b");
-    ctx.fillStyle = cg; roundRect(cb.x, cb.y, cb.w, cb.h, 18); ctx.fill();
-    drawGift(cb.x + 22, by - 1, 0.9);
-    text("CAJA", cb.x + 64, by + 1, 19, "#fff", "#7c3a0a", 4);
-    drawFood("empanada", cb.x + 110, by, 0, 0.5);
-    text(String(hucha), cb.x + 143, by + 1, 18, "#fff", "#7c3a0a", 4);
-    if (hucha >= BOX_COST && !boxComplete()) {
-      ctx.fillStyle = "#d63a32"; ctx.beginPath(); ctx.arc(cb.x + cb.w - 4, cb.y + 2, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
-      text("!", cb.x + cb.w - 4, cb.y + 3, 13, "#fff");
-    }
+    roundRect(LW / 2 - 100, by - 18, 200, 36, 18); ctx.fill();
+    ctx.save(); ctx.translate(LW / 2 - 76, by + 1); ctx.scale(0.8, 0.8); iconTrophy(); ctx.restore();
+    text("MEJOR: " + best, LW / 2 + 8, by + 1, 20, "#fff");
     // el premio diario sale solo, una vez, al entrar
     if (!dailyShown && worldT > 1.2) {
       dailyShown = true;
       if (!dailyState().claimed && window.ElsPanetsUI && window.ElsPanetsUI.openDaily && !window.ElsPanetsUI.isOpen()) window.ElsPanetsUI.openDaily();
     }
     if (recordHolder && by + 36 < groundTop()) text("Récord de " + recordHolder, LW / 2, by + 32, 15, "#fff", "#3b2414", 4);
+  }
+
+  // botón grande del inicio: tarjeta clara con su dibujo, su nombre y, si hace falta, un aviso
+  function menuButton(b, label, icon, badge, coins) {
+    ctx.fillStyle = "rgba(0,0,0,0.22)"; roundRect(b.x, b.y + 5, b.w, b.h, 18); ctx.fill();
+    const g = ctx.createLinearGradient(0, b.y, 0, b.y + b.h);
+    g.addColorStop(0, "#fffaf0"); g.addColorStop(1, "#f3e3c3");
+    ctx.fillStyle = g; roundRect(b.x, b.y, b.w, b.h, 18); ctx.fill();
+    ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 3; ctx.stroke();
+    ctx.save(); ctx.translate(b.x + b.w / 2, b.y + 32); icon(); ctx.restore();
+    text(label, b.x + b.w / 2, b.y + b.h - 13, 15, "#3b2414");
+    if (coins != null) {
+      ctx.fillStyle = "rgba(40,24,12,0.7)"; roundRect(b.x + b.w - 50, b.y + 6, 44, 18, 9); ctx.fill();
+      text(String(coins), b.x + b.w - 28, b.y + 16, 12, "#ffe7a3");
+    }
+    if (badge) {
+      ctx.fillStyle = "#d63a32"; ctx.beginPath(); ctx.arc(b.x + b.w - 6, b.y + 4, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+      text(badge, b.x + b.w - 6, b.y + 5, 13, "#fff");
+    }
+  }
+  // el personaje elegido en pequeño, para el botón de personajes
+  function drawCharIcon(def) {
+    const look = dressed(def);
+    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = "#cfe9f6"; ctx.fillRect(-26, -26, 52, 52);
+    if (def.kind === "dog") drawDog(-8, 8, 0, 1, 1, "", look);
+    else if (look.kind === "critter") drawCritter(look, -7, 6, 0, 1, 1, "");
+    else drawChar(look, -3, 22, 0, 1, 1.1, "");
+    ctx.restore();
+    ctx.strokeStyle = "#3b2414"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.stroke();
   }
 
   function chevron(dir) {
@@ -5018,8 +5180,8 @@
     if ((state === STATE.START && fontReady) || state === STATE.OVER) {
       roundIcon(u.rank, iconTrophy);
       // misiones y logros, con un aviso rojo si hay algo que cobrar
-      roundIcon(u.misiones, iconMissions);
-      const pend = window.ElsPanetsProgreso ? window.ElsPanetsProgreso.pending() : 0;
+      const pend = state === STATE.OVER && window.ElsPanetsProgreso ? window.ElsPanetsProgreso.pending() : 0;
+      if (state === STATE.OVER) roundIcon(u.misiones, iconMissions);
       if (pend) {
         ctx.fillStyle = "#d63a32"; ctx.beginPath(); ctx.arc(u.misiones.x + 16, u.misiones.y - 15, 9, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
@@ -5357,6 +5519,16 @@
   if (LOCAL && QS.has("prueba")) {
     window.elsPanetsPrueba = {
       simular: simulate,
+      // las cinco columnas de abajo, una por lugar, en una imagen
+      columnas: () => {
+        const cv = document.createElement("canvas"); cv.width = 5 * 90 * 2; cv.height = 300 * 2;
+        const keep = ctx; ctx = cv.getContext("2d");
+        try { ctx.scale(2, 2); ctx.fillStyle = "#9fd3ee"; ctx.fillRect(0, 0, 450, 300); for (let i = 0; i < 5; i++) drawBottomColumn(i, 12 + i * 90, 80, 300); }
+        finally { ctx = keep; }
+        return cv.toDataURL();
+      },
+      // salta a un lugar sin la transición (para mirarlo)
+      verLugar: (i) => { placeFrom = placeTo = i; placeT = 1; },
       // la próxima empanadilla que venga, dorada
       dorada: () => { const c = cols.find((c) => c.food && !c.eaten && !isPower(c.kind) && c.x > player.x); if (c) c.kind = "dorada"; return !!c; },
       // dibuja una comida o un poder aparte y devuelve la imagen (para mirarla)
@@ -5512,10 +5684,41 @@
     unlockedChars: () => CHARACTERS.filter((c, i) => !c.custom && charUnlocked(i)).length,
     totalChars: () => CHARACTERS.filter((c) => !c.custom).length,
     hasCustom: () => customState() === "aprobado",
+    // pantalla de personajes (17/11/2026)
+    charList: () => CHARACTERS.slice(0, shownCount()).map((c, i) => ({
+      i, id: c.id, custom: !!c.custom, gris: c.id === "gris", open: charUnlocked(i), unlock: c.unlock || 0,
+      name: c.custom ? (c.name || "TU PERSONAJE") : (c.name || "EL GRIS"),
+      story: c.custom ? "Tu personaje, hecho por ti." : c.story || "El de siempre: gris y sin prisas.",
+      power: c.power || "", special: c.special || null, flag: flagName(flagOf(c)),
+      outfits: c.custom || c.id === "gris" ? [] : c.outfits.map((o, k) => ({ name: o.name, open: outfitUnlocked(k), pts: OUTFIT_PTS[k] })),
+      outfit: outfitIndex(c),
+    })),
+    current: () => charIndex,
+    pickChar: (i) => { viewChar(i); return charIndex === i; },
+    pickOutfit: (i, k) => { const c = CHARACTERS[i]; if (c && charUnlocked(i) && outfitUnlocked(k)) { setOutfit(c, k); return true; } return false; },
+    customFree: () => customState() !== "aprobado",
+    customData: () => customChar,
+    drawCharTo: (cv, i, k) => {
+      const def = CHARACTERS[i]; if (!def) return;
+      const look = k == null ? (charUnlocked(i) ? worn(def) : dressed(def)) : dressed(def, k);
+      const keep = ctx; ctx = cv.getContext("2d");
+      try {
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+        const z = cv.width / 120, h = cv.height / z; ctx.scale(z, z);
+        if (def.kind === "dog") drawDog(58, h * 0.6, 0, worldT * 6, 1.55, "", look);
+        else if (look.kind === "critter") drawCritter(look, 60, h * 0.61, 0, worldT * 6, 1.65, "");
+        else drawChar(look, 57, h * 0.66, 0, worldT * 6, 1.3, "");
+      } finally { ctx = keep; }
+    },
+    drawFoodTo: (cv, kind) => {
+      const keep = ctx; ctx = cv.getContext("2d");
+      try { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); const z = cv.width / 40; ctx.scale(z, z); drawFood(kind, 20, 20, 0, 0.8, false); }
+      finally { ctx = keep; }
+    },
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 30,
+    VERSION: 31,
     settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,
