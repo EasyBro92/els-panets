@@ -184,7 +184,7 @@
       tone(784, 0.1, "triangle", 0.18, 0, 0.02);
       tone(1175, 0.14, "triangle", 0.16, 0, 0.09);
     },
-    point() { tone(1568, 0.12, "sine", 0.1); tone(2093, 0.16, "sine", 0.07, 0, 0.05); },
+    point(k) { const f = Math.pow(2, Math.min(k || 0, 12) / 24); tone(1568 * f, 0.12, "sine", 0.1); tone(2093 * f, 0.16, "sine", 0.07, 0, 0.05); },
     hit() { tone(160, 0.28, "square", 0.12, -100); noise(0.25, 0.5, "lowpass", 900, 200); },
     fall() { tone(880, 0.55, "sine", 0.07, -560, 0.12); },
     click() { tone(660, 0.05, "triangle", 0.12); },
@@ -625,10 +625,12 @@
   }
   const dayStr = (d) => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   function dailyState() {
-    const s = readJSON(DAILY_KEY), today = dayStr(new Date()), yest = dayStr(new Date(Date.now() - 864e5));
+    const s = readJSON(DAILY_KEY), today = dayStr(new Date()), yest = dayStr(new Date(Date.now() - 864e5)), before = dayStr(new Date(Date.now() - 2 * 864e5));
     if (s.last === today) return { claimed: true, streak: s.streak || 1, idx: ((s.streak || 1) - 1) % 7 };
-    const streak = s.last === yest ? (s.streak || 0) + 1 : 1;
-    return { claimed: false, streak, idx: (streak - 1) % 7, lost: s.last && s.last !== yest && (s.streak || 0) > 1 ? s.streak : 0 };
+    // 21/11/2026: protector de racha gratis, una vez cada 7 días, si solo se ha saltado un día
+    const saved = s.last === before && (s.streak || 0) > 1 && (!s.prot || Date.now() - s.prot >= 7 * 864e5);
+    const streak = s.last === yest || saved ? (s.streak || 0) + 1 : 1;
+    return { claimed: false, streak, idx: (streak - 1) % 7, saved, lost: !saved && s.last && s.last !== yest && (s.streak || 0) > 1 ? s.streak : 0 };
   }
   function claimDaily() {
     const st = dailyState();
@@ -636,7 +638,8 @@
     let n = DAILY[st.idx], item = null;
     if (st.idx === 6) { if (!owned.g_corona) { owned.g_corona = 1; saveOwned(); setWear("gorro", "g_corona"); item = "g_corona"; } else n += 30; }
     addHucha(n);
-    store.set(DAILY_KEY, JSON.stringify({ last: dayStr(new Date()), streak: st.streak }));
+    const old = readJSON(DAILY_KEY);
+    store.set(DAILY_KEY, JSON.stringify({ last: dayStr(new Date()), streak: st.streak, prot: st.saved ? Date.now() : old.prot || 0 }));
     emit("diario", st.streak);
     return { n, item, streak: st.streak, idx: st.idx };
   }
@@ -739,7 +742,14 @@
 
   // ---------- Estado de la partida ----------
   // COUNT: la cuenta «3, 2, 1» al volver de la pausa
-  const STATE = { START: 0, READY: 1, PLAY: 2, DYING: 3, OVER: 4, NAME: 5, PAUSE: 6, COUNT: 7 };
+  const STATE = { START: 0, READY: 1, PLAY: 2, DYING: 3, OVER: 4, NAME: 5, PAUSE: 6, COUNT: 7, SEGUIR: 8 };
+  // 21/11/2026: al chocar, una vez por partida, se puede seguir pagando con lo comido en ella
+  // (como en MAGA Taco: no se toca la hucha). Solo en partidas normales.
+  const SEGUIR_COST = 10, SEGUIR_SECS = 5;
+  let continued = false;
+  // aviso de descanso a la media hora de juego (Ajustes; de serie activado)
+  const REST_KEY = "elsPanetsDescanso";
+  let restOn = store.get(REST_KEY, "1") !== "0", playSecs = 0;
   const COUNT_STEP = 0.8;
   let state = STATE.START;
   let stateT = 0; // tiempo en el estado actual
@@ -941,8 +951,8 @@
     ctx.font = "16px " + FONT;
     const w = Math.min(LW - 40, ctx.measureText(t).width + 30);
     ctx.fillStyle = "rgba(40,24,12,0.5)";
-    roundRect(LW / 2 - w / 2, 150, w, 26, 13); ctx.fill();
-    text(t, LW / 2, 168, 16, ahead && !rival.dead ? "#ffd23f" : "#fff");
+    roundRect(LW / 2 - w / 2, 158, w, 26, 13); ctx.fill();
+    text(t, LW / 2, 172, 16, ahead && !rival.dead ? "#ffd23f" : "#fff");
   }
   function drawLiveReady() {
     drawScoreHud();
@@ -1141,6 +1151,7 @@
     player.y = LH * 0.42; player.vy = 0; player.rot = 0;
     skyHour = START_SKY;
     runT = 0; ghostRec = [];
+    continued = false;
   }
 
   function goReady() {
@@ -1378,11 +1389,33 @@
       return;
     }
     snd.hit();
-    snd.fall();
     vibrate([40, 30, 60]);
     flashT = 1;
     burst(player.x, player.y, CRASH_COLORS, 16, 160);
+    if (canContinue()) { setState(STATE.SEGUIR); return; }
+    snd.fall();
     player.vy = Math.min(player.vy, -120);
+    finishCrash();
+  }
+  const canContinue = () => !continued && !level && runMode === null && !sim && eaten - START_EATEN >= SEGUIR_COST;
+  // sí: se paga, vuelve al hueco de la columna que tiene delante y no choca durante un rato
+  function acceptSeguir() {
+    continued = true;
+    eaten -= SEGUIR_COST;
+    const c = cols.find((q) => q.x + COL_W + CAP_OUT > player.x - 20);
+    player.y = c ? c.gapY + c.gap / 2 + 5 : LH * 0.42; player.vy = 0; player.rot = 0;
+    shieldSafe = 2.4;
+    floaters.push({ x: Math.max(player.x + 20, 90), y: player.y - 50, txt: "¡SEGUIMOS!", t: 0, size: 22, color: "#fff" });
+    snd.shieldPop();
+    emit("seguir", { score });
+    setState(STATE.COUNT);
+  }
+  function declineSeguir() {
+    snd.fall();
+    player.vy = Math.min(player.vy, -120);
+    finishCrash();
+  }
+  function finishCrash() {
     if (level) { finishLevel(false); overMsgs = []; setState(STATE.DYING); return; }
     settleRun();
     overMsgs = runMode === "turnos" || runMode === "directo" ? [] : buildOverMessages();
@@ -1390,6 +1423,8 @@
     if (runMode === "reto" && rival) overMsgs.unshift(score > rival.score ? { txt: "¡Le has ganado a " + rival.name + "! (" + rival.score + ")", color: "#7dff9a" }
       : score === rival.score ? { txt: "¡Empate con " + rival.name + "!", color: "#ffd23f" } : { txt: rival.name + " te gana: " + rival.score + " puntos", color: "#fff" });
     if (runMode === "diario") overMsgs.unshift({ txt: "Reto del día: " + score + " puntos", color: "#ffd23f" });
+    // media hora jugando: un aviso amable (solo al acabar, nunca en mitad de la partida)
+    if (restOn && playSecs >= 1800 && runMode !== "directo") { playSecs = 0; overMsgs.push({ txt: "Llevas media hora jugando. ¿Un descanso?", color: "#bfe8ff" }); }
     emit("partidaFin", { mode: runMode, score, seed: runSeed, y: ghostRec.slice(0, GHOST_MAX), char: selectedChar().id, flag: flagOf(selectedChar()), name: store.get(NAME_KEY, "") || "" });
     setState(STATE.DYING);
   }
@@ -1431,12 +1466,12 @@
   function buildOverMessages() {
     const out = [];
     if (!newBest && best > 0 && score > 0 && best - score <= Math.max(3, Math.round(best * 0.2))) {
-      out.push({ txt: "¡Casi! Te faltaron " + (best - score + 1) + " para tu récord", color: "#ffd23f" });
+      out.push({ txt: "¡Casi! Te faltaron " + (best - score + 1) + " para tu récord", color: "#ffd23f", bar: clamp(score / (best + 1), 0, 1) });
     } else {
       const g = nextGoal();
       if (g) {
         const n = g[0] - score;
-        out.push({ txt: n <= 25 ? "¡Casi! Te faltaron " + n + " para desbloquear " + g[1] : "Llega a " + g[0] + " para desbloquear " + g[1], color: n <= 25 ? "#ffd23f" : "#fff" });
+        out.push({ txt: n <= 25 ? "¡Casi! Te faltaron " + n + " para desbloquear " + g[1] : "Llega a " + g[0] + " para desbloquear " + g[1], color: n <= 25 ? "#ffd23f" : "#fff", bar: clamp(best / g[0], 0, 1) });
       }
     }
     const lb = window.TacoLeaderboard, me = lb && lb.myId ? lb.myId() : null;
@@ -1742,6 +1777,8 @@
       again: { x: cx - 150, y: overCardY + 262, w: 160, h: 58 },
       home: { x: cx + 20, y: overCardY + 262, w: 130, h: 58 },
       share: { x: cx - 120, y: overCardY + 332, w: 240, h: 42 },
+      segYes: { x: cx - 120, y: LH * 0.4, w: 240, h: 64 },
+      segNo: { x: cx - 95, y: LH * 0.4 + 106, w: 190, h: 46 },
     };
   }
   const inRect = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
@@ -1801,6 +1838,12 @@
       case STATE.PLAY:
         if (p && runMode !== "directo" && inCircle(p, u.pause)) { snd.click(); pauseGame(); return; }
         flap();
+        return;
+      case STATE.SEGUIR:
+        // los toques de aletear justo al chocar no cuentan
+        if (!p || stateT < 0.6) return;
+        if (inRect(p, u.segYes)) { snd.click(); acceptSeguir(); return; }
+        if (inRect(p, u.segNo)) { snd.click(); declineSeguir(); }
         return;
       case STATE.PAUSE:
         if (stateT < 0.25) return;
@@ -1864,6 +1907,7 @@
   }
   function backPressed() {
     if (overlayOpen()) { closeOverlays(); return; }
+    if (state === STATE.SEGUIR) { declineSeguir(); return; }
     if (state === STATE.PLAY || state === STATE.COUNT) pauseGame();
     else if (state === STATE.PAUSE) leaveRun();
     else if (state === STATE.READY || state === STATE.OVER) goHome();
@@ -1941,6 +1985,9 @@
         if (player.y > groundTop() - 22) { player.y = groundTop() - 22; if (stateT > 0.45) finishDying(); }
         else if (stateT > 1.6) finishDying();
         break;
+      case STATE.SEGUIR:
+        if (stateT >= SEGUIR_SECS) declineSeguir();
+        break;
       case STATE.COUNT:
         // acabada la cuenta se sigue; si iba cayendo, la caída empieza de cero
         if (stateT >= COUNT_STEP * 3) { setState(STATE.PLAY); player.vy = Math.min(player.vy, 0); }
@@ -1975,6 +2022,7 @@
     player.y += player.vy * dt;
     // la sombra: se apunta la altura 30 veces por segundo
     runT += dt;
+    playSecs += dt;
     while (ghostRec.length < Math.min(runMode === "directo" ? 20000 : GHOST_MAX, runT * 30)) ghostRec.push(Math.round(player.y));
     const targetRot = clamp(player.vy / 560, -0.42, 1.25);
     player.rot += (targetRot - player.rot) * Math.min(1, dt * 12);
@@ -2025,7 +2073,7 @@
         else { crash(); return; }
       }
       if (!c.passed && c.x + COL_W < hx - hr) {
-        c.passed = true; addScore(1); snd.point();
+        c.passed = true; addScore(1); snd.point(combo);
         // en la historia: ¿última columna? ¡meta!
         if (level && ++level.passed >= level.len) { winLevel(); return; }
         // se ha dejado la empanadilla: la racha vuelve a empezar
@@ -5271,6 +5319,12 @@
     text(clockText(hourFor(eaten)), LW / 2 + 42, 128, 19, "#ffe7a3");
     // racha de empanadillas seguidas, a la derecha del cartel
     if (combo >= 5) text("RACHA " + combo, LW / 2 + 116, 128, 16, "#ffe066", "#3b2414", 4);
+    // 21/11/2026: cuánto falta para el siguiente lugar (cada 40 puntos)
+    if (!level && state !== STATE.READY) {
+      const k = (score % PLACE_EVERY) / PLACE_EVERY;
+      ctx.fillStyle = "rgba(40,24,12,0.4)"; roundRect(LW / 2 - 60, 146, 120, 5, 2.5); ctx.fill();
+      ctx.fillStyle = "rgba(255,231,163,0.9)"; roundRect(LW / 2 - 60, 146, Math.max(5, 120 * k), 5, 2.5); ctx.fill();
+    }
   }
 
   const MEDALS = [
@@ -5429,11 +5483,17 @@
     ctx.globalAlpha = clamp((t - 1) / 0.4, 0, 1);
     for (const m of overMsgs) {
       ctx.font = "16px " + FONT;
-      const w = Math.min(LW - 16, ctx.measureText(m.txt).width + 30);
+      const w = Math.min(LW - 16, ctx.measureText(m.txt).width + 30), hh = m.bar != null ? 42 : 28;
       ctx.fillStyle = "rgba(40,24,12,0.6)";
-      roundRect(LW / 2 - w / 2, my - 14, w, 28, 14); ctx.fill();
+      roundRect(LW / 2 - w / 2, my - 14, w, hh, 14); ctx.fill();
       text(m.txt, LW / 2, my + 1, 16, m.color || "#fff");
-      my += 34;
+      // 21/11/2026: cuánto falta, en una barra (tu récord hacia la meta)
+      if (m.bar != null) {
+        const bw = Math.min(w - 40, 240), bx = LW / 2 - bw / 2;
+        ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(bx, my + 13, bw, 7, 3.5); ctx.fill();
+        ctx.fillStyle = "#ffd23f"; roundRect(bx, my + 13, Math.max(7, bw * m.bar), 7, 3.5); ctx.fill();
+      }
+      my += hh + 6;
     }
     ctx.globalAlpha = 1;
     if (recordHolder) text("Récord de " + recordHolder, LW / 2, my + 2, 15, "#fff", "#3b2414", 4);
@@ -5448,6 +5508,36 @@
     button(u.resume, "SEGUIR", true);
     button(u.pauseHome, "INICIO", false, 20);
     roundIcon(u.gear, iconGear);
+  }
+  // 21/11/2026: sombra en el suelo, más pequeña y clara cuanto más alto vuela
+  function drawPlayerShadow() {
+    const gt = groundTop(), h = clamp((gt - player.y) / (gt * 0.8), 0, 1);
+    ctx.fillStyle = "rgba(30,20,10," + (0.2 * (1 - h * 0.7)).toFixed(3) + ")";
+    ctx.beginPath();
+    ctx.ellipse(player.x, gt + 6, 20 * (1 - h * 0.45) * miniK, 4.5 * (1 - h * 0.3), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  function drawSeguir() {
+    const u = ui(), left = clamp(1 - stateT / SEGUIR_SECS, 0, 1);
+    ctx.fillStyle = "rgba(10,14,30,0.5)";
+    ctx.fillRect(0, 0, LW, LH);
+    text("¿SEGUIR?", LW / 2, LH * 0.27, 54, "#ffd23f", "#5a2a06", 10);
+    text("Una vez por partida", LW / 2, LH * 0.27 + 46, 19, "#fff", "#2a1c14", 5);
+    ctx.globalAlpha = stateT > 0.6 ? 1 : 0.55;
+    button(u.segYes, "", true);
+    // «SEGUIR» a la izquierda y el precio a la derecha, sin pisarse
+    const b = u.segYes;
+    text("SEGUIR", b.x + b.w / 2 - 30, b.y + b.h / 2 + 2, 30, "#fff", "#7c3a0a", 6);
+    drawFood(counterFood(), b.x + b.w - 62, b.y + b.h / 2, 0, 0.62);
+    text(String(SEGUIR_COST), b.x + b.w - 30, b.y + b.h / 2 + 2, 22, "#3b2414");
+    // tiempo que queda: una barra que se vacía despacio
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    roundRect(b.x + 10, b.y + b.h + 10, b.w - 20, 8, 4); ctx.fill();
+    ctx.fillStyle = "#ffd23f";
+    roundRect(b.x + 10, b.y + b.h + 10, Math.max(8, (b.w - 20) * left), 8, 4); ctx.fill();
+    button(u.segNo, "NO, GRACIAS", false, 18);
+    ctx.globalAlpha = 1;
+    text("Te quedan " + (eaten - START_EATEN) + " de esta partida", LW / 2, u.segNo.y + u.segNo.h + 30, 16, "#fff", "#2a1c14", 4);
   }
   // cuenta «3, 2, 1» al volver de la pausa: cada número entra y se va con un fundido
   function drawCount() {
@@ -5466,7 +5556,7 @@
 
   // ---------- Bucle de dibujo ----------
   function render() {
-    const inRun = state === STATE.PLAY || state === STATE.DYING || state === STATE.OVER || state === STATE.NAME || state === STATE.PAUSE || state === STATE.COUNT;
+    const inRun = state === STATE.PLAY || state === STATE.DYING || state === STATE.OVER || state === STATE.NAME || state === STATE.PAUSE || state === STATE.COUNT || state === STATE.SEGUIR;
     const pal = palette(inRun ? skyHour : START_SKY);
     prepareWipe(pal);
     drawSky(pal);
@@ -5485,6 +5575,7 @@
       drawFood(b.kind, bp.x, bp.y + Math.sin(worldT * 3 + b.ph) * 3, 0, 0.62, true);
     }
     drawGround(pal);
+    if (state !== STATE.START) drawPlayerShadow();
 
     for (const pt of particles) {
       ctx.globalAlpha = clamp(pt.life / 0.5, 0, 1);
@@ -5496,7 +5587,7 @@
     drawTrail();
     drawGhost();
     if (state !== STATE.START) {
-      const dead = state === STATE.DYING || state === STATE.OVER || state === STATE.NAME;
+      const dead = state === STATE.DYING || state === STATE.OVER || state === STATE.NAME || state === STATE.SEGUIR;
       // con el mini se encoge alrededor del centro del cuerpo
       const k = miniK, cy = player.y - 5;
       if (girlfriend && selectedChar().id === "maykel") {
@@ -5518,6 +5609,7 @@
     else if (state === STATE.OVER) drawOver();
     else if (state === STATE.PAUSE) { drawScoreHud(); drawPause(); }
     else if (state === STATE.COUNT) { drawScoreHud(); drawPowerHud(); drawCount(); }
+    else if (state === STATE.SEGUIR) { drawScoreHud(); drawSeguir(); }
 
     drawPhoto();
     // «Reducir destellos» (de serie): un velo claro y suave en lugar del destello blanco
@@ -5901,6 +5993,7 @@
       caja: () => ({ pity, odds: boxOdds(), completa: boxComplete(), seguroEn: boxSureIn() }),
       pendiente: () => ({ pendiente: store.get(PENDING_KEY, null), enviar: CAN_SEND, prueba: TEST_RUN }),
       especial: (k) => collectSpecial(k, player.x + 40, player.y),
+      sumarComida: (n) => { eaten += n; },          // para probar «¿Seguir?»
       comer: () => { const c = cols.find((c) => c.food && !c.eaten && c.x > player.x); if (c) { player.y = LH * 0.4; player.vy = -200; c.x = player.x - COL_W / 2; c.gapY = player.y - 5 - c.gap / 2; } },
       estado: () => ({ state, score, eaten, pendingSpecial, photoT, kinds: cols.map((c) => c.kind) }),
       volar: () => { player.y = LH * 0.4; player.vy = -200; },
@@ -6087,12 +6180,13 @@
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 35,
-    settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
+    VERSION: 36,
+    settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, descanso: restOn, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,
     setVibra: (on) => { vibraOn = on; store.set(VIBRA_KEY, on ? "1" : "0"); if (on) vibrate(20); },
     setFlash: (on) => { softFlash = on; store.set(FLASH_KEY, on ? "1" : "0"); },
+    setRest: (on) => { restOn = on; store.set(REST_KEY, on ? "1" : "0"); },
     setQuality: (low) => { lowQ = low; store.set(QUALITY_KEY, low ? "baja" : "alta"); resize(); },
     nameProblem, setPlayerName,
     // vuelve a enseñar el tutorial: ahora mismo si se está en el inicio, o en la próxima partida

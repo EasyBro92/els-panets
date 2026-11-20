@@ -373,7 +373,7 @@
   function openDaily() {
     const st = EP.dailyState();
     dailyDone = st.claimed;
-    $("dailySub").textContent = st.lost ? "Perdiste la racha de " + st.lost + " días. ¡Empiezas de nuevo!" : "Racha: " + st.streak + (st.streak === 1 ? " día" : " días");
+    $("dailySub").textContent = st.saved ? "¡Tu protector de racha te ha salvado el día que faltaste! Racha: " + st.streak + " días" : st.lost ? "Perdiste la racha de " + st.lost + " días. No pasa nada: ¡empiezas de nuevo!" : "Racha: " + st.streak + (st.streak === 1 ? " día" : " días");
     $("dailyDays").innerHTML = EP.DAILY.map((n, i) => {
       const cls = i < st.idx || (st.claimed && i === st.idx) ? "past" : i === st.idx ? "today" : "";
       return `<div class="dDay ${cls}"><small>Día ${i + 1}</small>${i === 6 ? '<canvas width="80" height="80" data-p="g_corona"></canvas>' : '<img alt="" src="' + EP.foodImg() + '">'}<b>+${n}</b></div>`;
@@ -430,7 +430,7 @@
   };
   function paintSettings() {
     const s = EP.settings();
-    const vals = { musica: s.musica, efectos: s.efectos, vibracion: s.vibracion, destellos: s.destellos };
+    const vals = { musica: s.musica, efectos: s.efectos, vibracion: s.vibracion, destellos: s.destellos, descanso: s.descanso };
     for (const b of setMain.querySelectorAll("button[data-set]")) {
       const k = b.dataset.set;
       if (k === "calidad") { b.textContent = s.calidadBaja ? "Baja" : "Alta"; b.classList.toggle("on", !s.calidadBaja); }
@@ -463,6 +463,7 @@
     else if (k === "efectos") EP.setSfx(!s.efectos);
     else if (k === "vibracion") EP.setVibra(!s.vibracion);
     else if (k === "destellos") EP.setFlash(!s.destellos);
+    else if (k === "descanso") EP.setRest(!s.descanso);
     else if (k === "calidad") EP.setQuality(!s.calidadBaja);
     else if (b.dataset.page) { EP.sfx("click"); showSetPage(b.dataset.page); return; }
     else if (b.id === "setTutorial") { hide($("settingsOverlay")); EP.replayTutorial(); return; }
