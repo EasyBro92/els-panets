@@ -1948,8 +1948,11 @@
   // ---------- Lógica (paso fijo: igual de rápido en cualquier equipo) ----------
   const STEP = 1 / 120;
 
+  let streetT = 0;
+  const STREET_INFO = { gt: 0, W: 0, scroll: 0, t: 0, night: 0, day: 1, tint: null };
   function update(dt) {
     worldT += dt;
+    if (state !== STATE.PAUSE && state !== STATE.COUNT && state !== STATE.SEGUIR) streetT += dt;
     stateT += dt;
     scorePop = Math.max(0, scorePop - dt * 4);
     flashT = Math.max(0, flashT - dt * (softFlash ? 2.2 : 3.5));
@@ -2412,7 +2415,10 @@
   function drawLife(i, pal) {
     const gt = groundTop(), day = clamp(1 - pal.night * 1.4, 0, 1), t = worldT;
     // bandada de pájaros que cruza de vez en cuando (de día)
-    if (day > 0.05) {
+    if (day > 0.05 && window.ElsPanetsCalle) {
+      const I = STREET_INFO; I.W = LW; I.t = worldT; I.night = pal.night; I.day = day * 0.95; I.tint = nightTint;
+      window.ElsPanetsCalle.cielo(ctx, i, I);
+    } else if (day > 0.05) {
       ctx.globalAlpha = day * 0.8;
       ctx.strokeStyle = i === 1 || i === 4 ? "#ffffff" : "#3a3a48"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
       const span = LW + 700, bx = LW + 60 - ((t * 34) % span), by = 110 + Math.sin(t * 0.4) * 14;
@@ -2753,6 +2759,11 @@
     ctx.fillRect(0, y + 52, LW, LH - y - 52);
     ctx.fillStyle = "rgba(0,0,0,0.15)";
     ctx.fillRect(0, y + 52, LW, 4);
+    // 22/11/2026: coches, gente y animales (calle.js)
+    if (!lowQ && window.ElsPanetsCalle) {
+      const I = STREET_INFO; I.gt = y; I.W = LW; I.scroll = scroll; I.t = streetT; I.night = n; I.tint = nightTint;
+      window.ElsPanetsCalle.calle(ctx, PLACES.indexOf(G), I);
+    }
   }
 
   // Columnas coloniales de estuco con la franja tricolor de Venezuela
@@ -6180,7 +6191,7 @@
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 36,
+    VERSION: 37,
     settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, descanso: restOn, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,

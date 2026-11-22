@@ -1,5 +1,6 @@
 index.html
 style.css
+calle.js
 game.js
 extras.js
 progreso.js
