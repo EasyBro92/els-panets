@@ -1,6 +1,9 @@
 index.html
 style.css
 calle.js
+famosos.js
+premium.js
+cuenta.js
 game.js
 extras.js
 progreso.js

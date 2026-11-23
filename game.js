@@ -515,6 +515,12 @@
   };
   for (const c of CHARACTERS) Object.assign(c, EXTRA[c.id]);
 
+  // ---------- Los famosos de la zona Premium (23/11/2026, famosos.js) ----------
+  // Van después de los amigos y antes de «tu personaje», que siempre es el último.
+  // No dan ninguna ventaja al jugar: así el ranking sigue siendo justo cuando sean de pago.
+  const FAMOSOS = (window.ElsPanetsFamosos && window.ElsPanetsFamosos.list) || [];
+  for (const f of FAMOSOS) CHARACTERS.push(f);
+
   // ---------- Tu propio personaje (03/11/2026) ----------
   // Lo crea cada jugador y se guarda en su móvil al momento. No sale del móvil.
   const CUSTOM_BASE = { id: "propio", name: "", unlock: 0, kind: "human", custom: true,
@@ -575,6 +581,19 @@
   let owned = readJSON(OWN_KEY), wear = readJSON(WEAR_KEY);
   function addHucha(n) { hucha = Math.max(0, hucha + Math.round(n)); store.set(HUCHA_KEY, hucha); }
   const saveOwned = () => store.set(OWN_KEY, JSON.stringify(owned));
+  // los famosos que ya tienes; hoy se consiguen con panets y más adelante podrán ser de pago
+  const FAM_KEY = "elsPanetsFamosos";
+  let famOwned = readJSON(FAM_KEY);
+  function buyFamoso(id) {
+    const f = FAMOSOS.find((x) => x.id === id);
+    if (!f || famOwned[id] || hucha < f.price) return false;
+    addHucha(-f.price);
+    famOwned[id] = 1;
+    store.set(FAM_KEY, JSON.stringify(famOwned));
+    lookCache.clear();
+    emit("famoso", { id });
+    return true;
+  }
   function setWear(kind, id) { if (id && !owned[id]) return; wear[kind] = id || null; store.set(WEAR_KEY, JSON.stringify(wear)); }
   const PRIZES = [
     ["e_burbujas", "estela", "Burbujas", 0], ["e_hojas", "estela", "Hojas", 0], ["e_corazones", "estela", "Corazones", 0],
@@ -645,6 +664,7 @@
   }
   // el personaje con su ropa y, encima, el gorro de la caja si lleva uno
   function worn(def) {
+    if (def.premium) return dressed(def); // los famosos van siempre con su ropa de verdad
     const d = dressed(def), g = wear.gorro && owned[wear.gorro] ? wear.gorro.slice(2) : null;
     if (!g) return d;
     const k = def.id + ":" + outfitIndex(def) + ":" + g;
@@ -656,7 +676,7 @@
   const CHAR_KEY = "elsPanetsCharacter";
   let charIndex = Math.max(0, CHARACTERS.findIndex((c) => c.id === store.get(CHAR_KEY, "gris")));
   let viewIndex = charIndex; // el que se está mirando en el inicio
-  const charUnlocked = (i) => (CHARACTERS[i].custom ? customState() === "aprobado" : best >= CHARACTERS[i].unlock || friendFree(CHARACTERS[i].id));
+  const charUnlocked = (i) => (CHARACTERS[i].premium ? !!famOwned[CHARACTERS[i].id] : CHARACTERS[i].custom ? customState() === "aprobado" : best >= CHARACTERS[i].unlock || friendFree(CHARACTERS[i].id));
   const selectedChar = () => (charUnlocked(charIndex) ? CHARACTERS[charIndex] : CHARACTERS[0]);
   // tu personaje solo sale en la fila cuando ya lo has creado; para crearlo está el botón del gris
   const customShown = () => customState() === "aprobado";
@@ -665,6 +685,14 @@
     const n = shownCount();
     viewIndex = (i + n) % n;
     if (charUnlocked(viewIndex)) { charIndex = viewIndex; store.set(CHAR_KEY, CHARACTERS[viewIndex].id); }
+  }
+
+  // las flechas del inicio se saltan los famosos que aún no tienes
+  function stepChar(dir) {
+    const n = shownCount();
+    let k = viewIndex;
+    for (let t = 0; t < n; t++) { k = (k + dir + n) % n; if (!CHARACTERS[k].premium || famOwned[CHARACTERS[k].id]) break; }
+    viewChar(k);
   }
 
   // ---------- Cielo: las horas del día ----------
@@ -1750,6 +1778,7 @@
     const overCardY = LH * 0.27;
     return uiMemo = {
       gear: { x: 36, y: 40, r: 22 },
+      cuenta: { x: 92, y: 40, r: 22 },
       pause: { x: 30, y: 34, r: 16 },
       resume: { x: cx - 110, y: LH * 0.4 + 44, w: 220, h: 60 },
       pauseHome: { x: cx - 80, y: LH * 0.4 + 126, w: 160, h: 48 },
@@ -1798,6 +1827,7 @@
     const u = ui();
     // la rueda de ajustes: en el inicio y en la pausa
     if (p && (state === STATE.START || state === STATE.PAUSE) && inCircle(p, u.gear)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openSettings(); return; }
+    if (p && state === STATE.START && inCircle(p, u.cuenta)) { snd.click(); if (window.ElsPanetsCuenta) window.ElsPanetsCuenta.open(); return; }
     if (p && (state === STATE.START || state === STATE.OVER) && inCircle(p, u.rank)) { snd.click(); showLeaderboard(); return; }
     if (p && state === STATE.OVER && inCircle(p, u.misiones) && window.ElsPanetsProgreso) { snd.click(); window.ElsPanetsProgreso.open(); return; }
 
@@ -1817,8 +1847,9 @@
           return;
         }
         if (CHARACTERS[viewIndex].custom && inRect(p, u.play) && customState() === "libre") { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openCreator(null); return; }
-        if (inCircle(p, u.prev)) { viewChar(viewIndex - 1); snd.click(); return; }
-        if (inCircle(p, u.next)) { viewChar(viewIndex + 1); snd.click(); return; }
+        if (CHARACTERS[viewIndex].premium && !charUnlocked(viewIndex) && inRect(p, u.play)) { snd.click(); if (window.ElsPanetsUI) window.ElsPanetsUI.openBox("premium"); return; }
+        if (inCircle(p, u.prev)) { stepChar(-1); snd.click(); return; }
+        if (inCircle(p, u.next)) { stepChar(1); snd.click(); return; }
         {
         }
         if (inRect(p, u.play) && charUnlocked(viewIndex)) { snd.click(); level = null; levelResult = null; runMode = null; rival = null; goReady(); }
@@ -3527,6 +3558,11 @@
     if (def.kind === "human") drawHuman(def, px, py, rot, flapPh, scale, mood);
     else if (def.kind === "dog") drawDog(px, py, rot, flapPh, scale, mood, def);
     else if (def.kind === "critter") drawCritter(def, px, py, rot, flapPh, scale, mood);
+    else if (def.kind === "famoso") {
+      ctx.save(); ctx.translate(px, py); ctx.rotate(rot); ctx.scale(scale || 1, scale || 1);
+      window.ElsPanetsFamosos.draw(ctx, def, flapPh, mood, worldT, ctx === mainCtx);
+      ctx.restore();
+    }
     else drawPlayer(px, py, rot, flapPh, currentSkin(), scale, mood);
   }
 
@@ -5040,6 +5076,17 @@
     ctx.save(); ctx.translate(b.x, b.y); draw(); ctx.restore();
   }
 
+  // la cuenta: una persona, con un punto verde si has iniciado sesión
+  function iconCuenta() {
+    ctx.fillStyle = "#3b2414";
+    ctx.beginPath(); ctx.arc(0, -5, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-11, 12); ctx.quadraticCurveTo(-10, 2, 0, 2); ctx.quadraticCurveTo(10, 2, 11, 12); ctx.quadraticCurveTo(0, 15, -11, 12); ctx.fill();
+    if (window.ElsPanetsCuenta && window.ElsPanetsCuenta.user()) {
+      ctx.fillStyle = "#2fa64a"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(14, -14, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+  }
+
   // rueda dentada de Ajustes
   function iconGear() {
     ctx.fillStyle = "#3b4a63";
@@ -5129,7 +5176,8 @@
     // Con un gorro alto baja un poco y la frase de arriba se pinta encima (16/11/2026).
     const look = open ? worn(def) : dressed(def), tall = look.hat && !OLD_HATS.includes(look.hat.type) ? 8 : 0;
     ctx.globalAlpha = open ? 1 : def.custom ? (cst === "libre" ? 0.25 : 0.6) : 0.35;
-    drawChar(look, player.x, player.y + tall, 0, player.flap, 1.6);
+    if (def.premium) drawChar(look, player.x, player.y + 14, 0, player.flap, 1.32);
+    else drawChar(look, player.x, player.y + tall, 0, player.flap, 1.6);
     ctx.globalAlpha = 1;
     text(story || "¡Vuela y cómete las empanadillas!", LW / 2, LH * 0.12 + 48, story ? 17 : 19, "#fff", "#3b2414", 5);
     if (cst === "libre") text("+", player.x, player.y - 4, 54, "#ffd23f", "#5a2a06", 8);
@@ -5140,21 +5188,22 @@
     let label = def.name, labelColor = "#fff";
     if (def.custom) {
       if (cst === "libre") { label = "CREA TU PERSONAJE"; labelColor = "#ffd23f"; }
-    } else if (!open) { label = "LLEGA A " + def.unlock + " PUNTOS"; labelColor = "#ffd23f"; }
+    } else if (!open && def.premium) { label = "★ PREMIUM · " + def.price; labelColor = "#ffd23f"; }
+    else if (!open) { label = "LLEGA A " + def.unlock + " PUNTOS"; labelColor = "#ffd23f"; }
     if (label) {
       ctx.fillStyle = "rgba(40,24,12,0.55)";
       roundRect(LW / 2 - 110, ny - 15, 220, 30, 15); ctx.fill();
       text(label, LW / 2, ny + 1, 17, labelColor);
     }
 
-    const playOk = open || cst === "libre";
+    const playOk = open || cst === "libre" || def.premium;
     const pulse = playOk ? 1 + Math.sin(worldT * 4) * 0.025 : 1;
     ctx.save();
     ctx.translate(LW / 2, u.play.y + u.play.h / 2);
     ctx.scale(pulse, pulse);
     ctx.translate(-LW / 2, -(u.play.y + u.play.h / 2));
     ctx.globalAlpha = playOk ? 1 : 0.5;
-    const playTxt = open ? "JUGAR" : cst === "libre" ? "CREAR" : "BLOQUEADO";
+    const playTxt = open ? "JUGAR" : cst === "libre" ? "CREAR" : def.premium ? "CONSEGUIR" : "BLOQUEADO";
     button(u.play, playTxt, playOk);
     ctx.globalAlpha = 1;
     ctx.restore();
@@ -5635,7 +5684,7 @@
     }
     const u = ui();
     if (state === STATE.PLAY && runMode !== "directo") drawPauseButton(u.pause);
-    if (state === STATE.START && fontReady) roundIcon(u.gear, iconGear);
+    if (state === STATE.START && fontReady) { roundIcon(u.gear, iconGear); roundIcon(u.cuenta, iconCuenta); }
     if ((state === STATE.START && fontReady) || state === STATE.OVER) {
       roundIcon(u.rank, iconTrophy);
       // misiones y logros, con un aviso rojo si hay algo que cobrar
@@ -6141,8 +6190,12 @@
       try { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); const z = cv.width / 40; ctx.scale(z, z); drawPower(k, 20, 20, 1, false); }
       finally { ctx = keep; }
     },
-    unlockedChars: () => CHARACTERS.filter((c, i) => !c.custom && charUnlocked(i)).length,
-    totalChars: () => CHARACTERS.filter((c) => !c.custom).length,
+    unlockedChars: () => CHARACTERS.filter((c, i) => !c.custom && !c.premium && charUnlocked(i)).length,
+    totalChars: () => CHARACTERS.filter((c) => !c.custom && !c.premium).length,
+    // zona Premium (23/11/2026)
+    famosos: () => FAMOSOS.map((f) => ({ id: f.id, name: f.name, rar: f.rar, price: f.price, story: f.story, own: !!famOwned[f.id], i: CHARACTERS.indexOf(f) })),
+    FAM_RARITY: (window.ElsPanetsFamosos && window.ElsPanetsFamosos.RARITY) || [],
+    buyFamoso,
     hasCustom: () => customState() === "aprobado",
     // retos (17/11/2026)
     todayKey, dailySeed, startMode, runMode: () => runMode,
@@ -6159,11 +6212,11 @@
     charIndexOf: (id) => CHARACTERS.findIndex((c) => c.id === id),
     // pantalla de personajes (17/11/2026)
     charList: () => CHARACTERS.slice(0, shownCount()).map((c, i) => ({
-      i, id: c.id, custom: !!c.custom, gris: c.id === "gris", open: charUnlocked(i), unlock: c.unlock || 0,
+      i, id: c.id, custom: !!c.custom, gris: c.id === "gris", open: charUnlocked(i), unlock: c.unlock || 0, premium: !!c.premium, price: c.price || 0, rar: c.rar || 0,
       name: c.custom ? (c.name || "TU PERSONAJE") : (c.name || "EL GRIS"),
       story: c.custom ? "Tu personaje, hecho por ti." : c.story || "El de siempre: gris y sin prisas.",
       power: c.power || "", special: c.special || null, flag: flagName(flagOf(c)), ability: ABILITIES[c.id] || "",
-      outfits: c.custom || c.id === "gris" ? [] : c.outfits.map((o, k) => ({ name: o.name, open: outfitUnlocked(k), pts: OUTFIT_PTS[k] })),
+      outfits: c.custom || c.premium || c.id === "gris" ? [] : c.outfits.map((o, k) => ({ name: o.name, open: outfitUnlocked(k), pts: OUTFIT_PTS[k] })),
       outfit: outfitIndex(c),
     })),
     current: () => charIndex,
@@ -6180,6 +6233,7 @@
         const z = cv.width / 120, h = cv.height / z; ctx.scale(z, z);
         if (def.kind === "dog") drawDog(58, h * 0.6, 0, worldT * 6, 1.55, "", look);
         else if (look.kind === "critter") drawCritter(look, 60, h * 0.61, 0, worldT * 6, 1.65, "");
+        else if (def.premium) drawChar(look, 54, h * (def.tall ? 0.75 : 0.71), 0, worldT * 6, def.tall ? 1.02 : 1.26, ""); // caben sus sombreros altos
         else drawChar(look, 57, h * 0.66, 0, worldT * 6, 1.3, "");
       } finally { ctx = keep; }
     },
@@ -6191,7 +6245,7 @@
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 37,
+    VERSION: 38,
     settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, descanso: restOn, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,

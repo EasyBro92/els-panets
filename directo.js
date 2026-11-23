@@ -34,6 +34,8 @@ function meNode() {
   const p = EP.playerInfo();
   const n = { k: myKey(), n: String(p.name || "Jugador").slice(0, 16), c: String(p.char || "gris").slice(0, 24) };
   if (p.flag) n.f = String(p.flag).slice(0, 8);
+  const u = window.ElsPanetsCuenta && window.ElsPanetsCuenta.user();
+  if (u) n.u = u;
   return n;
 }
 const seedFor = (code, r) => { let h = 2166136261; for (const ch of "directo" + code + r) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -67,7 +69,7 @@ function presence() {
 }
 
 // ---------- crear, entrar y salir ----------
-async function createRoom() {
+async function createRoom(quick) {
   const { db, m } = await net();
   if (!(await waitConnected(10000))) throw new Error("sin-red");
   cleanOld();
@@ -78,13 +80,13 @@ async function createRoom() {
         ["salas/" + code]: { creada: m.serverTimestamp(), ronda: 0, semilla: 0, inicio: 0, j: { a: meNode() } },
         ["limpiar/" + Math.round(serverNow()) + "_" + code]: code,
       }), 12000);
-      enterRoom(code, "a");
+      enterRoom(code, "a", quick);
       return code;
     } catch (e) { if (!/permission/i.test(String(e && (e.code || e.message)))) throw e; }
   }
   throw new Error("sin-codigo");
 }
-async function joinRoom(code) {
+async function joinRoom(code, quick) {
   code = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (code.length !== 5) return "Escribe las 5 letras del código.";
   if (room && room.code === code) { show(); return ""; }
@@ -98,12 +100,12 @@ async function joinRoom(code) {
   if (!slot) return "La sala está llena: ya hay dos jugando.";
   try { await withTimeout(m.set(m.ref(db, "salas/" + code + "/j/" + slot), meNode())); }
   catch (e) { return "No se pudo entrar. Prueba otra vez."; }
-  enterRoom(code, slot);
+  enterRoom(code, slot, quick);
   return "";
 }
-function enterRoom(code, slot) {
+function enterRoom(code, slot, quick) {
   const { db, m } = fb;
-  room = { code, slot, other: slot === "a" ? "b" : "a", data: null, round: 0, sentN: 0, mine: null, wins: { me: 0, them: 0 }, counted: {}, themSeen: null, starting: 0, view: "sala" };
+  room = { code, slot, other: slot === "a" ? "b" : "a", data: null, round: 0, sentN: 0, mine: null, wins: { me: 0, them: 0 }, counted: {}, themSeen: null, starting: 0, view: "sala", quick: !!quick, searching: 0, noOne: false, autoReady: false };
   presence();
   room.unsub = m.onValue(m.ref(db, "salas/" + code), (s) => onRoom(s.val()));
   clearInterval(sender);
@@ -116,6 +118,9 @@ async function leave(quiet) {
   const r = room;
   room = null;
   clearInterval(sender);
+  clearTimeout(r.searchT);
+  $("lvEmo").classList.add("hidden");
+  if (r.quick) await clearWait(r.code);
   try { r.unsub(); } catch (e) {}
   if (fb) {
     const { db, m } = fb, mine = m.ref(db, "salas/" + r.code + "/j/" + r.slot);
@@ -140,6 +145,87 @@ async function cleanOld() {
   } catch (e) {}
 }
 
+// ---------- partida rápida: un solo sitio de espera en la base de datos ----------
+// Quien llega y ve a alguien esperando entra en su sala; si no hay nadie, espera en la suya.
+const QUICK_WAIT = 40000, QUICK_FRESH = 16000;
+let beat = 0;
+const esperaRef = () => fb.m.ref(fb.db, "espera");
+async function clearWait(code) {
+  clearInterval(beat); beat = 0;
+  if (!fb) return;
+  const me = myKey();
+  try { await withTimeout(fb.m.runTransaction(esperaRef(), (cur) => (cur && cur.k === me && (!code || cur.c === code) ? null : cur), { applyLocally: false }), 5000); } catch (e) {}
+}
+// devuelve el código de quien ya estaba esperando, o null si ahora esperas tú
+async function tryMatch() {
+  const code = room.code, me = myKey();
+  let other = null;
+  await withTimeout(fb.m.runTransaction(esperaRef(), (cur) => {
+    other = null;
+    if (cur && cur.k !== me && cur.c !== code && serverNow() - cur.t < QUICK_FRESH) { other = cur.c; return null; }
+    return { c: code, k: me, t: Math.round(serverNow()) };
+  }, { applyLocally: false }), 10000);
+  return other;
+}
+async function goToRival(other, tries) {
+  await leave(true);
+  const err = await joinRoom(other, true);
+  if (err) { if (tries < 2) { await quickMatch(tries + 1); return; } throw new Error("sin-rival"); }
+}
+function waitSearch() {
+  clearInterval(beat);
+  clearTimeout(room.searchT);
+  room.searching = Date.now(); room.noOne = false;
+  const code = room.code;
+  room.searchT = setTimeout(() => {
+    if (!room || room.code !== code || !room.searching) return;
+    room.searching = 0; room.noOne = true;
+    clearWait(code);
+    render();
+  }, QUICK_WAIT);
+  beat = setInterval(async () => {
+    if (!room || room.code !== code || !room.searching) { clearInterval(beat); return; }
+    try { const other = await tryMatch(); if (other && room && room.searching) await goToRival(other, 0); } catch (e) {}
+  }, 6000);
+  render();
+}
+async function quickMatch(tries) {
+  await createRoom(true);
+  room.searching = Date.now();
+  render();
+  const other = await tryMatch();
+  if (!room) return;
+  if (other) await goToRival(other, tries || 0);
+  else waitSearch();
+}
+
+// ---------- reacciones en la sala: seis caras, sin texto libre ----------
+const EMOS = ["👏", "😂", "😮", "🔥", "😭", "👋"];
+let emoAt = 0;
+function floatEmo(i, mine) {
+  const card = ov.querySelector(".liveCard"), em = EMOS[i];
+  if (!card || !em || ov.classList.contains("hidden")) return;
+  const r = card.getBoundingClientRect(), el = document.createElement("span");
+  el.className = "lvFloat"; el.textContent = em;
+  el.style.left = r.left + r.width * (mine ? 0.2 : 0.68) + "px";
+  el.style.top = r.top + 120 + "px";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1750);
+}
+function paintEmo(them) {
+  const el = $("lvEmo");
+  el.classList.toggle("hidden", !them);
+  if (them && !el.children.length) el.innerHTML = EMOS.map((e, i) => `<button type="button" data-e="${i}" aria-label="Reacción">${e}</button>`).join("");
+}
+$("lvEmo").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-e]");
+  if (!b || !room || !fb || Date.now() - emoAt < 800) return;
+  emoAt = Date.now();
+  const i = Number(b.dataset.e);
+  floatEmo(i, true);
+  fb.m.set(fb.m.ref(fb.db, "salas/" + room.code + "/j/" + room.slot + "/e"), { i, t: Date.now() }).catch(() => {});
+});
+
 // ---------- lo que pasa en la sala ----------
 function onRoom(d) {
   if (!room) return;
@@ -149,7 +235,16 @@ function onRoom(d) {
   if (them && them.n) room.lastName = them.n;
   if (them && them.fin) room.lastFin = them.fin;
   // al entrar, las rondas que ya se jugaron no cuentan
-  if (first) { room.round = d.ronda || 0; room.themSeen = them ? them.n : null; }
+  if (first) { room.round = d.ronda || 0; room.themSeen = them ? them.n : null; room.themE = them && them.e ? them.e.t : 0; }
+  // su reacción
+  if (them && them.e && them.e.t !== room.themE) { room.themE = them.e.t; floatEmo(them.e.i, false); }
+  // partida rápida: ya hay rival, y os ponéis listos solos
+  if (them && room.searching) { room.searching = 0; clearTimeout(room.searchT); clearWait(room.code); }
+  if (them && room.quick && !room.autoReady && !d.ronda) {
+    room.autoReady = true;
+    const code = room.code, slot = room.slot;
+    setTimeout(() => { if (room && room.code === code && room.data && room.data.j && room.data.j[room.other] && !room.round) fb.m.set(fb.m.ref(fb.db, "salas/" + code + "/j/" + slot + "/listo"), 1).catch(() => {}); }, 1500);
+  }
   // llega o se va el otro
   if (them && them.n && !room.themSeen) { room.themSeen = them.n; if (room.round || room.view === "sala") EP.sfx && EP.sfx("click"); toast(them.n + " ha entrado en la sala"); }
   if (!them && room.themSeen) { toast(room.themSeen + " se ha ido de la sala"); room.themSeen = null; EP.liveFeed({ gone: true }); }
@@ -200,17 +295,19 @@ function show() { render(); ov.classList.remove("hidden"); }
 function render() {
   if (!room) return;
   const d = room.data || { j: {} }, j = d.j || {}, me = j[room.slot], them = j[room.other];
-  titleEl.textContent = "Sala " + room.code;
+  titleEl.textContent = room.quick && !them ? "Partida rápida" : "Sala " + room.code;
+  paintEmo(them);
   if (room.view === "fin" && room.round) { renderEnd(d, me, them); return; }
   const next = (d.ronda || 0) + 1, meReady = me && me.listo === next, themReady = them && them.listo === next;
-  let h = `<div class="lvPlayers">${playerRow(me, true, meReady)}${them ? playerRow(them, false, themReady) : '<div class="lvRow lvWait"><span class="lvDot"></span>Esperando a tu amigo…</div>'}</div>`;
+  let h = `<div class="lvPlayers">${playerRow(me, true, meReady)}${them ? playerRow(them, false, themReady) : `<div class="lvRow lvWait"><span class="lvDot"></span>${room.searching ? "Buscando rival…" : "Esperando a tu amigo…"}</div>`}</div>`;
   if (!connected) h += '<p class="formMsg">Sin conexión… reconectando.</p>';
-  if (!them) h += inviteBlock();
+  if (!them && room.searching) h += '<div class="lvSearch">Buscando a alguien para jugar…<small>Si hay otra persona buscando, empezáis enseguida</small></div>';
+  else if (!them) h += (room.noOne ? '<p class="rtInfo">Ahora mismo no hay nadie buscando. Sigue probando o invita a un amigo.</p><button type="button" id="lvAgain" class="ghostBtn">Seguir buscando</button>' : "") + inviteBlock();
   else if (!meReady) h += `<button type="button" id="lvReady" class="bigBtn">${room.round ? "¡Revancha!" : "¡Estoy listo!"}</button><p class="rtInfo lvHint">${themReady ? esc(them.n) + " ya está listo." : "Cuando los dos pulséis «listo», empieza la cuenta 3, 2, 1."}</p>`;
   else h += `<p class="rtInfo lvHint">Esperando a que ${esc(them.n)} pulse «listo»…</p>`;
   bodyEl.innerHTML = h;
   paintChars();
-  if (!them) paintQR();
+  if (!them && !room.searching) paintQR();
 }
 function playerRow(p, isMe, ready) {
   const ci = isMe ? EP.current() : charIdx(p && p.c);
@@ -246,11 +343,16 @@ function renderEnd(d, me, them) {
     clearTimeout(room.quietT);
     if (!quiet) room.quietT = setTimeout(() => { if (room && room.view === "fin" && !ov.classList.contains("hidden")) render(); }, 8100 - (Date.now() - (room.themAt || 0)));
   } else {
-    if (!room.counted[room.round]) { room.counted[room.round] = 1; if (mine > theirFin) room.wins.me++; else if (theirFin > mine) room.wins.them++; }
+    if (!room.counted[room.round]) {
+      room.counted[room.round] = 1;
+      if (mine > theirFin) room.wins.me++; else if (theirFin > mine) room.wins.them++;
+      // victorias en tu perfil y panets (con un máximo al día)
+      room.pay = window.ElsPanetsCuenta ? window.ElsPanetsCuenta.duelo(mine > theirFin ? "w" : mine < theirFin ? "l" : "e") : 0;
+    }
     const title = mine > theirFin ? "¡Has ganado!" : mine < theirFin ? "Gana " + esc(name) : "¡Empate!";
     h = `<div class="lvBig${mine > theirFin ? " win" : ""}">${title}</div>
       <ol class="rtTurnList lvScores"><li><b>Tú</b><i>${mine}</i></li><li><b>${esc(name)}</b><i>${theirFin}</i></li></ol>
-      <p class="rtInfo lvHint">Partidas ganadas: tú ${room.wins.me} · ${esc(name)} ${room.wins.them}</p>`;
+      <p class="rtInfo lvHint">Partidas ganadas: tú ${room.wins.me} · ${esc(name)} ${room.wins.them}${room.pay ? ` · <b>+${room.pay} panets</b>` : ""}</p>`;
     if (!them) { room.view = "sala"; h += `<p class="rtInfo lvHint">${esc(name)} ya se ha ido de la sala.</p><button type="button" id="lvInvite" class="bigBtn">Invitar a otro</button>`; }
     else {
       const next = (d.ronda || 0) + 1, meReady = me && me.listo === next, themReady = them.listo === next;
@@ -290,6 +392,10 @@ bodyEl.addEventListener("click", async (e) => {
     return;
   }
   if (e.target.closest("#lvInvite")) { room.view = "sala"; render(); return; }
+  if (e.target.closest("#lvAgain")) {
+    try { const other = await tryMatch(); if (other) await goToRival(other, 0); else waitSearch(); } catch (err) { toast("No se pudo conectar. Revisa la conexión."); }
+    return;
+  }
   if (e.target.closest("#lvShareNative")) {
     navigator.share({ title: "Els Panets en directo", text: "¡Juega conmigo en directo a Els Panets! Código " + room.code, url: linkFor(room.code) }).catch(() => {});
     return;
@@ -307,7 +413,8 @@ function renderTab(box, preset) {
   const name = EP.settings().nombre;
   box.innerHTML = `<p class="rtInfo">Jugad <b>a la vez</b>, cada uno en su móvil, por las mismas columnas. Verás a tu amigo volar a tu lado y gana quien llegue más lejos.</p>
     ${name ? "" : '<input id="lvName" class="lvName" type="text" maxlength="12" autocomplete="off" placeholder="Tu nombre (lo verá tu amigo)" />'}
-    <button type="button" id="lvCreate" class="bigBtn">Crear sala e invitar</button>
+    <button type="button" id="lvQuick" class="bigBtn">Buscar rival ahora</button>
+    <div class="lvShare"><button type="button" id="lvCreate" class="ghostBtn">Crear sala</button><button type="button" id="lvFriends" class="ghostBtn">Mis amigos</button></div>
     <p class="rtInfo">¿Te han invitado? Escribe el código:</p>
     <div class="rtCode"><input id="lvCodeIn" type="text" maxlength="5" autocomplete="off" placeholder="ABCDE" value="${esc(preset || "")}" /><button type="button" id="lvJoin" class="bigBtn">Entrar</button></div>
     <p id="lvMsg" class="formMsg"></p>`;
@@ -322,21 +429,35 @@ function needName() {
   return true;
 }
 document.addEventListener("click", async (e) => {
-  const c = e.target.closest("#lvCreate, #lvJoin");
+  if (e.target.closest("#lvFriends")) { if ($("retosOverlay")) $("retosOverlay").classList.add("hidden"); if (window.ElsPanetsCuenta) window.ElsPanetsCuenta.open("amigos"); return; }
+  const c = e.target.closest("#lvCreate, #lvJoin, #lvQuick");
   if (!c) return;
   const msg = $("lvMsg");
   if (room) { show(); return; }
   if (!needName()) return;
   c.disabled = true;
   try {
-    if (c.id === "lvCreate") { msg.textContent = "Creando la sala…"; await createRoom(); msg.textContent = ""; }
+    if (c.id === "lvQuick") { msg.textContent = "Buscando…"; await quickMatch(0); if ($("lvMsg")) $("lvMsg").textContent = ""; }
+    else if (c.id === "lvCreate") { msg.textContent = "Creando la sala…"; await createRoom(); msg.textContent = ""; }
     else { msg.textContent = "Buscando la sala…"; const err = await joinRoom($("lvCodeIn").value); msg.textContent = err; }
   } catch (err) { msg.textContent = "No se pudo conectar. Revisa la conexión."; }
   c.disabled = false;
 });
 
 // el botón «atrás» con la ventana abierta: salir de la sala
-window.ElsPanetsLive = { back: () => leave(), inRoom: () => !!room };
+// retar a un amigo de tu cuenta: se crea la sala y le llega un aviso a su móvil
+async function inviteFriend(u, from) {
+  if (!room) await createRoom();
+  await withTimeout(fb.m.set(fb.m.ref(fb.db, "invita/" + u + "/" + from), { c: room.code, t: fb.m.serverTimestamp() }));
+  toast("Reto enviado a " + u + ". Cuando acepte, saldrá aquí.");
+  show();
+}
+async function joinByCode(code) {
+  let err = "";
+  try { err = await joinRoom(code); } catch (e) { err = "No se pudo conectar. Revisa la conexión."; }
+  if (err) toast(err);
+}
+window.ElsPanetsLive = { back: () => leave(), inRoom: () => !!room, join: joinByCode, inviteFriend };
 UI.openLive = () => { if (room) show(); };
 UI.renderLiveTab = renderTab;
 

@@ -585,3 +585,69 @@ a.rtWa { display: block; text-decoration: none; text-align: center; box-sizing: 
 .lvName { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 12px; border: 3px solid #cdbb9c; background: #fff; font: 18px "Lilita One", sans-serif; color: #3b2414; outline: none; user-select: text; margin-bottom: 4px; }
 .lvToast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 60; max-width: 86vw; padding: 8px 16px; border-radius: 16px; background: rgba(40, 24, 12, 0.88); color: #fff; font: 16px "Lilita One", sans-serif; text-align: center; opacity: 0; transition: opacity 0.4s ease; pointer-events: none; }
 .lvToast.on { opacity: 1; }
+
+/* 23/11/2026: zona Premium */
+.tabs button.tabPrem { color: #8a5a00; border-color: #b57a00; background: linear-gradient(#fff6d6, #ffe08a); }
+.tabs button.tabPrem.on { color: #fff; background: linear-gradient(#ffc933, #e08e00); }
+#shopTabs button { font-size: 14px; padding: 7px 2px; }
+.prTop { text-align: center; color: #3b2414; font-size: 15px; margin: 2px 0 6px; }
+.prTop b { font-weight: normal; color: #b56a00; font-size: 18px; }
+.prTop small { display: block; color: #8a7558; font-size: 12px; line-height: 1.25; margin-top: 2px; }
+.prGroup { color: var(--r); font-size: 15px; margin: 8px 2px 4px; }
+.prGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.prTile { position: relative; display: flex; flex-direction: column; align-items: center; padding: 4px 2px 5px; border: 3px solid var(--r); border-radius: 13px; background: #fff8ec; font: 12.5px "Lilita One", sans-serif; color: #3b2414; cursor: pointer; min-width: 0; }
+.prTile canvas { width: 86px; height: 86px; border-radius: 10px; background: radial-gradient(circle at 50% 42%, #fffdf2, color-mix(in srgb, var(--r) 34%, #fff6df)); }
+.prTile b { font-weight: normal; line-height: 1.05; min-height: 2.1em; display: flex; align-items: center; text-align: center; }
+.prTile small { color: #b56a00; font-size: 13px; }
+.prTile.own small { color: #2fa64a; }
+.prDetail { display: flex; flex-direction: column; align-items: center; text-align: center; color: #3b2414; gap: 3px; }
+.prDetail canvas { width: 170px; height: 181px; border-radius: 16px; border: 3px solid var(--r); background: radial-gradient(circle at 50% 42%, #fffdf2, color-mix(in srgb, var(--r) 38%, #fff6df)); }
+.prName { font-weight: normal; font-size: 24px; line-height: 1.1; margin-top: 3px; }
+.prRar { color: var(--r); font-size: 14px; }
+.prDetail p { margin: 3px 6px; font-size: 14.5px; line-height: 1.25; color: #6a5238; }
+.prDetail p.prOk { color: #2fa64a; }
+.prDetail .bigBtn { width: 100%; margin-top: 4px; }
+.prDetail .bigBtn:disabled { opacity: .6; }
+.prDetail .ghostBtn { width: 100%; }
+.chSec { grid-column: 1 / -1; color: #b56a00; font-size: 15px; margin: 5px 2px 0; }
+.chTile.prem { border-color: var(--r); position: relative; }
+.chTile.prem.locked canvas { filter: none; opacity: 1; }
+.chTile.prem.on { background: #ffe9a8; border-color: #3b2414; }
+.chTile.prem small { color: #b56a00; }
+.chGet { width: 100%; margin-top: 8px; font-size: 18px; }
+
+/* 23/11/2026: cuenta de usuario */
+.cuBody { max-height: 62vh; overflow-y: auto; }
+.cuIn { display: block; width: 100%; box-sizing: border-box; margin: 5px 0; padding: 10px 12px; border: 2px solid #3b2414; border-radius: 12px; background: #fff; color: #3b2414; font: 17px "Lilita One", sans-serif; }
+.cuLink { display: block; margin: 6px auto 0; padding: 6px 8px; border: 0; background: none; color: #8a5a2b; font: 14px "Lilita One", sans-serif; text-decoration: underline; cursor: pointer; }
+.cuCode { margin: 8px 0; padding: 12px 6px; border: 2px dashed #b56a00; border-radius: 12px; background: #fff3cf; color: #3b2414; font: 21px "Lilita One", sans-serif; letter-spacing: .5px; text-align: center; user-select: all; }
+.cuProfile { display: flex; align-items: center; gap: 10px; text-align: left; color: #3b2414; }
+.cuProfile canvas { width: 92px; height: 92px; flex-shrink: 0; border-radius: 50%; background: radial-gradient(#d9f0fa, #a6d8ef); border: 3px solid #3b2414; }
+.cuProfile b { display: block; font-weight: normal; font-size: 23px; line-height: 1.1; }
+.cuProfile span { display: block; font-size: 14px; color: #6a5238; }
+.cuProfile i { font-style: normal; color: #b56a00; }
+.cuSaved { color: #2a8a3f; font-size: 14px; margin: 6px 0 2px; text-align: center; }
+.cuRow { display: flex; gap: 6px; }
+.cuRow .ghostBtn { flex: 1; font-size: 15px; padding-left: 2px; padding-right: 2px; }
+.cuList { max-height: 38vh; overflow-y: auto; margin-bottom: 4px; }
+.cuFr { display: flex; align-items: center; gap: 7px; padding: 3px 5px; margin-bottom: 4px; border: 2px solid #e2d2b4; border-radius: 12px; background: #fff; color: #3b2414; text-align: left; }
+.cuFr canvas { width: 42px; height: 42px; flex-shrink: 0; border-radius: 50%; background: radial-gradient(#d9f0fa, #a6d8ef); }
+.cuFr div { flex: 1; min-width: 0; }
+.cuFr b { display: block; font-weight: normal; font-size: 16px; overflow: hidden; text-overflow: ellipsis; }
+.cuFr small { color: #8a7558; font-size: 12px; }
+.cuGo { padding: 7px 11px; border: 2px solid #3b2414; border-radius: 10px; background: #ffd23f; color: #3b2414; font: 14px "Lilita One", sans-serif; cursor: pointer; }
+.cuX { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #f2e6d2; color: #8a5a2b; font-size: 13px; cursor: pointer; }
+.cuInvite { position: fixed; left: 50%; top: 92px; z-index: 70; width: min(330px, 88vw); padding: 10px 12px; border: 3px solid #3b2414; border-radius: 16px; background: #fff8ec; color: #3b2414; font: 17px "Lilita One", sans-serif; text-align: center; box-shadow: 0 5px 0 rgba(0,0,0,.25); transform: translate(-50%, -12px); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+.cuInvite.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.cuInvite b { font-weight: normal; color: #b56a00; }
+.cuInvite div { display: flex; gap: 6px; margin-top: 7px; }
+.cuInvite button { flex: 1; padding: 8px; border: 2px solid #3b2414; border-radius: 10px; background: #fff; color: #3b2414; font: 15px "Lilita One", sans-serif; cursor: pointer; }
+.cuInvite button[data-a="1"] { background: #ffd23f; }
+/* reacciones en la sala: suben despacio y se apagan, sin temblar */
+.lvEmo { display: flex; justify-content: space-between; gap: 3px; margin: 6px 0 0; }
+.lvEmo.hidden { display: none; }
+.lvEmo button { flex: 1; padding: 5px 0; border: 2px solid #e2d2b4; border-radius: 10px; background: #fff; font-size: 20px; line-height: 1.1; cursor: pointer; }
+.lvFloat { position: fixed; z-index: 75; font-size: 34px; pointer-events: none; animation: lvFloat 1.7s ease-out forwards; }
+@keyframes lvFloat { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-70px); } }
+.lvSearch { padding: 14px 8px; color: #3b2414; font-size: 19px; text-align: center; }
+.lvSearch small { display: block; color: #8a7558; font-size: 13px; margin-top: 3px; }

@@ -82,7 +82,7 @@
   <div id="boxOverlay" class="overlay hidden">
     <div class="nameCard wideCard boxCard">
       <div class="nameTitle">Tienda</div>
-      <div id="shopTabs" class="tabs"><button type="button" data-shop="caja" class="on">Caja sorpresa</button><button type="button" data-shop="mejoras">Mejoras</button></div>
+      <div id="shopTabs" class="tabs"><button type="button" data-shop="caja" class="on">Caja sorpresa</button><button type="button" data-shop="mejoras">Mejoras</button><button type="button" data-shop="premium" class="tabPrem">★ Premium</button></div>
       <div class="boxHucha"><img id="boxPanet" alt="" /><b id="boxCount">0</b><span>panets en tu hucha</span></div>
       <div id="boxStrip" class="boxStrip"><div id="boxReel" class="boxReel"></div><div class="boxMark"></div></div>
       <p id="boxMsg" class="boxMsg"></p>
@@ -92,6 +92,7 @@
       <div id="boxTabs" class="tabs"><button type="button" data-tab="estela" class="on">Estelas</button><button type="button" data-tab="gorro">Gorros</button></div>
       <div id="boxItems" class="boxItems"></div>
       <div id="shopBody" class="shopBody hidden"></div>
+      <div id="premBody" class="shopBody hidden"></div>
       <button id="boxClose" class="ghostBtn" type="button">Cerrar</button>
     </div>
   </div>
@@ -177,8 +178,14 @@
     </div>
   </div>
   <!-- 17/11/2026: en directo (directo.js) -->
+  <!-- 23/11/2026: cuenta de usuario -->
+  <div id="cuentaOverlay" class="overlay hidden">
+    <div class="nameCard wideCard cuCard"><div id="cuTitle" class="nameTitle">Tu cuenta</div><div id="cuBody" class="cuBody"></div>
+      <button id="cuClose" class="ghostBtn" type="button">Cerrar</button></div>
+  </div>
   <div id="liveOverlay" class="overlay hidden">
     <div class="nameCard liveCard"><div id="liveTitle" class="nameTitle">En directo</div><div id="liveBody" class="liveBody"></div>
+      <div id="lvEmo" class="lvEmo hidden"></div>
       <button id="liveLeave" class="ghostBtn" type="button">Salir de la sala</button></div>
   </div>
   <div id="rtAccept" class="overlay hidden">
@@ -246,14 +253,17 @@
 })();
 </script>
 <script type="module" src="firebase-leaderboard.js"></script>
-<script src="calle.js"></script>
+<script src="famosos.js"></script>
+  <script src="calle.js"></script>
 <script src="game.js"></script>
 <script src="extras.js"></script>
 <script src="progreso.js"></script>
+<script src="premium.js"></script>
 <script src="personajes.js"></script>
 <script src="historia.js"></script>
 <script src="retos.js"></script>
 <script src="qrcode.js"></script>
 <script type="module" src="directo.js"></script>
+<script type="module" src="cuenta.js"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@
   const $ = (id) => document.getElementById(id);
   const EP = window.ElsPanets;
   const lb = () => window.TacoLeaderboard;
-  const overlays = ["creatorOverlay", "adminLoginOverlay", "adminOverlay", "boxOverlay", "dailyOverlay", "settingsOverlay", "progOverlay", "charsOverlay", "storyOverlay", "taleBox", "retosOverlay", "rtAccept", "rtShare", "rtTurn", "liveOverlay"].map($);
+  const overlays = ["creatorOverlay", "adminLoginOverlay", "adminOverlay", "boxOverlay", "dailyOverlay", "settingsOverlay", "progOverlay", "charsOverlay", "storyOverlay", "taleBox", "retosOverlay", "rtAccept", "rtShare", "rtTurn", "liveOverlay", "cuentaOverlay"].map($);
   const show = (el) => el.classList.remove("hidden");
   const hide = (el) => el.classList.add("hidden");
   const esc = (s) => String(s == null ? "" : s).replace(/[<>&"']/g, "");
@@ -281,12 +281,16 @@
   const POWER_NAMES = { iman: "Imán", doble: "Puntos x2", mini: "Mini", paraguas: "Paraguas", lenta: "Cámara lenta", lluvia: "Lluvia de panets", escudo: "Escudo", corazon: "Vida extra" };
   const START_TXT = { escudo: "Te salva de un choque", iman: "Atrae la comida", doble: "Puntos dobles al empezar", corazon: "Una vida de más" };
   let shopTab = "caja";
+  const UI_PREM = (window.ElsPanetsPremium = window.ElsPanetsPremium || {}); // premium.js
   function setShop(t) {
     shopTab = t;
     for (const b of $("shopTabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.shop === t);
     for (const id of ["boxStrip", "boxMsg", "boxOpen", "boxOdds", "boxSure", "boxTabs", "boxItems"]) $(id).classList.toggle("shopHide", t !== "caja");
     $("shopBody").classList.toggle("hidden", t !== "mejoras");
-    if (t === "mejoras") renderShop(); else refreshBox();
+    $("premBody").classList.toggle("hidden", t !== "premium");
+    if (UI_PREM.stop) UI_PREM.stop();
+    if (t === "premium") { $("boxCount").textContent = EP.hucha(); if (UI_PREM.render) UI_PREM.render($("premBody")); }
+    else if (t === "mejoras") renderShop(); else refreshBox();
   }
   function renderShop() {
     $("boxCount").textContent = EP.hucha();
@@ -325,7 +329,7 @@
     boxMsg.textContent = "Cada caja cuesta " + EP.BOX_COST + " panets y nunca trae un premio repetido. Las empanadillas que comes van a la hucha.";
     $("boxPanet").src = EP.foodImg();
     refreshBox();
-    setShop(which === "mejoras" ? "mejoras" : "caja");
+    setShop(which === "mejoras" || which === "premium" ? which : "caja");
     show($("boxOverlay"));
     clearInterval(boxAnim);
   }
@@ -409,6 +413,7 @@
       <p><b>Si retas a un amigo:</b> tu nombre, tu puntuación y el recorrido de esa partida, para quien tenga el código.</p>
       <p><b>Si juegas en directo:</b> mientras estás en la sala, tu nombre, tu personaje, su bandera, tu altura y tus puntos, para quien tenga el código. Se borra al salir (y si no, al día siguiente).</p>
       <p><b>Para saber cuánto se juega:</b> ese nombre, tu personaje, su bandera y los minutos que el juego está abierto (el total y los de cada día de los últimos 30 días). Solo lo ve el administrador del juego.</p>
+      <p><b>Si creas una cuenta:</b> tu nombre de usuario, tu partida guardada (récord, panets, premios y personajes) y, para el perfil que pueden ver los demás, tu personaje, tu récord y tus victorias en directo. La contraseña no se envía nunca: solo una huella de la que no se puede sacar. No pedimos correo.</p>
       <p><b>Una llave secreta al azar,</b> para que nadie pueda cambiar tu récord ni tu nombre. No dice quién eres.</p>
       <p>Se guarda en Firebase, un servicio de Google.</p>
       <h4>Borrarlo</h4>
@@ -423,7 +428,7 @@
       <h4>Dibujos y programación</h4>
       <p>Hechos para este juego.</p>`],
     borrar: ["Borrar mis datos", `
-      <p>Se borrará <b>todo</b>: tu récord, tu nombre en el ranking, tu hucha, tus premios, tu personaje y tus ajustes, en este móvil y en internet.</p>
+      <p>Se borrará <b>todo</b>: tu cuenta si tienes una, tu récord, tu nombre en el ranking, tu hucha, tus premios, tu personaje y tus ajustes, en este móvil y en internet.</p>
       <p><b>No se puede deshacer.</b></p>
       <p id="eraseMsg" class="formMsg"></p>
       <button id="eraseYes" class="bigBtn dangerBtn" type="button">Sí, borrar todo</button>`],
@@ -495,6 +500,7 @@
     try {
       if (remote) {
         if (!lb() || !lb().deleteMyData) throw new Error("sin-red");
+        if (window.ElsPanetsCuenta && window.ElsPanetsCuenta.user()) await window.ElsPanetsCuenta.deleteAccount();
         await lb().deleteMyData();
       }
     } catch (err) {

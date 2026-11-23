@@ -13,9 +13,12 @@
 
   function renderGrid() {
     const list = EP.charList(), cur = EP.current();
-    grid.innerHTML = list.map((c) => `<button type="button" class="chTile${c.i === sel ? " on" : ""}${c.i === cur ? " cur" : ""}${c.open ? "" : " locked"}" data-i="${c.i}">
-        <canvas width="128" height="128" data-ch="${c.i}"></canvas><b>${esc(nice(c.name))}</b>${c.open ? "" : `<small>🔒 ${c.unlock}</small>`}</button>`).join("") +
-      (EP.customFree() ? `<button type="button" class="chTile chNew" data-new="1"><div class="chPlus">+</div><b>Crea el tuyo</b></button>` : "");
+    const tile = (c) => `<button type="button" class="chTile${c.i === sel ? " on" : ""}${c.i === cur ? " cur" : ""}${c.open ? "" : " locked"}${c.premium ? " prem" : ""}" data-i="${c.i}"${c.premium ? ` style="--r:${EP.FAM_RARITY[c.rar].color}"` : ""}>
+        <canvas width="128" height="128" data-ch="${c.i}"></canvas><b>${esc(nice(c.name))}</b>${c.open ? "" : `<small>${c.premium ? "★ " + c.price : "🔒 " + c.unlock}</small>`}</button>`;
+    // primero los amigos y el tuyo; después, los famosos de la zona Premium
+    grid.innerHTML = list.filter((c) => !c.premium).map(tile).join("") +
+      (EP.customFree() ? `<button type="button" class="chTile chNew" data-new="1"><div class="chPlus">+</div><b>Crea el tuyo</b></button>` : "") +
+      (list.some((c) => c.premium) ? '<div class="chSec">★ Premium</div>' + list.filter((c) => c.premium).map(tile).join("") : "");
     grid.querySelectorAll("canvas[data-ch]").forEach((cv) => EP.drawCharTo(cv, Number(cv.dataset.ch)));
   }
   function renderDetail() {
@@ -24,8 +27,9 @@
     const cur = EP.current() === c.i;
     let html = `<div class="chTop"><canvas id="chBig" width="240" height="250"></canvas><div class="chInfo"><b>${esc(nice(c.name))}</b>
       <p>${esc(c.story)}</p>${c.power ? `<p class="chPow">${c.special ? '<canvas width="80" height="80" id="chSp"></canvas>' : ""}${esc(c.power)}</p>` : ""}
-      ${c.ability ? `<p class="chAb">★ ${esc(c.ability)}</p>` : ""}<small>Bandera: ${esc(c.flag)}</small></div></div>`;
-    if (!c.open) html += `<p class="chLock">🔒 Llega a <b>${c.unlock}</b> puntos para desbloquearlo</p>`;
+      ${c.ability ? `<p class="chAb">★ ${esc(c.ability)}</p>` : ""}${c.premium ? `<small>${"★".repeat(c.rar + 1)} ${esc(EP.FAM_RARITY[c.rar].name)}</small>` : `<small>Bandera: ${esc(c.flag)}</small>`}</div></div>`;
+    if (!c.open && c.premium) html += `<button type="button" class="bigBtn chGet" id="chGet">★ Conseguir en la tienda · ${c.price}</button>`;
+    else if (!c.open) html += `<p class="chLock">🔒 Llega a <b>${c.unlock}</b> puntos para desbloquearlo</p>`;
     else if (c.outfits.length) {
       html += `<div class="chOutHead">Ropa · ${esc(c.outfits[c.outfit].name)}</div><div class="chOuts">` + c.outfits.map((o, k) => `<button type="button" class="chOut${k === c.outfit ? " on" : ""}${o.open ? "" : " locked"}" data-out="${k}">
         <canvas width="96" height="100" data-o="${k}"></canvas><small>${o.open ? esc(o.name) : "🔒 " + o.pts}</small></button>`).join("") + "</div>";
@@ -52,6 +56,7 @@
   });
   det.addEventListener("click", (e) => {
     if (e.target.closest("#chEdit")) { close(); UI.openCreator(EP.customData()); return; }
+    if (e.target.closest("#chGet")) { const c = EP.charList()[sel]; close(); if (c && window.ElsPanetsPremium.openOne) window.ElsPanetsPremium.openOne(c.id); return; }
     const o = e.target.closest("button[data-out]");
     if (o && EP.pickOutfit(sel, Number(o.dataset.out))) { EP.sfx("click"); renderGrid(); renderDetail(); }
   });
