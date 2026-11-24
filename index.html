@@ -110,18 +110,27 @@
     <div class="nameCard wideCard setCard">
       <div id="setTitle" class="nameTitle">Ajustes</div>
       <div id="setMain">
-        <div class="setRow"><span>Música</span><button type="button" data-set="musica"></button></div>
-        <div class="setRow"><span>Efectos de sonido</span><button type="button" data-set="efectos"></button></div>
+        <div class="setHead">Sonido</div>
+        <div class="setRow setVol"><span>Música</span><input type="range" min="0" max="100" step="5" data-vol="musica" aria-label="Volumen de la música" /><b data-volv="musica"></b></div>
+        <div class="setRow setVol"><span>Efectos</span><input type="range" min="0" max="100" step="5" data-vol="efectos" aria-label="Volumen de los efectos" /><b data-volv="efectos"></b></div>
         <div id="setVibraRow" class="setRow"><span>Vibración</span><button type="button" data-set="vibracion"></button></div>
+        <div class="setHead">Pantalla</div>
+        <div class="setRow"><span>Fondo tranquilo<small>Sin gente, coches ni pájaros moviéndose por detrás</small></span><button type="button" data-set="calma"></button></div>
         <div class="setRow"><span>Reducir destellos<small>Sin destellos blancos fuertes</small></span><button type="button" data-set="destellos"></button></div>
-        <div class="setRow"><span>Aviso de descanso<small>Al acabar una partida, tras media hora jugando</small></span><button type="button" data-set="descanso"></button></div>
+        <div class="setRow"><span>Ahorro de batería<small>Menos imágenes por segundo: gasta menos</small></span><button type="button" data-set="ahorro"></button></div>
         <div class="setRow"><span>Calidad<small>Baja: más fluido en móviles lentos</small></span><button type="button" data-set="calidad"></button></div>
+        <div class="setHead">Jugar</div>
+        <div class="setRow"><span>Aviso de descanso<small>Al acabar una partida, tras media hora jugando</small></span><button type="button" data-set="descanso"></button></div>
+        <div class="setRow"><span>Cómo se juega<small>Vuelve a ver el tutorial</small></span><button type="button" id="setTutorial">Ver</button></div>
+        <div class="setHead">Tu cuenta</div>
+        <div class="setRow"><span id="setAccTxt">Cuenta</span><button type="button" id="setAcc">Entrar</button></div>
         <div class="setRow setNameRow"><span>Tu nombre</span><input id="setName" type="text" maxlength="12" autocomplete="off" placeholder="Tu nombre" /><button id="setNameSave" type="button" class="on">Guardar</button></div>
         <p id="setNameMsg" class="formMsg"></p>
+        <div class="setHead">Más</div>
         <div class="setGrid">
           <button type="button" data-page="privacidad">Privacidad</button>
           <button type="button" data-page="creditos">Créditos</button>
-          <button type="button" id="setTutorial">Repetir tutorial</button>
+          <button type="button" data-page="restablecer">Ajustes de fábrica</button>
           <button type="button" data-page="borrar" class="danger">Borrar mis datos</button>
         </div>
         <p id="setVer" class="setVer"></p>

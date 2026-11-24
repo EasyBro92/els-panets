@@ -119,6 +119,14 @@
   const oldSound = store.get("elsPanetsMusic", "1");
   let musicOn = store.get(MUSIC_KEY, oldSound) !== "0", sfxOn = store.get(SFX_KEY, oldSound) !== "0";
   let vibraOn = store.get(VIBRA_KEY, "1") !== "0";
+  // 24/11/2026: volumen de 0 a 100 para música y efectos, ahorro de batería y fondo tranquilo
+  const VOLM_KEY = "elsPanetsVolMusica", VOLS_KEY = "elsPanetsVolEfectos", SAVE_KEY = "elsPanetsAhorro", CALM_KEY = "elsPanetsCalma";
+  const volOf = (k) => { const v = Number(store.get(k, 100)); return isNaN(v) ? 1 : Math.max(0, Math.min(1, v / 100)); };
+  let musicVol = volOf(VOLM_KEY), sfxVol = volOf(VOLS_KEY);
+  let saveOn = store.get(SAVE_KEY, "0") === "1";  // unas 30 imágenes por segundo
+  let calmOn = store.get(CALM_KEY, "0") === "1";  // sin gente, coches ni pájaros por el fondo
+  // el oído nota el volumen al cuadrado: así la barra se siente pareja
+  const musicGain = () => (musicOn ? 0.12 * musicVol * musicVol : 0), sfxGain = () => (sfxOn ? 0.8 * sfxVol * sfxVol : 0);
 
   function audio() {
     if (!actx) {
@@ -129,10 +137,10 @@
       master.gain.value = 1;
       master.connect(actx.destination);
       sfx = actx.createGain();
-      sfx.gain.value = sfxOn ? 0.8 : 0;
+      sfx.gain.value = sfxGain();
       sfx.connect(master);
       musicBus = actx.createGain();
-      musicBus.gain.value = musicOn ? 0.12 : 0;
+      musicBus.gain.value = musicGain();
       musicBus.connect(master);
       noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
       const d = noiseBuf.getChannelData(0);
@@ -218,12 +226,26 @@
   function setMusic(on) {
     musicOn = on;
     store.set(MUSIC_KEY, on ? "1" : "0");
-    if (musicBus) musicBus.gain.setTargetAtTime(on ? 0.12 : 0, actx.currentTime, 0.04);
+    if (musicBus) musicBus.gain.setTargetAtTime(musicGain(), actx.currentTime, 0.04);
+  }
+  function setMusicVol(v) {
+    musicVol = Math.max(0, Math.min(1, v));
+    store.set(VOLM_KEY, Math.round(musicVol * 100));
+    if (musicVol <= 0) { if (musicOn) setMusic(false); return; }
+    if (!musicOn) { setMusic(true); startMusic(); }
+    else if (musicBus) musicBus.gain.setTargetAtTime(musicGain(), actx.currentTime, 0.04);
+  }
+  function setSfxVol(v) {
+    sfxVol = Math.max(0, Math.min(1, v));
+    store.set(VOLS_KEY, Math.round(sfxVol * 100));
+    if (sfxVol <= 0) { if (sfxOn) setSfx(false); return; }
+    if (!sfxOn) setSfx(true);
+    else if (sfx) sfx.gain.setTargetAtTime(sfxGain(), actx.currentTime, 0.04);
   }
   function setSfx(on) {
     sfxOn = on;
     store.set(SFX_KEY, on ? "1" : "0");
-    if (sfx) sfx.gain.setTargetAtTime(on ? 0.8 : 0, actx.currentTime, 0.04);
+    if (sfx) sfx.gain.setTargetAtTime(sfxGain(), actx.currentTime, 0.04);
   }
 
   // Música: aire de joropo (3/4, re mayor) con bajo, cuatro rasgueado y melodía.
@@ -2424,14 +2446,14 @@
     else { drawMountains(pal); drawCity(pal); drawHouses(pal); }
   }
   function drawScenery(pal) {
-    if (state === STATE.START) { drawPlace(0, pal); if (!lowQ) drawLife(0, pal); return; }
+    if (state === STATE.START) { drawPlace(0, pal); if (!lowQ && !calmOn) drawLife(0, pal); return; }
     if (!wipeOn) drawPlace(placeTo, pal);
     else {
       clipOld(); drawPlace(placeFrom, pal); ctx.restore();
       copyWipe(true);
     }
     // en calidad baja no hay adornos (pájaros, globo, nieve, mariposas)
-    if (!lowQ) drawLife(placeTo, pal);
+    if (!lowQ && !calmOn) drawLife(placeTo, pal);
   }
 
   // ---------- Vida en los mapas (05/11/2026) ----------
@@ -2791,7 +2813,7 @@
     ctx.fillStyle = "rgba(0,0,0,0.15)";
     ctx.fillRect(0, y + 52, LW, 4);
     // 22/11/2026: coches, gente y animales (calle.js)
-    if (!lowQ && window.ElsPanetsCalle) {
+    if (!lowQ && !calmOn && window.ElsPanetsCalle) {
       const I = STREET_INFO; I.gt = y; I.W = LW; I.scroll = scroll; I.t = streetT; I.night = n; I.tint = nightTint;
       window.ElsPanetsCalle.calle(ctx, PLACES.indexOf(G), I);
     }
@@ -5197,7 +5219,7 @@
     }
 
     const playOk = open || cst === "libre" || def.premium;
-    const pulse = playOk ? 1 + Math.sin(worldT * 4) * 0.025 : 1;
+    const pulse = playOk && !calmOn ? 1 + Math.sin(worldT * 4) * 0.025 : 1;
     ctx.save();
     ctx.translate(LW / 2, u.play.y + u.play.h / 2);
     ctx.scale(pulse, pulse);
@@ -6068,9 +6090,13 @@
   }
 
   let last = 0, acc = 0;
+  let lastDraw = 0;
   function loop(t) {
-    frame(t / 1000);
     requestAnimationFrame(loop);
+    // ahorro de batería: se pinta una imagen de cada dos (unas 30 por segundo)
+    if (saveOn && t - lastDraw < 30) return;
+    lastDraw = t;
+    frame(t / 1000);
   }
   function frame(now) {
     let dt = last ? Math.max(0, now - last) : 0;
@@ -6245,12 +6271,25 @@
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 38,
-    settings: () => ({ musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, descanso: restOn, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
+    VERSION: 39,
+    settings: () => ({ volMusica: musicOn ? Math.round(musicVol * 100) : 0, volEfectos: sfxOn ? Math.round(sfxVol * 100) : 0, ahorro: saveOn, calma: calmOn, musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, descanso: restOn, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,
     setVibra: (on) => { vibraOn = on; store.set(VIBRA_KEY, on ? "1" : "0"); if (on) vibrate(20); },
     setFlash: (on) => { softFlash = on; store.set(FLASH_KEY, on ? "1" : "0"); },
+    setMusicVol, setSfxVol,
+    setSave: (on) => { saveOn = on; store.set(SAVE_KEY, on ? "1" : "0"); },
+    setCalm: (on) => { calmOn = on; store.set(CALM_KEY, on ? "1" : "0"); },
+    // vuelve a los ajustes de fábrica (la partida, el récord y los premios no se tocan)
+    resetSettings: () => {
+      setMusicVol(1); setSfxVol(1);
+      vibraOn = true; store.set(VIBRA_KEY, "1");
+      softFlash = true; store.set(FLASH_KEY, "1");
+      restOn = true; store.set(REST_KEY, "1");
+      saveOn = false; store.set(SAVE_KEY, "0");
+      calmOn = false; store.set(CALM_KEY, "0");
+      if (lowQ) { lowQ = false; store.set(QUALITY_KEY, "alta"); resize(); }
+    },
     setRest: (on) => { restOn = on; store.set(REST_KEY, on ? "1" : "0"); },
     setQuality: (low) => { lowQ = low; store.set(QUALITY_KEY, low ? "baja" : "alta"); resize(); },
     nameProblem, setPlayerName,

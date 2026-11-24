@@ -427,6 +427,11 @@
       <p>Hechos para este juego.</p>
       <h4>Dibujos y programación</h4>
       <p>Hechos para este juego.</p>`],
+    restablecer: ["Ajustes de fábrica", `
+      <p>Vuelve a poner el sonido, la pantalla y los avisos como estaban al principio.</p>
+      <p>Tu partida, tu récord, tus panets, tus premios y tu cuenta <b>no se tocan</b>.</p>
+      <p id="resetMsg" class="formMsg ok"></p>
+      <button id="resetYes" class="bigBtn" type="button">Sí, dejarlos como al principio</button>`],
     borrar: ["Borrar mis datos", `
       <p>Se borrará <b>todo</b>: tu cuenta si tienes una, tu récord, tu nombre en el ranking, tu hucha, tus premios, tu personaje y tus ajustes, en este móvil y en internet.</p>
       <p><b>No se puede deshacer.</b></p>
@@ -435,7 +440,20 @@
   };
   function paintSettings() {
     const s = EP.settings();
-    const vals = { musica: s.musica, efectos: s.efectos, vibracion: s.vibracion, destellos: s.destellos, descanso: s.descanso };
+    const vals = { vibracion: s.vibracion, destellos: s.destellos, descanso: s.descanso, ahorro: s.ahorro, calma: s.calma };
+    for (const r of setMain.querySelectorAll("input[data-vol]")) {
+      const v = r.dataset.vol === "musica" ? s.volMusica : s.volEfectos;
+      if (document.activeElement !== r) r.value = v;
+      r.style.setProperty("--p", v + "%");
+      setMain.querySelector('[data-volv="' + r.dataset.vol + '"]').textContent = v ? v : "No";
+    }
+    // la cuenta: si has entrado, el nombre es el de la cuenta
+    const C = window.ElsPanetsCuenta, user = C && C.user();
+    $("setAccTxt").innerHTML = user ? "Cuenta<small>Has entrado como " + String(C.name() || user).replace(/[<>&"']/g, "") + "</small>" : "Cuenta<small>Guarda tu partida para jugar en otro móvil</small>";
+    $("setAcc").textContent = user ? "Ver" : "Entrar";
+    $("setAcc").classList.toggle("on", !user);
+    setNameEl.disabled = !!user;
+    $("setNameSave").classList.toggle("hidden", !!user);
     for (const b of setMain.querySelectorAll("button[data-set]")) {
       const k = b.dataset.set;
       if (k === "calidad") { b.textContent = s.calidadBaja ? "Baja" : "Alta"; b.classList.toggle("on", !s.calidadBaja); }
@@ -470,10 +488,23 @@
     else if (k === "destellos") EP.setFlash(!s.destellos);
     else if (k === "descanso") EP.setRest(!s.descanso);
     else if (k === "calidad") EP.setQuality(!s.calidadBaja);
+    else if (k === "ahorro") EP.setSave(!s.ahorro);
+    else if (k === "calma") EP.setCalm(!s.calma);
+    else if (b.id === "setAcc") { hide($("settingsOverlay")); if (window.ElsPanetsCuenta) window.ElsPanetsCuenta.open(); return; }
     else if (b.dataset.page) { EP.sfx("click"); showSetPage(b.dataset.page); return; }
     else if (b.id === "setTutorial") { hide($("settingsOverlay")); EP.replayTutorial(); return; }
     else return;
     EP.sfx("click");
+    paintSettings();
+  });
+  // volumen: se nota al momento mientras se mueve la barra
+  let volClick = 0;
+  setMain.addEventListener("input", (e) => {
+    const r = e.target.closest("input[data-vol]");
+    if (!r) return;
+    const v = Number(r.value) / 100;
+    if (r.dataset.vol === "musica") EP.setMusicVol(v);
+    else { EP.setSfxVol(v); if (v > 0 && Date.now() - volClick > 140) { volClick = Date.now(); EP.sfx("click"); } }
     paintSettings();
   });
   function saveName() {
@@ -492,6 +523,12 @@
   // borrar mis datos: primero lo de internet (con la llave de este móvil) y después lo del móvil
   let erasing = false;
   setPage.addEventListener("click", async (e) => {
+    if (e.target.closest("#resetYes")) {
+      EP.resetSettings(); EP.sfx("click");
+      $("resetMsg").textContent = "Hecho.";
+      setTimeout(() => { if (!setPage.classList.contains("hidden")) { paintSettings(); showSetPage(null); } }, 700);
+      return;
+    }
     if (!e.target.closest("#eraseYes") || erasing) return;
     const msg = $("eraseMsg"), btn = $("eraseYes");
     let remote = false;
