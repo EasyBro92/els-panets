@@ -1,6 +1,7 @@
 index.html
 style.css
 calle.js
+mundo.js
 famosos.js
 premium.js
 cuenta.js

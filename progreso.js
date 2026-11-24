@@ -34,7 +34,7 @@
     { id: "partidas", txt: "Juega {n} partidas", metas: [3, 4, 5], tipo: "suma" },
     { id: "poderes", txt: "Coge {n} poderes", metas: [3, 4, 5], tipo: "suma" },
     { id: "filas", txt: "Completa {n} filas de tres", metas: [2, 3, 3], tipo: "suma" },
-    { id: "playaLimpia", txt: "Llega a la playa sin coger ningún poder", metas: [1], tipo: "una" },
+    { id: "playaLimpia", txt: "Llega a Colombia sin coger ningún poder", metas: [1], tipo: "una" },
     { id: "comerPartida", txt: "Come {n} empanadillas en una partida", metas: [10, 12, 15], tipo: "max" },
     { id: "especiales", txt: "Coge {n} objetos especiales", metas: [1, 2, 2], tipo: "suma" },
     { id: "racha", txt: "Haz una racha de {n} empanadillas seguidas", metas: [5, 7, 9], tipo: "max" },
@@ -46,7 +46,7 @@
     { id: "comer", txt: "Come {n} empanadillas esta semana", metas: [300], tipo: "suma" },
     { id: "puntosSuma", txt: "Suma {n} puntos esta semana", metas: [600], tipo: "suma" },
     { id: "partidas", txt: "Juega {n} partidas esta semana", metas: [25], tipo: "suma" },
-    { id: "montana", txt: "Llega a la montaña {n} veces", metas: [3], tipo: "suma" },
+    { id: "montana", txt: "Llega a Panamá {n} veces", metas: [3], tipo: "suma" },
     { id: "filas", txt: "Completa {n} filas de tres", metas: [15], tipo: "suma" },
   ];
   const DAILY_REWARD = [30, 40, 50], WEEK_REWARD = 150;
@@ -124,7 +124,7 @@
 
   // ---------- Logros ----------
   // [id, nombre, cómo se consigue, premio, color (0 bronce, 1 plata, 2 oro), insignia, comprobación]
-  const PL = ["la playa", "la montaña", "el pueblo", "Barcelona"];
+  const PL = ["Colombia", "Panamá", "Honduras", "México"]; // 25/11/2026: la vuelta al mundo
   const ACH = [
     ["p1", "Primer vuelo", "Juega tu primera partida", 20, 0, "1", () => stats.partidas >= 1],
     ["p10", "Le vas cogiendo el gusto", "Juega 10 partidas", 30, 0, "10", () => stats.partidas >= 10],
@@ -139,11 +139,11 @@
     ["r100", "Cien", "Haz un récord de 100", 80, 1, "100", () => EP.best() >= 100],
     ["r200", "Leyenda", "Haz un récord de 200", 120, 2, "200", () => EP.best() >= 200],
     ["r400", "Imparable", "Haz un récord de 400", 200, 2, "400", () => EP.best() >= 400],
-    ["l1", "A la playa", "Llega a " + PL[0] + " en una partida", 20, 0, "1", () => stats.lugaresMax >= 1],
-    ["l2", "A la montaña", "Llega a " + PL[1] + " en una partida", 40, 1, "2", () => stats.lugaresMax >= 2],
-    ["l3", "Al pueblo", "Llega a " + PL[2] + " en una partida", 60, 1, "3", () => stats.lugaresMax >= 3],
-    ["l4", "Hasta Barcelona", "Llega a " + PL[3] + " en una partida", 80, 2, "4", () => stats.lugaresMax >= 4],
-    ["l5", "La vuelta entera", "Vuelve a la ciudad en la misma partida", 120, 2, "★", () => stats.lugaresMax >= 5],
+    ["l1", "A Colombia", "Llega a " + PL[0] + " en una partida", 20, 0, "1", () => stats.lugaresMax >= 1],
+    ["l2", "A Panamá", "Llega a " + PL[1] + " en una partida", 40, 1, "2", () => stats.lugaresMax >= 2],
+    ["l3", "A Honduras", "Llega a " + PL[2] + " en una partida", 60, 1, "3", () => stats.lugaresMax >= 3],
+    ["l4", "Hasta México", "Llega a " + PL[3] + " en una partida", 80, 2, "4", () => stats.lugaresMax >= 4],
+    ["l5", "Cruza el océano", "Llega a Japón en una partida", 120, 2, "★", () => stats.lugaresMax >= 6],
     ["po10", "Con poderes", "Coge 10 poderes", 20, 0, "10", () => stats.poderes >= 10],
     ["po50", "Superpoderes", "Coge 50 poderes", 50, 1, "50", () => stats.poderes >= 50],
     ["po200", "Todopoderoso", "Coge 200 poderes", 100, 2, "200", () => stats.poderes >= 200],

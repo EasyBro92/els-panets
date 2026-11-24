@@ -762,6 +762,8 @@ window.ElsPanetsCalle = (function () {
   }
 
   // ---------- pájaros del cielo: cada sitio los suyos ----------
+  // 25/11/2026: ciudad de cualquier sitio (como Caracas, sin el carrito de arepas) para la vuelta al mundo
+  SCENES.push({ a0: SCENES[0].a0, a1: SCENES[0].a1.filter((e) => !/arepas/.test(String(e.f))), c0: SCENES[0].c0, c1: SCENES[0].c1 });
   const FLY = [
     [ // guacamayas de Caracas, siempre en pareja
       { b: 0, v: 40, y: 104, s: 1, body: "#d9352c", wing: "#2f6fd0", tip: "#ffd23f", tail: 15, fl: 6.5, glide: 0.25 },
@@ -786,6 +788,7 @@ window.ElsPanetsCalle = (function () {
       { b: 62, v: 52, y: 106, s: 0.76, body: "#62c04a", wing: "#3f9a3a", tip: "#2f6fd0", belly: "#d9ecc0", beak: "#f0a53a", tail: 13, fl: 8.6, glide: 0.14 },
     ],
   ];
+  FLY.push(FLY[3]); // golondrinas para las ciudades de la vuelta al mundo
   // ala: se abre arriba y abajo; a ratos planea con el ala quieta
   function wing(L, up, f, t) {
     const tipY = -L * up;

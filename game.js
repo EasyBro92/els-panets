@@ -312,7 +312,7 @@
   const styleBar = (st) => (st ? st.bar : 6);
   function musicTick() {
     if (!actx) return;
-    const want = state === STATE.START || state === STATE.READY ? 0 : placeTo;
+    const want = state === STATE.START || state === STATE.READY ? 0 : worldOn() ? MUNDO.ROUTE[placeTo].mus : placeTo;
     const mv = state === STATE.OVER || state === STATE.NAME ? 0.55 : 1;
     while (nextStep < actx.currentTime + 0.15) {
       // el estilo cambia solo al empezar un compás
@@ -943,7 +943,14 @@
     // 17/11/2026: quinto lugar, con su acera de panot
     { name: "BARCELONA", grass: "#7fb85e", grass2: "#5c9a46", tile: "#cdc8bf", line: "#b3ada2", curb: "#a8a196", road: "#56575d", panot: true },
   ];
-  const PLACE_EVERY = 40;
+  // 25/11/2026: cada 50 puntos, y en las partidas normales es la vuelta al mundo (mundo.js);
+  // la historia sigue con sus cinco lugares de siempre.
+  const PLACE_EVERY = 50;
+  const MUNDO = window.ElsPanetsMundo || null;
+  const worldOn = () => !!MUNDO && !level;
+  const nPlaces = () => (worldOn() ? MUNDO.ROUTE.length : PLACES.length);
+  const placeDef = (i) => (worldOn() ? MUNDO.ROUTE[i] : PLACES[i]);
+  const groundOf = (i) => (worldOn() ? MUNDO.ROUTE[i].g : PLACES[i]);
   let placeFrom = 0, placeTo = 0, placeT = 1, placeBanner = 0;
 
   // ---------- La sombra de tu mejor partida (03/11/2026, la activa el admin) ----------
@@ -1195,7 +1202,8 @@
     pendingSpecial = false; photoPending = false; photoT = -1; camFlash = 0; girlfriend = null;
     powerT = {}; shield = false; shieldSafe = 0; sinceLastPower = 0; miniK = 1;
     lives = 0; combo = 0; runMaxCombo = 0; runPowers = 0; runPlaces = 0;
-    placeFrom = placeTo = level ? level.place : Math.floor(START_SCORE / PLACE_EVERY) % PLACES.length; placeT = 1; placeBanner = 0;
+    placeFrom = placeTo = level ? level.place : Math.floor(START_SCORE / PLACE_EVERY) % nPlaces(); placeT = 1; placeBanner = 0;
+    if (worldOn()) MUNDO.reset(placeTo);
     distToSpawn = 0; lastGapY = groundTop() / 2 - gap / 2;
     newBest = false; medalPlayed = false;
     player.y = LH * 0.42; player.vy = 0; player.rot = 0;
@@ -1290,7 +1298,7 @@
     let fdy = 0;
     const normal = !SPECIALS[kind] && !isPower(kind);
     if (!oldRules && normal && food && score >= 10 && itemRng() < 0.35) fdy = (itemRng() < 0.5 ? -1 : 1) * (gap / 2 - 34);
-    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: itemRng() * 6, pull: 0, fdy, place: placeTo, girl: kind === "novia" ? randomGirl() : null });
+    cols.push({ x, gapY: y, gap, passed: false, food, kind, eaten: false, bob: itemRng() * 6, pull: 0, fdy, place: worldOn() ? MUNDO.ROUTE[placeTo].col : placeTo, girl: kind === "novia" ? randomGirl() : null });
     // fila de tres empanadillas pequeñas entre esta columna y la siguiente, un poco apartada
     // del camino recto: riesgo a cambio de premio. Solo si los dos huecos están a una altura
     // parecida, para que dé tiempo a ir y volver.
@@ -1389,10 +1397,11 @@
     scorePop = 1;
     if (n > 1 && x != null) floaters.push({ x, y, txt: "+" + n, t: 0 });
     // lugar nuevo cada 40 puntos
-    const pi = Math.floor(score / PLACE_EVERY) % PLACES.length;
+    const pi = Math.floor(score / PLACE_EVERY) % nPlaces();
     if (pi !== placeTo && state === STATE.PLAY && !level) {
       placeFrom = placeT < 1 ? placeFrom : placeTo;
-      placeTo = pi; placeT = 0; placeBanner = 2.6;
+      placeTo = pi; placeT = 0; placeBanner = 3.2;
+      if (worldOn()) MUNDO.cross(pi, scroll);
       snd.place();
       runPlaces++;
       emit("lugar", { i: pi, score });
@@ -2011,6 +2020,8 @@
     flashT = Math.max(0, flashT - dt * (softFlash ? 2.2 : 3.5));
     player.eatT = Math.max(0, player.eatT - dt);
     placeT = Math.min(1, placeT + dt / PLACE_SECS);
+    // en la vuelta al mundo el suelo nuevo llega con la frontera
+    if (worldOn() && placeFrom !== placeTo) { const e = MUNDO.groundEdge(scroll); if (e == null || e < -PLACE_BAND) placeFrom = placeTo; }
     placeBanner = Math.max(0, placeBanner - dt);
     for (const c of clouds) { c.x -= c.v * dt; if (c.x < -90) c.x += LW + 180; }
 
@@ -2399,6 +2410,11 @@
   // izquierda, con un borde suave, como si fueras volando hacia ella.
   const PLACE_SECS = 10, PLACE_BAND = 160;
   function changingPlace() {
+    if (worldOn()) {
+      if (state === STATE.START || placeFrom === placeTo) return false;
+      const e = MUNDO.groundEdge(scroll);
+      return e != null && e < LW + PLACE_BAND && e > -PLACE_BAND;
+    }
     return state !== STATE.START && placeT < 1 && placeFrom !== placeTo;
   }
   // 16/11/2026: el cambio se hace en una sola pasada. La zona nueva (paisaje y suelo) se
@@ -2409,7 +2425,7 @@
   function prepareWipe(pal) {
     wipeOn = changingPlace();
     if (!wipeOn) return;
-    const e = LW + PLACE_BAND / 2 - smooth(placeT) * (LW + PLACE_BAND); // centro del borde suave
+    const e = worldOn() ? MUNDO.groundEdge(scroll) : LW + PLACE_BAND / 2 - smooth(placeT) * (LW + PLACE_BAND); // centro del borde suave
     wipeX0 = Math.max(0, Math.floor(e - PLACE_BAND / 2));  // desde aquí hacia la derecha hay zona nueva
     wipeX1 = Math.min(LW, Math.ceil(e + PLACE_BAND / 2));  // hasta aquí queda algo de la vieja
     if (wipeX0 >= LW) { wipeOn = false; wipeX1 = LW; return; }
@@ -2417,7 +2433,7 @@
     offCtx.beginPath(); offCtx.rect(wipeX0, 0, LW - wipeX0, LH); offCtx.clip();
     offCtx.clearRect(wipeX0, 0, LW - wipeX0, LH);
     ctx = offCtx;
-    try { drawPlace(placeTo, pal); drawGroundOf(pal, PLACES[placeTo]); } finally { ctx = mainCtx; }
+    try { if (!worldOn()) drawPlace(placeTo, pal); drawGroundOf(pal, groundOf(placeTo)); } finally { ctx = mainCtx; }
     offCtx.restore();
     // el borde suave: solo se difumina la franja; a su derecha la zona nueva queda entera
     offCtx.save();
@@ -2446,6 +2462,12 @@
     else { drawMountains(pal); drawCity(pal); drawHouses(pal); }
   }
   function drawScenery(pal) {
+    if (worldOn()) {
+      const I = WORLD_INFO; I.W = LW; I.H = LH; I.gt = groundTop(); I.scroll = scroll; I.night = pal.night; I.pal = pal;
+      MUNDO.draw(ctx, I);
+      if (!lowQ && !calmOn) drawLife(MUNDO.ROUTE[placeTo].life, pal);
+      return;
+    }
     if (state === STATE.START) { drawPlace(0, pal); if (!lowQ && !calmOn) drawLife(0, pal); return; }
     if (!wipeOn) drawPlace(placeTo, pal);
     else {
@@ -2456,6 +2478,7 @@
     if (!lowQ && !calmOn) drawLife(placeTo, pal);
   }
 
+  const WORLD_INFO = { W: 0, H: 0, gt: 0, scroll: 0, night: 0, pal: null };
   // ---------- Vida en los mapas (05/11/2026) ----------
   // Todo se mueve despacio y sin parpadear: pájaros, y cada sitio lo suyo.
   const SNOW = Array.from({ length: 36 }, () => ({ x: Math.random() * LW, y: Math.random(), r: 1.2 + Math.random() * 1.8, v: 18 + Math.random() * 16, p: Math.random() * 6 }));
@@ -2776,9 +2799,9 @@
   }
 
   function drawGround(pal) {
-    if (state === STATE.START) { drawGroundOf(pal, PLACES[0]); return; }
-    if (!wipeOn) { drawGroundOf(pal, PLACES[placeTo]); return; }
-    clipOld(); drawGroundOf(pal, PLACES[placeFrom]); ctx.restore();
+    if (state === STATE.START) { drawGroundOf(pal, groundOf(worldOn() ? placeTo : 0)); return; }
+    if (!wipeOn) { drawGroundOf(pal, groundOf(placeTo)); return; }
+    clipOld(); drawGroundOf(pal, groundOf(placeFrom)); ctx.restore();
     copyWipe(false);
   }
   function drawGroundOf(pal, G) {
@@ -2815,7 +2838,7 @@
     // 22/11/2026: coches, gente y animales (calle.js)
     if (!lowQ && !calmOn && window.ElsPanetsCalle) {
       const I = STREET_INFO; I.gt = y; I.W = LW; I.scroll = scroll; I.t = streetT; I.night = n; I.tint = nightTint;
-      window.ElsPanetsCalle.calle(ctx, PLACES.indexOf(G), I);
+      window.ElsPanetsCalle.calle(ctx, G.t != null ? G.t : PLACES.indexOf(G), I);
     }
   }
 
@@ -5858,15 +5881,19 @@
   // cartel del lugar nuevo: aparece y se va despacio
   function drawPlaceBanner() {
     if (placeBanner <= 0) return;
-    const t = 2.6 - placeBanner;
+    const t = 3.2 - placeBanner;
     const a = Math.min(clamp(t / 0.4, 0, 1), clamp(placeBanner / 0.6, 0, 1));
     ctx.save();
     ctx.globalAlpha = a;
     const y = LH * 0.34 + (1 - easeOut(t / 0.4)) * 14;
+    const P = placeDef(placeTo), sea = worldOn() && P.sea && placeFrom !== placeTo ? P.sea : "";
+    ctx.font = "28px " + FONT;
+    const fs = Math.min(28, (28 * 270) / Math.max(1, ctx.measureText(P.name).width));
     ctx.fillStyle = "rgba(40,24,12,0.55)";
-    roundRect(LW / 2 - 120, y - 30, 240, 62, 20); ctx.fill();
-    text("Bienvenidos a", LW / 2, y - 12, 15, "#ffe7a3");
-    text(PLACES[placeTo].name, LW / 2, y + 14, 28, "#fff", "#3b2414", 6);
+    roundRect(LW / 2 - 150, y - 34, 300, P.city ? 84 : 66, 20); ctx.fill();
+    text(sea ? "Cruzando " + sea + ", rumbo a" : "Bienvenidos a", LW / 2, y - 15, 15, "#ffe7a3");
+    text(P.name, LW / 2, y + 12, fs, "#fff", "#3b2414", 6);
+    if (P.city) text(P.city, LW / 2, y + 37, 15, "#fff");
     ctx.restore();
   }
 
@@ -5879,7 +5906,7 @@
     pc.drawImage(canvas, sx * k, sy * k, side * k, side * k, 0, 0, photoCv.width, photoCv.height);
     photoStamp = clockText(skyHour);
     photoT = 0;
-    try { emit("foto", { img: photoCv.toDataURL("image/jpeg", 0.78), hora: photoStamp, lugar: PLACES[placeTo].name }); } catch (e) {}
+    try { emit("foto", { img: photoCv.toDataURL("image/jpeg", 0.78), hora: photoStamp, lugar: placeDef(placeTo).name }); } catch (e) {}
     camFlash = 1.15; // un poco más de 1: el blanco total dura un instante
   }
 
@@ -6058,7 +6085,7 @@
         return cv.toDataURL();
       },
       // salta a un lugar sin la transición (para mirarlo)
-      verLugar: (i) => { placeFrom = placeTo = i; placeT = 1; },
+      verLugar: (i) => { placeFrom = placeTo = i; placeT = 1; if (worldOn()) MUNDO.reset(i); },
       // la próxima empanadilla que venga, dorada
       dorada: () => { const c = cols.find((c) => c.food && !c.eaten && !isPower(c.kind) && c.x > player.x); if (c) c.kind = "dorada"; return !!c; },
       // dibuja una comida o un poder aparte y devuelve la imagen (para mirarla)
@@ -6081,7 +6108,7 @@
       volar: () => { player.y = LH * 0.4; player.vy = -200; },
       sombra: () => ({ n: ghost && ghost.length, runT, rec: ghostRec.length, on: !!adminConfig().sombra }),
       poder: (k) => collectPower(k, player.x + 30, player.y),
-      lugar: (i) => { placeFrom = placeTo; placeTo = i; placeT = 0; placeBanner = 2.6; },
+      lugar: (i) => { placeFrom = placeTo; placeTo = i; placeT = 0; placeBanner = 3.2; if (worldOn()) MUNDO.cross(i, scroll); },
       poderes: () => ({ powerT, shield, shieldSafe, miniK, placeTo, placeT }),
       hucha: (n) => addHucha(n),
       diarioOtraVez: (ayer) => store.set(DAILY_KEY, ayer ? JSON.stringify({ last: dayStr(new Date(Date.now() - 864e5)), streak: ayer }) : "{}"),
@@ -6271,7 +6298,7 @@
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 39,
+    VERSION: 40,
     settings: () => ({ volMusica: musicOn ? Math.round(musicVol * 100) : 0, volEfectos: sfxOn ? Math.round(sfxVol * 100) : 0, ahorro: saveOn, calma: calmOn, musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, descanso: restOn, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,
