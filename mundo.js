@@ -573,11 +573,11 @@
       for (let i = 0; i < Math.floor(w / 9); i++) { const xx = x + 3 + i * 9, y = b - h - 8 + (i * 9 / w) * 4; P(pc[(i + k) % 5], xx, y, xx + 7, y, xx + 7, y + 7, xx + 3.5, y + 9, xx, y + 7); }
     },
     brownstone(x, b, w, k) {
-      const h = 96 + hsh(k, 1) * 16, c = ["#8a4a3a", "#7a3f30", "#9a5a44", "#6f4a3a"][k % 4];
+      const h = 78 + hsh(k, 1) * 10, c = ["#8a4a3a", "#7a3f30", "#9a5a44", "#6f4a3a"][k % 4];
       R(x, b - h, w, h, c); R(x + w - 8, b - h, 8, h, mixHex(c, "#000000", 0.15)); R(x - 3, b - h - 6, w + 6, 6, "#d8cfc0");
-      for (let f = 0; f < 3; f++) for (let i = 0; i < 3; i++) { const wx = x + 6 + i * ((w - 12) / 3), y = b - h + 10 + f * 26; R(wx - 1, y - 1, (w - 12) / 3 - 4, 18, "#e8e0d0"); win(wx + 1, y + 1, (w - 12) / 3 - 8, 14, "#3f4a56", k * 9 + f * 3 + i); }
+      for (let f = 0; f < 2; f++) for (let i = 0; i < 3; i++) { const wx = x + 6 + i * ((w - 12) / 3), y = b - h + 10 + f * 24; R(wx - 1, y - 1, (w - 12) / 3 - 4, 18, "#e8e0d0"); win(wx + 1, y + 1, (w - 12) / 3 - 8, 14, "#3f4a56", k * 9 + f * 3 + i); }
       P("#c9bfae", x + w / 2 - 12, b, x + w / 2 + 12, b, x + w / 2 + 8, b - 16, x + w / 2 - 8, b - 16); R(x + w / 2 - 6, b - 34, 12, 18, "#3a2a22");
-      if (hsh(k, 6) < 0.5) for (let f = 0; f < 2; f++) { L("#2a2a2e", 1.2, x + 4, b - h + 34 + f * 26, x + w - 4, b - h + 34 + f * 26); L("#2a2a2e", 0.8, x + 8, b - h + 34 + f * 26, x + w - 8, b - h + 60 + f * 26); }
+      if (hsh(k, 6) < 0.5) for (let f = 0; f < 1; f++) { L("#2a2a2e", 1.2, x + 4, b - h + 34 + f * 26, x + w - 4, b - h + 34 + f * 26); L("#2a2a2e", 0.8, x + 8, b - h + 34 + f * 26, x + w - 8, b - h + 60 + f * 26); }
     },
     japonesa(x, b, w, k) {
       const h = 52 + hsh(k, 1) * 14;
@@ -623,25 +623,25 @@
       if (hsh(k, 4) < 0.5) { E(x + 4, b - h + 4, 10, 8, "#3f8f4a"); for (let i = 0; i < 5; i++) O(x - 2 + i * 3.6, b - h + 2 + (i % 2) * 3, 2.3, "#d6438a"); }
     },
     italiana(x, b, w, k) {
-      const h = 84 + hsh(k, 1) * 18, c = ["#d9a05a", "#e3b779", "#c9724a", "#e8c99a"][k % 4];
+      const h = 70 + hsh(k, 1) * 10, c = ["#d9a05a", "#e3b779", "#c9724a", "#e8c99a"][k % 4];
       R(x, b - h, w, h, c); R(x + w - 8, b - h, 8, h, mixHex(c, "#000000", 0.12)); P("#b8553c", x - 5, b - h + 2, x + 4, b - h - 8, x + w - 4, b - h - 8, x + w + 5, b - h + 2);
-      for (let f = 0; f < 3; f++) for (let i = 0; i < 2; i++) { const wx = x + 8 + i * (w - 30), y = b - h + 12 + f * 24; win(wx + 4, y, 8, 14, "#4a3a2a", k * 6 + f * 2 + i); R(wx, y, 4, 14, "#3f7a4a"); R(wx + 12, y, 4, 14, "#3f7a4a"); if (f === 1) { R(wx, y + 14, 16, 3, "#8a5a3a"); for (let j = 0; j < 4; j++) O(wx + 2 + j * 4, y + 13, 1.8, "#d9383a"); } }
+      for (let f = 0; f < 2; f++) for (let i = 0; i < 2; i++) { const wx = x + 8 + i * (w - 30), y = b - h + 12 + f * 24; win(wx + 4, y, 8, 14, "#4a3a2a", k * 6 + f * 2 + i); R(wx, y, 4, 14, "#3f7a4a"); R(wx + 12, y, 4, 14, "#3f7a4a"); if (f === 1) { R(wx, y + 14, 16, 3, "#8a5a3a"); for (let j = 0; j < 4; j++) O(wx + 2 + j * 4, y + 13, 1.8, "#d9383a"); } }
       arch(x + w / 2 - 8, b, 16, 26, "#5a3a22");
     },
     parisina(x, b, w, k) {
-      const h = 104 + hsh(k, 1) * 12, c = ["#ece2c8", "#e4d9bd", "#efe6cf"][k % 3];
+      const h = 82 + hsh(k, 1) * 8, c = ["#ece2c8", "#e4d9bd", "#efe6cf"][k % 3];
       R(x, b - h, w, h, c); R(x + w - 7, b - h, 7, h, mixHex(c, "#000000", 0.1));
       P("#6f7a86", x - 2, b - h, x + 6, b - h - 20, x + w - 6, b - h - 20, x + w + 2, b - h);
       for (let i = 0; i < 2; i++) { R(x + 10 + i * (w - 32), b - h - 16, 12, 12, "#e8e0cc"); win(x + 12 + i * (w - 32), b - h - 14, 8, 9, "#4a5260", k * 4 + i); }
       R(x + w - 14, b - h - 30, 8, 12, "#b8553c");
-      for (let f = 0; f < 4; f++) { const y = b - h + 8 + f * 22; for (let i = 0; i < 3; i++) win(x + 6 + i * ((w - 12) / 3), y, (w - 12) / 3 - 6, 14, "#4a5260", k * 12 + f * 3 + i); if (f === 1 || f === 3) { R(x + 2, y + 14, w - 4, 2, "#2a2a2e"); for (let j = 0; j < Math.floor(w / 4); j++) R(x + 3 + j * 4, y + 9, 1, 5, "#2a2a2e"); } }
+      for (let f = 0; f < 3; f++) { const y = b - h + 8 + f * 21; for (let i = 0; i < 3; i++) win(x + 6 + i * ((w - 12) / 3), y, (w - 12) / 3 - 6, 13, "#4a5260", k * 12 + f * 3 + i); if (f === 0 || f === 2) { R(x + 2, y + 14, w - 4, 2, "#2a2a2e"); for (let j = 0; j < Math.floor(w / 4); j++) R(x + 3 + j * 4, y + 9, 1, 5, "#2a2a2e"); } }
       R(x, b - 26, w, 26, mixHex(c, "#000000", 0.06)); arch(x + w / 2 - 8, b, 16, 22, "#3a3a44");
     },
     andaluza(x, b, w, k) {
       if (k % 3 === 0) {
-        const h = 100 + hsh(k, 1) * 10, c = "#e0cfae";
+        const h = 82 + hsh(k, 1) * 8, c = "#e0cfae";
         R(x, b - h, w, h, c); R(x + w - 8, b - h, 8, h, "#c9b892"); R(x - 2, b - h - 5, w + 4, 6, "#d6c49e");
-        for (let f = 0; f < 4; f++) { const y = b - h + 10 + f * 22; for (let i = 0; i < 3; i++) win(x + 6 + i * ((w - 12) / 3), y, (w - 12) / 3 - 6, 14, "#4a3f36", k * 13 + f * 3 + i); R(x + 3, y + 14, w - 6, 2, "#2a2a2e"); }
+        for (let f = 0; f < 3; f++) { const y = b - h + 10 + f * 20; for (let i = 0; i < 3; i++) win(x + 6 + i * ((w - 12) / 3), y, (w - 12) / 3 - 6, 13, "#4a3f36", k * 13 + f * 3 + i); R(x + 3, y + 14, w - 6, 2, "#2a2a2e"); }
         arch(x + w / 2 - 8, b, 16, 24, "#5a3a22");
         return;
       }
@@ -724,7 +724,7 @@
       far: { k: "colinas", c: "#7f9f7a", a: 0.85 }, mids: ["eiffel", "arco", "sacre"], sky: "europeo", mansard: true, bc: ["#ece2c8", "#e4d9bd", "#efe6cf"],
       hs: "parisina", hc: ["#ece2c8"], trees: ["platano", "platano"], tp: 0.3, g: g(G_CITY, { tile: "#d6d0c4", line: "#bfb8aa", curb: "#aaa396", road: "#4f5056" }) },
     { id: "es", name: "ESPAÑA", city: "Barcelona y Andalucía", t: 4, life: 4, col: 4, mus: 4,
-      far: { k: "andes", c: "#a59378", a: 0.85, snow: 150 }, mids: ["sagrada", "mancha", "alhambra"], sky: "europeo", bc: ["#e0cfae", "#f4f0e6", "#d8c4a0"],
+      far: { k: "montes", c: "#8f9a6a", a: 0.9 }, mids: ["sagrada", "mancha", "alhambra"], sky: "europeo", bc: ["#e0cfae", "#f4f0e6", "#d8c4a0"],
       hs: "andaluza", hc: ["#fbf9f2"], trees: ["olivo", "naranjo", "palma"], tp: 0.35, g: { grass: "#7fb85e", grass2: "#5c9a46", tile: "#cdc8bf", line: "#b3ada2", curb: "#a8a196", road: "#56575d", panot: true } },
     { id: "do", name: "REPÚBLICA DOMINICANA", city: "Santo Domingo", t: 1, life: 1, col: 1, mus: 1, sea: "el océano Atlántico",
       far: { k: "montes", c: "#4f8f5a", a: 0.9 }, mids: ["faro", "primada", "alcazar"], sky: "colonial", bc: ["#f2c14e", "#7fc4c9", "#f4a6b8", "#e8d8b0"],
@@ -784,7 +784,7 @@
       if (!F) continue;
       const x0 = Math.max(-6, segs[i].x - p0), x1 = Math.min(LW + 6, i + 1 < segs.length ? segs[i + 1].x - p0 : LW + 6);
       if (x1 <= x0) continue;
-      if (F.snow) { const sy = base - F.snow * F.a * (back ? 1.18 : 1); K.fillStyle = col("#f4f6f8"); K.fillRect(x0, sy - 200, x1 - x0, 200); }
+      if (F.snow) { const sy = base - F.snow * F.a * (back ? 1.18 : 1) - (back ? 22 : 0); K.fillStyle = col("#f4f6f8"); K.fillRect(x0, sy - 200, x1 - x0, 200); }
     }
     K.restore();
     if (!back) for (let i = 0; i < segs.length; i++) {
