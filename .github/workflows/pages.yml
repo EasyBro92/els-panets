@@ -23,10 +23,10 @@ jobs:
       name: github-pages
       url: ${{ steps.despliegue.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Juntar solo los archivos del juego
         run: mkdir _site && cp -r $(cat apk/archivos-juego.txt) descargas _site/
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
       - id: despliegue
         uses: actions/deploy-pages@v4
