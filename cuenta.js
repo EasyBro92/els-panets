@@ -394,6 +394,8 @@ async function addFriend() {
     ls.set(FRIENDS_KEY, JSON.stringify(list.concat(u)));
     soon(1000);
     renderFriends();
+    // 28/11/2026: los retos solo llegan entre amigos de los dos lados; que se sepa en el momento
+    const ok = $("cuMsg"); if (ok) { ok.classList.add("ok"); ok.textContent = "¡Añadido! Para que le lleguen tus retos, " + u + " también tiene que añadirte: tu usuario es " + s.u + "."; }
   } catch (e) { msg.textContent = "No se pudo buscar. Revisa la conexión."; }
 }
 

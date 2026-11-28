@@ -1522,15 +1522,17 @@
     goals.sort((a, b) => a[0] - b[0]);
     return goals[0] || null;
   }
+  // «Te faltó 1» / «Te faltaron 3»
+  const faltan = (n, pasado) => (pasado ? (n === 1 ? "Te faltó " : "Te faltaron ") : n === 1 ? "Te falta " : "Te faltan ") + n;
   function buildOverMessages() {
     const out = [];
     if (!newBest && best > 0 && score > 0 && best - score <= Math.max(3, Math.round(best * 0.2))) {
-      out.push({ txt: "¡Casi! Te faltaron " + (best - score + 1) + " para tu récord", color: "#ffd23f", bar: clamp(score / (best + 1), 0, 1) });
+      out.push({ txt: score === best ? "¡Igualas tu récord! Uno más y lo superas" : "¡Casi! " + faltan(best - score + 1, true) + " para tu récord", color: "#ffd23f", bar: clamp(score / (best + 1), 0, 1) });
     } else {
       const g = nextGoal();
       if (g) {
-        const n = g[0] - score;
-        out.push({ txt: n <= 25 ? "¡Casi! Te faltaron " + n + " para desbloquear " + g[1] : "Llega a " + g[0] + " para desbloquear " + g[1], color: n <= 25 ? "#ffd23f" : "#fff", bar: clamp(best / g[0], 0, 1) });
+        const n = g[0] - score, casi = n <= Math.min(25, Math.max(3, Math.round(g[0] * 0.25)));
+        out.push({ txt: casi ? "¡Casi! " + faltan(n, true) + " para desbloquear " + g[1] : "Llega a " + g[0] + " para desbloquear " + g[1], color: casi ? "#ffd23f" : "#fff", bar: clamp(best / g[0], 0, 1) });
       }
     }
     const lb = window.TacoLeaderboard, me = lb && lb.myId ? lb.myId() : null;
@@ -1540,7 +1542,7 @@
       if (passed.length) out.push({ txt: "¡Has adelantado a " + cleanName(passed[0].name) + (passed.length > 1 ? " y " + (passed.length - 1) + " más" : "") + "!", color: "#7dff9a" });
       else {
         const above = others.filter((r) => r.score >= score).sort((a, b) => a.score - b.score)[0];
-        if (above) out.push({ txt: "Te faltan " + (above.score - score + 1) + " para pasar a " + cleanName(above.name), color: "#fff" });
+        if (above) out.push({ txt: faltan(above.score - score + 1) + " para pasar a " + cleanName(above.name), color: "#fff" });
         else if (newBest) out.push({ txt: "¡Eres el número 1 del ranking!", color: "#7dff9a" });
       }
     }
@@ -6298,7 +6300,7 @@
     charName: (id) => { const c = CHARACTERS.find((x) => x.id === id); return !c ? id : c.custom ? (c.name ? niceName(c.name) : "Tu personaje") : c.name ? niceName(c.name) : "El gris"; },
     sfx: (n) => { try { if (snd[n]) snd[n](); } catch (e) {} },
     // Ajustes (16/11/2026)
-    VERSION: 41,
+    VERSION: 42,
     settings: () => ({ volMusica: musicOn ? Math.round(musicVol * 100) : 0, volEfectos: sfxOn ? Math.round(sfxVol * 100) : 0, ahorro: saveOn, calma: calmOn, musica: musicOn, efectos: sfxOn, vibracion: vibraOn, destellos: softFlash, calidadBaja: lowQ, descanso: restOn, nombre: store.get(NAME_KEY, "") || "", mejor: best }),
     setMusic: (on) => { setMusic(on); if (on) startMusic(); },
     setSfx,

@@ -381,7 +381,7 @@ function toast(t) {
   let el = $("lvToast");
   if (!el) { el = document.createElement("div"); el.id = "lvToast"; el.className = "lvToast"; document.body.appendChild(el); }
   el.textContent = t; el.classList.add("on");
-  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2600);
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), Math.max(2600, t.length * 60)); // lo largo, más rato
 }
 
 bodyEl.addEventListener("click", async (e) => {
@@ -449,7 +449,7 @@ document.addEventListener("click", async (e) => {
 async function inviteFriend(u, from) {
   if (!room) await createRoom();
   await withTimeout(fb.m.set(fb.m.ref(fb.db, "invita/" + u + "/" + from), { c: room.code, t: fb.m.serverTimestamp() }));
-  toast("Reto enviado a " + u + ". Cuando acepte, saldrá aquí.");
+  toast("Reto enviado a " + u + ". Si no le llega, que te añada de amigo: tu usuario es " + from + ".");
   show();
 }
 async function joinByCode(code) {
